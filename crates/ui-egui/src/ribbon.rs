@@ -803,7 +803,7 @@ fn review(app: &mut WordApp, ui: &mut Ui) {
     });
     group(ui, "Language", None, app, |ui, app| {
         big(ui, app, "translate", "Translate", "review.translate", json!({}), false);
-        big(ui, app, "language", "Language", "review.language", json!({}), false);
+        menu_button(ui, app, "language", Some("Language"), "Document language", true, |ui, app| crate::language::menu(app, ui));
     });
     group(ui, "Comments", None, app, |ui, app| {
         big(ui, app, "newComment", "New\nComment", "review.newComment", json!({}), false);

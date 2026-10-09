@@ -153,3 +153,22 @@ fn the_language_setting_is_a_ui_command_and_persists() {
     // Reading without a value reports the current setting.
     assert_eq!(app.run("ui.language", serde_json::json!({})).unwrap()["language"], AUTO);
 }
+
+#[test]
+fn switching_interface_language_keeps_document_and_save_state() {
+    let mut app = crate::WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::from_text("中文 English")), Default::default());
+    app.run("text.insert", serde_json::json!({"text":"Keep this text. "})).unwrap();
+    let document = app.session.doc.clone();
+    let revision = app.session.rev();
+    let epoch = app.document_epoch;
+    for code in ["zh-hans", "en", "zh-hans"] {
+        app.run("ui.language", serde_json::json!({"value":code})).unwrap();
+        assert_eq!(app.session.doc, document);
+        assert_eq!(app.session.rev(), revision);
+        assert_eq!(app.document_epoch, epoch);
+        assert!(app.session.dirty);
+    }
+    assert_eq!(tr(lang("zh-hans"), "Save to server"), "保存到服务器");
+    assert_eq!(tr(lang("zh-hans"), "Saved to server"), "已保存到服务器");
+    assert_eq!(tr(lang("zh-hans"), "Save as new copy"), "另存为新副本");
+}

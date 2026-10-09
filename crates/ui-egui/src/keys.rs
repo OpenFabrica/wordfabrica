@@ -123,9 +123,13 @@ pub fn canvas_events(app: &mut WordApp, ctx: &egui::Context) {
                     let _ = app.run("text.insert", json!({"text": t}));
                 }
             }
-            egui::Event::Ime(egui::ImeEvent::Preedit { text, .. }) => app.canvas.ime_preedit = text,
+            egui::Event::Ime(egui::ImeEvent::Preedit { text, active_range_chars }) => {
+                app.canvas.ime_cursor = active_range_chars.map(|range| range.end.min(text.chars().count()));
+                app.canvas.ime_preedit = text;
+            }
             egui::Event::Ime(egui::ImeEvent::Commit(text)) => {
                 app.canvas.ime_preedit.clear();
+                app.canvas.ime_cursor = None;
                 if !text.is_empty() {
                     let _ = app.run("text.insert", json!({"text": text}));
                 }

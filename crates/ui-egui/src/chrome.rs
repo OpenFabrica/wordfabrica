@@ -44,7 +44,7 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
             ui.horizontal_centered(|ui| {
                 ui.spacing_mut().item_spacing = vec2(2.0, 0.0);
                 // AutoSave toggle (on when the document has a path).
-                let has_path = app.session.path.is_some();
+                let has_path = app.session.path.is_some() || app.services.request_save.is_some();
                 ui.label(egui::RichText::new(tl!("AutoSave")).font(regular(11.5)).color(t.text_dim));
                 let (r, resp) = ui.allocate_exact_size(vec2(30.0, 16.0), Sense::click());
                 let on = has_path && app.canvas_autosave();
@@ -124,17 +124,22 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                 });
             });
             // Centred title.
-            let title = format!(
-                "{} — {}",
-                app.title_stem(),
-                if app.session.dirty {
-                    tl!("Edited")
-                } else if app.session.path.is_some() {
-                    tl!("Saved")
-                } else {
-                    tl!("Not saved")
-                }
-            );
+            // Hosted storage owns the save status in its toolbar; no local path is expected.
+            let title = if app.services.request_save.is_some() {
+                app.title_stem()
+            } else {
+                format!(
+                    "{} — {}",
+                    app.title_stem(),
+                    if app.session.dirty {
+                        tl!("Edited")
+                    } else if app.session.path.is_some() {
+                        tl!("Saved")
+                    } else {
+                        tl!("Not saved")
+                    }
+                )
+            };
             let g = ui.ctx().fonts_mut(|f| f.layout_no_wrap(title.clone(), semibold(12.5), t.text));
             let w = g.size().x;
             let cx = full.center().x;
@@ -181,14 +186,16 @@ pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
                 if app.session.sel.focus.story != StoryRef::Body {
                     st(ui, tl!("Editing header/footer"));
                 }
-                st(ui, tl!("English (United States)"));
+                let language = crate::language::current_label(app);
+                let response = st(ui, &language).on_hover_text(tl!("Document language"));
+                egui::Popup::menu(&response).show(|ui| crate::language::menu(app, ui));
                 if app.session.doc.settings.track_changes {
                     st(ui, tl!("Track Changes: On"));
                 }
                 if let Some((msg, at)) = &app.status_msg
                     && crate::now_ms() - at < 6000.0
                 {
-                    ui.label(egui::RichText::new(msg).font(regular(11.5)).color(t.accent_text));
+                    ui.label(egui::RichText::new(tl!(msg)).font(regular(11.5)).color(t.accent_text));
                 }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.spacing_mut().item_spacing = vec2(4.0, 0.0);

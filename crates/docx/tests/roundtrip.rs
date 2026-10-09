@@ -761,3 +761,23 @@ fn ensure_empty_and_table_end_document_is_valid() {
     let r = rt(&e);
     assert_eq!(r.body.len(), 1);
 }
+
+#[test]
+fn chinese_font_is_explicit_for_east_asian_text_in_docx() {
+    let family = "Noto Serif CJK SC";
+    let doc = doc_with(vec![Paragraph::with_text(
+        "中文 English",
+        CharProps { font: Some(family.into()), lang: Some("zh-CN".into()), ..Default::default() },
+    )]);
+    let bytes = wordcraft_docx::write(&doc).unwrap();
+    let mut archive = zip::ZipArchive::new(std::io::Cursor::new(&bytes)).unwrap();
+    let mut xml = String::new();
+    std::io::Read::read_to_string(&mut archive.by_name("word/document.xml").unwrap(), &mut xml).unwrap();
+    for script in ["ascii", "hAnsi", "eastAsia", "cs"] {
+        assert!(xml.contains(&format!("w:{script}=\"{family}\"")), "missing {script} font in exported DOCX");
+    }
+    assert!(xml.contains("w:eastAsia=\"zh-CN\""));
+    let restored = wordcraft_docx::read(&bytes).unwrap();
+    assert_eq!(paras(&restored)[0].plain_text(), "中文 English");
+    assert_eq!(paras(&restored)[0].props_of_char(0).font.as_deref(), Some(family));
+}

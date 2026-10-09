@@ -35,6 +35,8 @@ pub struct CanvasState {
     pub focused: bool,
     pub render_ms: f64,
     pub ime_preedit: String,
+    /// Composition cursor is a character offset, independent of the document insertion point.
+    pub ime_cursor: Option<usize>,
     pub want_focus: bool,
     pub context_issue: Option<serde_json::Value>,
     pub context_synonyms: Option<serde_json::Value>,
@@ -57,6 +59,7 @@ impl Default for CanvasState {
             focused: false,
             render_ms: 0.0,
             ime_preedit: String::new(),
+            ime_cursor: None,
             want_focus: true,
             context_issue: None,
             context_synonyms: None,
@@ -289,25 +292,42 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             let x = pr.min.x + c.x * geo.scale;
             let y0 = pr.min.y + c.top * geo.scale;
             let y1 = y0 + c.height * geo.scale;
+            let composing = focused && !app.canvas.ime_preedit.is_empty();
+            let mut cursor_x = x;
+            let mut input_rect = Rect::from_min_max(pos2(x, y0), pos2(x + 1.0, y1));
+            if composing {
+                let style = app.session.doc.para_at(&app.session.sel.focus).and_then(|p| p.props.style.as_deref());
+                let props = app.session.doc.styles.resolve_char(style, &app.session.typing_props());
+                // Caret height contains ascent/descent; it is not a font size. Use the actual
+                // document size and the same page transform as the insertion caret.
+                let galley = painter.layout_no_wrap(app.canvas.ime_preedit.clone(), regular(props.size * geo.scale), t.caret);
+                let origin = pos2(x, y0 + ((y1 - y0) - galley.size().y) * 0.5);
+                let count = app.canvas.ime_preedit.chars().count();
+                let index = app.canvas.ime_cursor.unwrap_or(count).min(count);
+                cursor_x = origin.x + galley.pos_from_cursor(egui::text::CCursor::new(index)).left();
+                let rect = Rect::from_min_size(origin, galley.size());
+                painter.galley(origin, galley, t.caret);
+                painter.line_segment([rect.left_bottom(), rect.right_bottom()], Stroke::new(1.0, t.caret));
+                input_rect = input_rect.union(rect);
+            }
             let since = crate::now_ms() - app.canvas.caret_visible_since;
-            let on = ((since / 530.0) as u64).is_multiple_of(2);
-            if app.session.sel.is_collapsed() && on && focused {
-                painter.line_segment([pos2(x.round() + 0.5, y0), pos2(x.round() + 0.5, y1)], Stroke::new(1.5, t.caret));
+            let on = composing || ((since / 530.0) as u64).is_multiple_of(2);
+            if (app.session.sel.is_collapsed() || composing) && on && focused {
+                painter.line_segment([pos2(cursor_x.round() + 0.5, y0), pos2(cursor_x.round() + 0.5, y1)], Stroke::new(1.5, t.caret));
             }
             if focused {
                 ui.ctx().request_repaint_after(std::time::Duration::from_millis(530 - (since as u64 % 530)));
-            }
-            // IME candidate window placement.
-            let cr = Rect::from_min_max(pos2(x, y0), pos2(x + 1.0, y1));
-            if focused {
+                // The platform candidate window follows the visible composition caret, not
+                // the document position (which changes only after the IME commits).
+                let cursor_rect = Rect::from_min_max(pos2(cursor_x, y0), pos2(cursor_x + 1.0, y1));
                 ui.ctx().output_mut(|o| {
-                    o.ime =
-                        Some(egui::output::IMEOutput { rect: cr, cursor_rect: cr, purpose: Default::default(), should_interrupt_composition: false });
+                    o.ime = Some(egui::output::IMEOutput {
+                        rect: input_rect,
+                        cursor_rect,
+                        purpose: Default::default(),
+                        should_interrupt_composition: false,
+                    });
                 });
-            }
-            if !app.canvas.ime_preedit.is_empty() {
-                let g = painter.text(pos2(x, y1), egui::Align2::LEFT_BOTTOM, &app.canvas.ime_preedit, regular(c.height * geo.scale * 0.8), t.caret);
-                painter.line_segment([pos2(g.min.x, g.max.y), pos2(g.max.x, g.max.y)], Stroke::new(1.0, t.caret));
             }
         }
         (resp, rects)
@@ -804,5 +824,60 @@ fn context_menu(app: &mut WordApp, ui: &mut Ui) {
             item(ui, app, "Delete Table", "table.deleteTable", json!({}));
         });
         item(ui, app, "Merge Cells", "table.merge", json!({}));
+    }
+}
+
+#[cfg(test)]
+mod ime_tests {
+    use super::*;
+    use wordcraft_doc::Document;
+    use wordcraft_engine::Session;
+
+    #[test]
+    fn ime_cursor_follows_composition_without_changing_document() {
+        let mut app = WordApp::new(Session::new(Document::new()), Default::default());
+        app.run("text.insert", json!({"text":"English prefix "})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(1200.0, 800.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                app.logic(ui.ctx());
+                app.ui(ui);
+            },
+            app,
+        );
+        for _ in 0..6 {
+            h.step();
+        }
+        let before = h.output().platform_output.ime.unwrap().cursor_rect;
+        let doc = h.state().session.doc.clone();
+        h.input_mut().events.push(egui::Event::Ime(egui::ImeEvent::Preedit { text: "ni".into(), active_range_chars: Some(2..2) }));
+        h.step();
+        h.step();
+        let composing = h.output().platform_output.ime.unwrap().cursor_rect;
+        assert!(composing.left() > before.left() + 5.0, "IME cursor did not follow ni: {before:?} -> {composing:?}");
+        assert!((composing.bottom() - before.bottom()).abs() < 1.0, "IME cursor left its text line");
+        assert_eq!(h.state().session.doc, doc, "preedit must not be saved");
+        let preedit = h
+            .output()
+            .shapes
+            .iter()
+            .find_map(|s| match &s.shape {
+                egui::Shape::Text(text) if text.galley.job.text == "ni" => Some(text),
+                _ => None,
+            })
+            .unwrap();
+        assert!((preedit.galley.job.sections[0].format.font_id.size - 12.0 * h.state().canvas.scale).abs() < 0.01);
+        h.input_mut().events.push(egui::Event::Ime(egui::ImeEvent::Preedit { text: "ni".into(), active_range_chars: Some(0..0) }));
+        h.step();
+        h.step();
+        assert!((h.output().platform_output.ime.unwrap().cursor_rect.left() - before.left()).abs() < 0.01);
+        h.input_mut().events.push(egui::Event::Ime(egui::ImeEvent::Preedit { text: "你".into(), active_range_chars: Some(usize::MAX..usize::MAX) }));
+        h.step();
+        h.step();
+        assert!(h.output().platform_output.ime.unwrap().cursor_rect.left() > before.left());
+
+        h.input_mut().events.push(egui::Event::Ime(egui::ImeEvent::Commit("你".into())));
+        h.step();
+        assert_eq!(h.state().session.doc.plain_text(StoryRef::Body), "English prefix 你");
+        assert!(h.state().canvas.ime_preedit.is_empty());
     }
 }

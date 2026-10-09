@@ -293,7 +293,7 @@ fn language_picker(app: &mut WordApp, ui: &mut Ui) {
     ui.horizontal(|ui| {
         ui.label(tl!("Interface language:"));
         egui::ComboBox::from_id_salt("interface_language").selected_text(current).width(220.0).show_ui(ui, |ui| {
-            if ui.selectable_label(app.ui.language == AUTO, auto_label.as_str()).clicked() {
+            if !cfg!(target_arch = "wasm32") && ui.selectable_label(app.ui.language == AUTO, auto_label.as_str()).clicked() {
                 let _ = app.run("ui.language", json!({"value": AUTO}));
             }
             for lang in Lang::all() {
@@ -303,5 +303,10 @@ fn language_picker(app: &mut WordApp, ui: &mut Ui) {
             }
         });
     });
-    ui.label(egui::RichText::new(tl!("Automatic follows your system's language. Menus and commands change; your documents don't.")).small().weak());
+    let help = if cfg!(target_arch = "wasm32") {
+        tl!("Menus and commands change; your documents don't.")
+    } else {
+        tl!("Automatic follows your system's language. Menus and commands change; your documents don't.")
+    };
+    ui.label(egui::RichText::new(help).small().weak());
 }

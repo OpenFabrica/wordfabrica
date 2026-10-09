@@ -22,6 +22,7 @@ pub mod dialogs;
 pub mod i18n;
 pub mod icons;
 pub mod keys;
+mod language;
 pub mod panes;
 pub mod previews;
 pub mod ribbon;
@@ -46,6 +47,8 @@ pub struct Services {
     pub open_async: Option<Box<dyn Fn(&str)>>,
     /// Web: files (name, bytes) delivered asynchronously (picker, drag and drop).
     pub inbox: Option<Inbox>,
+    /// Hosted web: queue a remote save; acknowledgement is handled by the host.
+    pub request_save: Option<Box<dyn Fn()>>,
     /// Web: hand bytes to the browser as a download.
     pub download: Option<Box<dyn Fn(&str, &[u8])>>,
 }
@@ -115,6 +118,8 @@ pub struct WordApp {
     pub frame_ms: f64,
     pub quit_requested: bool,
     pub autosave: bool,
+    /// Changes only when file.new/file.open replaces the document, for async host isolation.
+    pub document_epoch: u64,
     pub word_count: (u64, usize),
     last_autosave: f64,
 }
@@ -142,6 +147,7 @@ impl WordApp {
             frame_ms: 0.0,
             quit_requested: false,
             autosave: true,
+            document_epoch: 0,
             word_count: (0, 0),
             last_autosave: 0.0,
         }
@@ -175,6 +181,19 @@ impl WordApp {
         if let Some(r) = self.ui_command(id, &params) {
             return r;
         }
+        if self.services.request_save.is_some() {
+            if id == "file.save" {
+                if let Some(save) = &self.services.request_save {
+                    save();
+                }
+                return Ok(json!({"queued": true}));
+            }
+            if matches!(id, "file.new" | "file.open") && self.session.dirty {
+                let error = "Save the current document before opening or creating another document.".to_string();
+                self.status(error.clone());
+                return Err(error);
+            }
+        }
         // Web: saving and exporting become downloads.
         if self.services.download.is_some() && matches!(id, "file.save" | "file.saveAs" | "file.exportPdf" | "file.exportPng") {
             let name = params.get("path").and_then(Value::as_str).map(str::to_string).unwrap_or_else(|| format!("{}.docx", self.title_stem()));
@@ -183,10 +202,15 @@ impl WordApp {
             if let Some(d) = &self.services.download {
                 d(&name, &bytes);
             }
-            self.session.dirty = false;
+            if self.services.request_save.is_none() {
+                self.session.dirty = false;
+            }
             return Ok(json!({"downloaded": name, "bytes": bytes.len()}));
         }
         let r = self.session.run(id, &params).map_err(|e| e.to_string());
+        if r.is_ok() && (id == "file.new" || (id == "file.open" && params.get("path").is_some())) {
+            self.document_epoch = self.document_epoch.wrapping_add(1);
+        }
         self.after_command(id);
         if let Err(e) = &r {
             self.status(e.clone());
@@ -321,7 +345,7 @@ impl WordApp {
         let name = self.title_stem() + ".docx";
         let picked = self.services.pick_save.as_ref().and_then(|f| f(&name));
         if let Some(path) = picked {
-            let _ = self.run("file.save", json!({"path": path}));
+            let _ = self.run("file.saveAs", json!({"path": path}));
         }
     }
 
@@ -373,6 +397,7 @@ impl WordApp {
         // AutoSave: write a saved document a couple of seconds after the last change.
         let now = now_ms();
         if self.autosave
+            && self.services.request_save.is_none()
             && self.session.dirty
             && self.session.path.is_some()
             && now - self.last_autosave > 2500.0
@@ -551,6 +576,29 @@ pub fn now_ms() -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hosted_save_waits_for_ack_and_download_does_not_mark_saved() {
+        let requested = std::rc::Rc::new(std::cell::Cell::new(false));
+        let flag = requested.clone();
+        let mut app = WordApp::new(
+            Session::new(wordcraft_doc::Document::new()),
+            Services { request_save: Some(Box::new(move || flag.set(true))), download: Some(Box::new(|_, _| {})), ..Default::default() },
+        );
+        app.run("text.insert", json!({"text":"unsaved content"})).unwrap();
+        app.run("file.save", json!({})).unwrap();
+        assert!(requested.get());
+        assert!(app.session.dirty);
+        app.run("file.saveAs", json!({"path":"copy.json"})).unwrap();
+        assert!(app.session.dirty);
+        assert!(app.run("file.new", json!({})).is_err());
+        assert_eq!(app.session.doc.plain_text(wordcraft_doc::StoryRef::Body), "unsaved content");
+        app.session.dirty = false;
+        app.run("file.new", json!({})).unwrap();
+        assert_eq!(app.document_epoch, 1);
+        assert!(app.run("file.open", json!({"path":"missing.docx"})).is_err());
+        assert_eq!(app.document_epoch, 1);
+    }
 
     fn mod_key(key: egui::Key) -> egui::Event {
         egui::Event::Key { key, physical_key: None, pressed: true, repeat: false, modifiers: egui::Modifiers::COMMAND }

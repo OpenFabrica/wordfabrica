@@ -402,6 +402,7 @@ pub fn state(s: &Session) -> Value {
     let style_name = s.doc.styles.get(&style).map(|st| st.name.clone()).unwrap_or(style.clone());
     json!({
         "font": same(&|r| json!(r.font)),
+        "lang": same(&|r| json!(r.lang)),
         "size": same(&|r| json!(r.size)),
         "bold": all.iter().all(|r| r.bold),
         "italic": all.iter().all(|r| r.italic),

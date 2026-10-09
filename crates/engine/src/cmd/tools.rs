@@ -356,17 +356,8 @@ pub fn specs() -> Vec<CommandSpec> {
                 pp.align = Some(if on { wordcraft_doc::Align::Right } else { wordcraft_doc::Align::Left });
             })
         }),
-        CommandSpec::new("review.language", "Language", "Review › Language", |s, v| {
-            let lang = p::str(v, "lang").unwrap_or("en-US").to_string();
-            let no_proof = p::bool(v, "noProof");
-            super::format::apply(s, &|c| {
-                c.lang = Some(lang.clone());
-                if let Some(np) = no_proof {
-                    c.no_proof = Some(np);
-                }
-            })
-        })
-        .params(r#"{"lang": "en-US|en-GB|fr-FR|…", "noProof"?: bool}"#),
+        CommandSpec::new("review.language", "Language", "Review › Language", language)
+            .params(r#"{"lang": "zh-CN|en-US|en-GB|…", "scope"?: "selection|document", "noProof"?: bool}"#),
         CommandSpec::new("review.showMarkup", "Show Markup", "Review › Tracking", |s, v| {
             s.view.show_markup = p::bool(v, "value").unwrap_or(!s.view.show_markup);
             Ok(json!({"value": s.view.show_markup}))
@@ -775,6 +766,48 @@ fn hf_nav(s: &mut Session, dir: i32) -> CmdResult {
     let n = ids.len().max(1) as i32;
     let next = ids.get(((i + dir).rem_euclid(n)) as usize).copied().unwrap_or(cur);
     s.sel = Selection::caret(s.doc.start_of(StoryRef::Part(next)));
+    sel_result(s)
+}
+
+/// Language is formatting metadata, separate from interface language. Document scope includes
+/// defaults, styles, all stories and pending input; Session provides undo and dirty tracking.
+fn language(s: &mut Session, v: &Value) -> CmdResult {
+    let lang = p::str(v, "lang").unwrap_or("en-US");
+    if lang.len() > 63 || !lang.split('-').all(|part| !part.is_empty() && part.len() <= 8 && part.bytes().all(|c| c.is_ascii_alphanumeric())) {
+        return Err(CmdError::Params("invalid language tag".into()));
+    }
+    let scope = p::str(v, "scope").unwrap_or("selection");
+    if !matches!(scope, "selection" | "document") {
+        return Err(CmdError::Params("scope must be selection or document".into()));
+    }
+    let no_proof = p::bool(v, "noProof");
+    let set = |c: &mut CharProps| {
+        c.lang = Some(lang.to_string());
+        if let Some(value) = no_proof {
+            c.no_proof = Some(value);
+        }
+    };
+    if scope == "selection" {
+        return super::format::apply(s, &set);
+    }
+    set(&mut s.doc.styles.default_chr);
+    for style in &mut s.doc.styles.styles {
+        set(&mut style.chr);
+    }
+    let stories: Vec<_> = std::iter::once(StoryRef::Body).chain(s.doc.parts.keys().copied().map(StoryRef::Part)).collect();
+    for story in stories {
+        for path in s.doc.para_paths(story) {
+            let paragraph = s.doc.para_mut(story, &path)?;
+            set(&mut paragraph.mark);
+            for run in &mut paragraph.runs {
+                set(&mut run.props);
+            }
+            paragraph.touch();
+        }
+    }
+    let mut pending = s.typing_props();
+    set(&mut pending);
+    s.pending = Some(pending);
     sel_result(s)
 }
 

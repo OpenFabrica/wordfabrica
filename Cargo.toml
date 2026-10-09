@@ -12,6 +12,7 @@ repository = "https://github.com/storytold/wordcraft"
 
 [workspace.dependencies]
 # internal
+wordcraft-remote = { path = "crates/remote" }
 wordcraft-geom = { path = "crates/geom" }
 wordcraft-doc = { path = "crates/doc" }
 wordcraft-fonts = { path = "crates/fonts" }

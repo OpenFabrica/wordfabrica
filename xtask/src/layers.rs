@@ -39,6 +39,7 @@ pub const TABLE: &[(&str, Class)] = &[
     ("proof", Class::Layer(1)),
     ("layout", Class::Layer(2)),
     ("docx", Class::Layer(2)),
+    ("remote", Class::Layer(2)),
     ("formats", Class::Layer(2)),
     ("render", Class::Layer(3)),
     ("pdf", Class::Layer(3)),
@@ -50,6 +51,7 @@ pub const TABLE: &[(&str, Class)] = &[
     ("wordcraft", Class::Exempt),
     ("cli", Class::Exempt),
     ("web", Class::Exempt),
+    ("server", Class::Exempt),
     ("xtask", Class::Exempt),
 ];
 

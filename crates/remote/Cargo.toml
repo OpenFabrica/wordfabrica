@@ -1,0 +1,13 @@
+[package]
+name = "wordcraft-remote"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Shared document storage protocol for WordCraft browser and server"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde.workspace = true
+wordcraft-doc.workspace = true

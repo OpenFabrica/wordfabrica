@@ -103,7 +103,7 @@ impl Lang {
 
     /// A language by its exact code (any case).
     pub fn from_code(code: &str) -> Option<Lang> {
-        LANGUAGES.iter().find(|l| l.code.eq_ignore_ascii_case(code)).map(Lang)
+        Self::all().find(|l| l.code().eq_ignore_ascii_case(code))
     }
 
     /// Resolve the `language` setting: a language code, or [`AUTO`] (and anything unknown, e.g. a
@@ -114,7 +114,7 @@ impl Lang {
 
     /// Every registered language.
     pub fn all() -> impl Iterator<Item = Lang> {
-        LANGUAGES.iter().map(Lang)
+        LANGUAGES.iter().filter(|l| !cfg!(target_arch = "wasm32") || matches!(l.code, "en" | "zh-hans")).map(Lang)
     }
 
     fn catalog(self) -> &'static Catalog {

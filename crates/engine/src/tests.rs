@@ -310,7 +310,9 @@ fn hostile_params_never_panic() {
         json!({"value": -1e308, "rows": 1e9}),
     ];
     for spec in reg.all() {
-        if spec.id.starts_with("file.") || spec.id == "insert.picture" || spec.id == "insert.textFromFile" {
+        // Commands with real filesystem or system-audio effects need explicit tests, not the
+        // unattended junk-input sweep: Read Aloud otherwise spawns four OS speech processes.
+        if spec.id.starts_with("file.") || matches!(spec.id, "insert.picture" | "insert.textFromFile" | "review.readAloud") {
             continue;
         }
         for j in &junk {
@@ -348,4 +350,43 @@ fn caret_navigation() {
     assert_eq!(s.sel.focus, Pos::body(1, 11));
     run(&mut s, "caret.left", json!({}));
     assert_eq!(s.sel.focus.off, 10);
+}
+
+#[test]
+fn document_language_updates_content_defaults_and_undo_without_changing_text() {
+    let mut s = Session::new(crate::sample::sample_document());
+    let original = s.doc.clone();
+    let selection = s.sel.clone();
+    run(&mut s, "review.language", json!({"lang":"zh-CN", "scope":"document"}));
+    assert_eq!(s.doc.styles.default_chr.lang.as_deref(), Some("zh-CN"));
+    assert_eq!(text(&s), original.plain_text(StoryRef::Body));
+    assert_eq!(s.sel, selection);
+    assert_eq!(cmd::format::state(&s)["lang"], "zh-CN");
+    assert!(s.dirty);
+    for story in std::iter::once(StoryRef::Body).chain(s.doc.parts.keys().copied().map(StoryRef::Part)) {
+        for path in s.doc.para_paths(story) {
+            let paragraph = s.doc.para(story, &path).unwrap();
+            assert_eq!(paragraph.mark.lang.as_deref(), Some("zh-CN"));
+            assert!(paragraph.runs.iter().all(|r| r.props.lang.as_deref() == Some("zh-CN")));
+        }
+    }
+    run(&mut s, "edit.undo", json!({}));
+    assert_eq!(s.doc, original);
+    run(&mut s, "review.language", json!({"lang":"en-US", "scope":"document"}));
+    assert_eq!(cmd::format::state(&s)["lang"], "en-US");
+    let before = s.doc.clone();
+    assert!(s.run("review.language", &json!({"lang":"bad language", "scope":"document"})).is_err());
+    assert!(s.run("review.language", &json!({"lang":"zh-CN", "scope":"unknown"})).is_err());
+    assert_eq!(s.doc, before);
+}
+
+#[test]
+fn selection_language_preserves_other_text_and_reports_mixed_language() {
+    let mut s = Session::new(wordcraft_doc::Document::from_text("中文 English"));
+    run(&mut s, "select.text", json!({"text":"中文"}));
+    run(&mut s, "review.language", json!({"lang":"zh-CN"}));
+    assert_eq!(cmd::format::state(&s)["lang"], "zh-CN");
+    assert_eq!(s.doc.styles.default_chr.lang.as_deref(), Some("en-US"));
+    run(&mut s, "select.all", json!({}));
+    assert!(cmd::format::state(&s)["lang"].is_null());
 }

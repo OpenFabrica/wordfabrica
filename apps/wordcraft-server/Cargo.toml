@@ -1,0 +1,25 @@
+[package]
+name = "wordcraft-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+wordcraft-remote.workspace = true
+wordcraft-doc.workspace = true
+wordcraft-fonts.workspace = true
+uuid = { version = "1", features = ["v4"] }
+serde_json.workspace = true
+axum = "0.8"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal"] }
+tower-http = { version = "0.6", features = ["fs", "limit"] }
+rusqlite = { version = "0.38", features = ["bundled"] }
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
+tower = { version = "0.5", features = ["util"] }

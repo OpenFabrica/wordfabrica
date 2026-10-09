@@ -782,3 +782,52 @@
 	📂  Browse…	📂  浏览…
 	{words} words	{words} 个字
 	{selected} of {words} words	{selected}/{words} 个字
+
+# Hosted browser editing and storage
+	Documents	文档列表
+	New document	新建文档
+	Save to server	保存到服务器
+	Download DOCX	下载 DOCX
+	Save your changes first	请先保存当前修改
+	Document title	文档名称
+	Opening document…	正在打开文档…
+	Saving…	正在保存…
+	Unsaved changes	有未保存的修改
+	New document · save to keep	新文档 · 保存后保留
+	Saved to server	已保存到服务器
+	Back to editor	返回编辑器
+	Save as new copy	另存为新副本
+	Reload server version…	重新加载服务器版本…
+	Retry	重试
+	Server documents	服务器文档
+	Loading…	正在加载…
+	Save your current changes before opening another document.	请先保存当前修改，再打开其他文档。
+	Refresh	刷新
+	No saved documents yet.	还没有已保存的文档。
+	Discard local changes?	放弃本地修改？
+	Reloading replaces your local changes with the saved server version.	重新加载会用服务器上已保存的版本替换本地修改。
+	Download a copy first if you want to keep both versions.	如需保留两个版本，请先下载当前副本。
+	Discard changes and reload	放弃修改并重新加载
+	Keep editing	继续编辑
+	Document is too large to save (16 MiB limit). Download a copy.	文档超过 16 MiB 保存上限，请下载副本。
+	Invalid document link.	文档链接无效。
+	Browser request unavailable	浏览器无法发起请求
+	Cannot reach server. Your changes remain here; retry or download a copy.	无法连接服务器。修改仍保留在当前页面，请重试或下载副本。
+	Another editor saved a newer version. Your changes are kept here.	其他窗口已保存更新版本。你的修改仍保留在当前页面。
+	Document not found on this server.	服务器上找不到该文档。
+	Document exceeds the 16 MiB limit. Download a copy.	文档超过 16 MiB 上限，请下载副本。
+	Server rejected the request. Changes remain unsaved.	服务器拒绝了请求，修改尚未保存。
+	Invalid response from document server.	文档服务器返回了无效响应。
+	Save request timed out. Retry or download a copy.	保存请求超时，请重试或下载副本。
+	Could not prepare the save request.	无法准备保存请求。
+	Opening your saved document…	正在打开已保存的文档…
+	Language changed for this tab. Your browser could not save the preference.	当前页面的语言已切换，但浏览器无法保存此偏好。
+	Menus and commands change; your documents don't.	切换菜单和命令的显示语言，不改变文档内容。
+	Save the current document before opening or creating another document.	请先保存当前文档，再打开或新建其他文档。
+	WordCraft failed to start	WordCraft 启动失败
+	A browser with WebGPU or WebGL2 is required.	请使用支持 WebGPU 或 WebGL2 的浏览器。
+	Some server fonts could not load. Using available fonts; save your work and refresh to retry.	部分服务器字体未能加载。正在使用可用字体；请保存文档后刷新重试。
+	Document language	文档语言
+	Chinese (China)	中文（中国）
+	Multiple languages	多种语言
+	Apply to the entire document	应用于整个文档

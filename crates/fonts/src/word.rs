@@ -33,6 +33,8 @@ fn substitutes(family: &str) -> &'static [&'static str] {
     const SYMBOL: &[&str] = &["Apple Symbols", "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols", "Source Sans 3"];
     let f = family.to_ascii_lowercase();
     match f.as_str() {
+        "宋体" | "simsun" | "nsimsun" | "songti sc" => &["Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "STSong", "Source Serif 4"],
+        "黑体" | "simhei" | "heiti sc" => &["Noto Sans CJK SC", "Source Han Sans SC", "Heiti SC", "PingFang SC", "Source Sans 3"],
         "arial" | "helvetica" | "arial nova" => ARIAL,
         "times new roman" | "times" => TIMES,
         "courier new" | "courier" | "consolas" | "lucida console" | "cascadia code" | "cascadia mono" => MONO,
@@ -157,6 +159,17 @@ mod tests {
         assert!(!b.synth_bold);
         let (a, d) = line_metrics(&b.face);
         assert!(a > 0.0 && d >= 0.0);
+    }
+
+    #[test]
+    fn chinese_family_names_keep_serif_and_sans_substitutions_separate() {
+        assert_eq!(substitutes("宋体"), substitutes("SimSun"));
+        assert_eq!(substitutes("黑体"), substitutes("SimHei"));
+        assert_eq!(substitutes("宋体").first(), Some(&"Noto Serif CJK SC"));
+        assert_eq!(substitutes("黑体").first(), Some(&"Noto Sans CJK SC"));
+        if FontDb::global().has_family("Noto Sans CJK SC") && !FontDb::global().has_family("黑体") {
+            assert_eq!(resolve("黑体", false, false).face.family, "Noto Sans CJK SC");
+        }
     }
 
     #[test]

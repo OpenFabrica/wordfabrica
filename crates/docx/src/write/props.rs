@@ -27,7 +27,8 @@ pub fn rpr_inner(w: &mut W, c: &CharProps) {
         w.val("w:rStyle", s);
     }
     if let Some(f) = &c.font {
-        w.empty("w:rFonts", &[("w:ascii", f), ("w:hAnsi", f), ("w:cs", f)]);
+        // The model selects one family for the whole run, including CJK characters.
+        w.empty("w:rFonts", &[("w:ascii", f), ("w:hAnsi", f), ("w:eastAsia", f), ("w:cs", f)]);
     }
     toggle(w, "w:b", c.bold);
     toggle(w, "w:i", c.italic);
@@ -87,7 +88,7 @@ pub fn rpr_inner(w: &mut W, c: &CharProps) {
     }
     toggle(w, "w:rtl", c.rtl);
     if let Some(l) = &c.lang {
-        w.val("w:lang", l);
+        w.empty("w:lang", &[("w:val", l), ("w:eastAsia", l)]);
     }
 }
 

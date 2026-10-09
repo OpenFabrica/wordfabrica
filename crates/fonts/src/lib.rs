@@ -10,7 +10,7 @@
 mod fontdb;
 pub mod word;
 
-pub use fontdb::{FALLBACK_FAMILY, FaceRef, FontDb, FontFace, base_style, bundled, system_font_dirs};
+pub use fontdb::{FALLBACK_FAMILY, FaceRef, FontDb, FontFace, base_style, bundled, font_names, system_font_dirs};
 pub use harfrust::Feature;
 use harfrust::{Direction, ShapeOptions, Tag, UnicodeBuffer};
 pub use kurbo::BezPath;
@@ -207,6 +207,23 @@ mod tests {
         let f = fontdb::last_resort_face();
         assert_eq!(f.family, fontdb::FALLBACK_FAMILY);
         assert!(f.upem > 0.0);
+    }
+
+    #[test]
+    fn font_inspection_matches_registration_and_rejects_junk() {
+        for bytes in bundled() {
+            let names = font_names(bytes);
+            assert!(!names.is_empty());
+            let db = FontDb::with_font_dirs(Vec::new());
+            db.add_font(bytes.to_vec());
+            for (family, style) in names {
+                assert!(db.has_family(&family));
+                assert!(db.styles(&family).contains(&style));
+            }
+        }
+        for bytes in [b"".as_slice(), b"not a font", b"ttcf\0\x01\0\0\xff\xff\xff\xff"] {
+            assert!(font_names(bytes).is_empty());
+        }
     }
 
     #[test]

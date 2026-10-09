@@ -1,8 +1,7 @@
 //! Optional craft-fonts build input (https://github.com/storytold/craft-fonts, recipe from its
 //! `docs/integration.md`). With `CRAFT_FONTS_DIR=<checkout>` the fonts in its
 //! `fonts/manifest.txt` are embedded as `CRAFT_FONTS`; unset, `CRAFT_FONTS` is empty. Web
-//! (wasm32) builds embed only the UI face, BIZ UDPGothic Regular, to stay within the web size
-//! budget. It only reads the local checkout: no network.
+//! (wasm32) builds embed the regular UI faces for Simplified Chinese and Japanese. It only reads the local checkout: no network.
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
@@ -38,7 +37,8 @@ fn craft_fonts(dir: &std::path::Path) -> Result<String, String> {
         let [family, style, file, scripts, ..] = f.as_slice() else {
             return Err(format!("malformed manifest line: {line}"));
         };
-        if wasm && !(*family == "BIZ UDPGothic" && *style == "Regular") {
+        let web_ui = *style == "Regular" && (*family == "BIZ UDPGothic" || scripts.split(',').any(|s| s.trim() == "Hans"));
+        if wasm && !web_ui {
             continue;
         }
         let path = dir.join(file).canonicalize().map_err(|e| format!("{file}: {e}"))?;

@@ -103,6 +103,15 @@ the icon art).
 | M13 | Performance budgets | on track (1.4 ms relayout) |
 | M14 | 1.0 polish, packaging, signing | pipeline written; waiting on remote and secrets |
 
+## Web storage (2026-10-09)
+
+- Browser editing reuses the Rust/WASM engine; one Rust HTTP process serves the editor and a document API.
+- Embedded SQLite stores full-fidelity model snapshots with transactionally checked versions.
+- Document list, title editing, autosave/manual save, reload links, DOCX downloads and conflict recovery.
+- Browser interface switches between Simplified Chinese and English, remembers the preference, and embeds Chinese UI/document glyphs through craft-fonts.
+- Initial scope is a single trusted workspace. Realtime co-editing, accounts and revision history are future work.
+- Setup, API and boundaries: [web storage](docs/web-storage.md); [user help](docs/web-help.md).
+
 ## Recently landed
 - Text wraps around floating pictures and shapes; text boxes lay out their own text.
 - Table rows split across pages between lines (Can't Split honoured, header rows repeat).
@@ -112,3 +121,6 @@ the icon art).
 
 ## Next
 The DOCX fidelity corpus, then footnote continuation, column balancing and native printing.
+
+- Web font delivery: optional server TTF/OTF/TTC directory, bounded validated catalog, Chinese document fonts, shared browser layout/export font database; no frontend rebuild for added fonts.
+- Chinese editing: Song/Hei font aliases, real document-language status with Chinese/English document-wide commands, East Asian DOCX language metadata, and IME composition cursor alignment.

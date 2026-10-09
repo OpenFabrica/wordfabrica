@@ -10,7 +10,16 @@ static site in `wordcraft-web-<version>/`:
 | `wordcraft-web-<hash>_bg.wasm` | The app, about 13 MB, or 5 MB with compression |
 | `_headers`, `.htaccess` | Sample header rules for Netlify/Cloudflare Pages and Apache |
 
-There is no server-side code. Upload the folder's contents anywhere that serves static files.
+For download-only standalone use, upload the folder's contents to a static host and open `?local`.
+For server persistence, run `wordcraft-server` with this directory as `WORDCRAFT_WEB_DIR`;
+see [the storage guide](../../docs/web-storage.md). Hosted mode expects same-origin `/api` routes.
+
+## Chinese and English
+
+The browser toolbar switches between Simplified Chinese and English and remembers the choice per origin.
+Build with `CRAFT_FONTS_DIR` pointing to craft-fonts revision `8dcdacd5153e64560d109541a47d806f26f048c0`
+(or later) for embedded Noto Sans CJK SC glyphs. The release workflow supplies this input.
+The font remains an external build input; do not copy font files into this repository.
 
 ## Any path works
 
@@ -48,13 +57,13 @@ location /wordcraft/ {
 }
 ```
 
-Local test: `python3 -m http.server 8765` inside the folder, then open http://localhost:8765/.
+Local test: `python3 -m http.server 8765` inside the folder, then open http://localhost:8765/?local.
 
 ## Embedding in a page (iframe)
 
 ```html
 <iframe
-  src="https://example.com/wordcraft/"
+  src="https://example.com/wordcraft/?local"
   title="WordCraft image editor"
   style="width: 100%; height: 720px; border: 0;"
   allow="fullscreen; clipboard-read; clipboard-write"

@@ -26,6 +26,11 @@ pub fn start() {
         {
             create.instance_descriptor.backends = eframe::wgpu::Backends::GL;
         }
+        let local = query().trim_start_matches('?').split('&').any(|p| p == "local");
+        if let Some(el) = document.get_element_by_id(LOADING_ID) {
+            el.set_text_content(Some("正在加载文档字体… / Loading document fonts…"));
+        }
+        let font_error = !local && crate::fonts::load().await.is_err();
         let result = eframe::WebRunner::new()
             .start(
                 canvas,
@@ -37,15 +42,25 @@ pub fn start() {
                     let inbox: Inbox = Inbox::default();
                     let doc = if query().contains("sample") { wordcraft_engine::sample::sample_document() } else { wordcraft_doc::Document::new() };
                     let mut app = WordApp::new(Session::new(doc), services(inbox.clone(), cc.egui_ctx.clone()));
-                    app.autosave = false;
-                    Ok(Box::new(WebShell { app, inbox }))
+                    let remote = if local { None } else { crate::remote::Remote::new(&cc.egui_ctx) };
+                    let locale = crate::locale::Locale::new(&mut app);
+                    app.autosave = remote.is_some();
+                    if let Some(remote) = &remote {
+                        let requested = remote.requested.clone();
+                        app.services.request_save = Some(Box::new(move || requested.set(true)));
+                    }
+                    Ok(Box::new(WebShell { app, inbox, remote, locale, font_error }))
                 }),
             )
             .await;
         if let Some(el) = document.get_element_by_id(LOADING_ID) {
             match result {
                 Ok(()) => el.remove(),
-                Err(e) => el.set_inner_html(&format!("<p>WordCraft failed to start: {e:?}</p><p>A browser with WebGPU or WebGL2 is required.</p>")),
+                Err(e) => el.set_text_content(Some(&format!(
+                    "{}: {e:?}. {}",
+                    wordcraft_ui_egui::tl!("WordCraft failed to start"),
+                    wordcraft_ui_egui::tl!("A browser with WebGPU or WebGL2 is required.")
+                ))),
             }
         }
     });
@@ -60,10 +75,14 @@ fn query() -> String {
 struct WebShell {
     app: WordApp,
     inbox: Inbox,
+    remote: Option<crate::remote::Remote>,
+    locale: crate::locale::Locale,
+    font_error: bool,
 }
 
 impl eframe::App for WebShell {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.locale.sync(&mut self.app);
         let dropped = ctx.input_mut(|i| std::mem::take(&mut i.raw.dropped_files));
         for f in dropped {
             let inbox = self.inbox.clone();
@@ -79,7 +98,12 @@ impl eframe::App for WebShell {
                 }
             });
         }
-        self.app.logic(ctx);
+        if let Some(remote) = &mut self.remote {
+            remote.logic(&mut self.app, ctx);
+        }
+        if !self.remote.as_ref().is_some_and(|r| r.busy_loading()) {
+            self.app.logic(ctx);
+        }
     }
 
     fn raw_input_hook(&mut self, _ctx: &egui::Context, raw: &mut egui::RawInput) {
@@ -87,7 +111,31 @@ impl eframe::App for WebShell {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        self.app.ui(ui);
+        self.locale.sync(&mut self.app);
+        self.locale.notice(ui);
+        if self.font_error {
+            egui::Panel::top("font_notice").show(ui, |ui| {
+                ui.label(wordcraft_ui_egui::tl!("Some server fonts could not load. Using available fonts; save your work and refresh to retry."));
+            });
+        }
+        if let Some(remote) = &mut self.remote {
+            remote.toolbar(&mut self.app, ui);
+        } else {
+            egui::Panel::top("local_language").show(ui, |ui| {
+                ui.horizontal(|ui| crate::locale::selector(&mut self.app, ui));
+            });
+        }
+        if self.remote.as_ref().is_some_and(|r| r.busy_loading()) {
+            egui::CentralPanel::default().show(ui, |ui| {
+                ui.label(wordcraft_ui_egui::tl!("Opening your saved document…"));
+            });
+        } else {
+            self.app.ui(ui);
+        }
+        self.locale.sync(&mut self.app);
+        if let Some(remote) = &self.remote {
+            remote.after_ui(&self.app, ui.ctx());
+        }
     }
 }
 

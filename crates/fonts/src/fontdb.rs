@@ -385,12 +385,12 @@ fn enumerate_faces(data: &[u8]) -> Vec<Found> {
         Err(_) => 0,
     };
     let mut out = Vec::new();
-    for i in 0..count {
+    for i in 0..count.min(64) {
         let Ok(f) = skrifa::FontRef::from_index(data, i) else { continue };
         let Some((family, style)) = face_names(&f) else { continue };
         let axes = f.axes();
         let mut named = Vec::new();
-        for ni in f.named_instances().iter() {
+        for ni in f.named_instances().iter().take(256) {
             let Some(style) = name(&f, &[ni.subfamily_name_id()]) else { continue };
             if named.iter().any(|(_, s, _): &(u32, String, _)| s.eq_ignore_ascii_case(&style)) {
                 continue;
@@ -405,6 +405,12 @@ fn enumerate_faces(data: &[u8]) -> Vec<Found> {
         }
     }
     out
+}
+
+/// Inspect TTF/OTF/TTC bytes without registering them. Returns family/style pairs, empty for
+/// invalid data. Collections and variable instances are bounded like [`FontDb::add_font`].
+pub fn font_names(data: &[u8]) -> Vec<(String, String)> {
+    enumerate_faces(data).into_iter().map(|(_, family, style, _)| (family, style)).collect()
 }
 
 /// The compiled-in Source Sans 3 Regular, for a database that somehow has no faces at all.
@@ -498,12 +504,12 @@ fn style_italic(style: &str) -> bool {
 }
 
 impl FontDb {
-    /// A database holding the bundled fonts, then the craft-fonts Japanese faces (Mincho first,
+    /// A database holding the bundled fonts, then the craft-fonts Japanese faces (Mincho first) and Chinese face (last,
     /// so they are the fallback for Japanese text after the requested and bundled fonts; empty
     /// without `CRAFT_FONTS_DIR`), whose system font scan reads `font_dirs`.
     pub fn with_font_dirs(font_dirs: Vec<std::path::PathBuf>) -> Self {
         let mut faces = Vec::new();
-        let craft = crate::japanese_document_fonts().into_iter().map(|f| f.bytes);
+        let craft = crate::japanese_document_fonts().into_iter().chain(crate::chinese_fonts()).map(|f| f.bytes);
         for data in BUNDLED.iter().copied().chain(craft) {
             for (i, family, style, coords) in enumerate_faces(data) {
                 if let Some(f) = make_face(FontBytes::Static(data), i, family, style, coords) {

@@ -26,7 +26,7 @@ impl Previews {
     pub fn families(&mut self) -> Vec<String> {
         if self.families.is_none() {
             let mut f: Vec<String> = wordcraft_fonts::FontDb::global().families().into_iter().filter(|f| !f.starts_with('.')).collect();
-            for w in [wordcraft_doc::styles::BODY_FONT, wordcraft_doc::styles::HEADING_FONT] {
+            for w in ["宋体", "黑体", wordcraft_doc::styles::BODY_FONT, wordcraft_doc::styles::HEADING_FONT] {
                 if !f.iter().any(|x| x == w) {
                     f.push(w.to_string());
                 }
