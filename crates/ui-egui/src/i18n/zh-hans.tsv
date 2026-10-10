@@ -269,6 +269,7 @@
 	Format Page Numbers	设置页码格式
 	Format Page Numbers…	设置页码格式…
 	Format Painter	格式刷
+	Format\nPainter	格式刷
 	Formatting at Selection	选定内容的格式
 	Formula	公式
 	General	常规
@@ -846,3 +847,21 @@
 	Good morning	早上好
 	Good afternoon	下午好
 	Good evening	晚上好
+# Built-in style names (gallery and Styles pane); keyed "<name> (style)", see i18n::style_name.
+	Normal (style)	正文
+	No Spacing (style)	无间隔
+	Heading 1 (style)	标题 1
+	Heading 2 (style)	标题 2
+	Heading 3 (style)	标题 3
+	Title (style)	标题
+	Subtitle (style)	副标题
+	Subtle Emphasis (style)	弱强调
+	Emphasis (style)	强调
+	Intense Emphasis (style)	明显强调
+	Strong (style)	要点
+	Quote (style)	引用
+	Intense Quote (style)	明显引用
+	Subtle Reference (style)	弱参考
+	Intense Reference (style)	明显参考
+	Book Title (style)	书籍标题
+	List Paragraph (style)	列表段落

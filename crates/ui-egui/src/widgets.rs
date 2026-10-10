@@ -6,9 +6,12 @@ use serde_json::Value;
 use crate::theme::{Tokens, regular};
 use crate::{WordApp, icons};
 
-/// Height of the ribbon content area (without group labels).
+/// Height of the ribbon content area. Groups carry no title row (their name is the launcher's
+/// tooltip), so this is the whole ribbon body.
 pub const CONTENT_H: f32 = 66.0;
-pub const LABEL_H: f32 = 16.0;
+/// Height of a small ribbon button row, and the gap between two centred rows.
+pub const ROW_H: f32 = 22.0;
+pub const ROW_GAP: f32 = 8.0;
 
 /// Shortcut text for a command (`⌘B` on macOS, `Ctrl+B` elsewhere).
 pub fn shortcut_text(app: &WordApp, id: &str) -> String {
@@ -71,6 +74,17 @@ fn bg(ui: &Ui, r: Rect, resp: &Response, checked: bool, t: &Tokens) {
 
 /// A large ribbon button: 32 px icon over a (possibly two-line) label.
 pub fn big(ui: &mut Ui, app: &mut WordApp, icon: &str, label: &str, id: &str, params: Value, menu: bool) -> Response {
+    big_impl(ui, app, icon, label, id, params, menu, false)
+}
+
+/// A large toggle button (e.g. Format Painter): like [`big`], drawn checked while `checked`.
+pub fn big_checked(ui: &mut Ui, app: &mut WordApp, icon: &str, label: &str, id: &str, params: Value, checked: bool) -> Response {
+    big_impl(ui, app, icon, label, id, params, false, checked)
+}
+
+/// Shared body of [`big`] and [`big_checked`].
+#[allow(clippy::too_many_arguments)]
+fn big_impl(ui: &mut Ui, app: &mut WordApp, icon: &str, label: &str, id: &str, params: Value, menu: bool, checked: bool) -> Response {
     let label = tl!(label);
     let t = Tokens::get(ui.ctx());
     let galley_w =
@@ -78,7 +92,7 @@ pub fn big(ui: &mut Ui, app: &mut WordApp, icon: &str, label: &str, id: &str, pa
     let w = (galley_w + 12.0).max(44.0);
     let (r, resp) = ui.allocate_exact_size(vec2(w, CONTENT_H), Sense::click());
     let on = enabled(app, id);
-    bg(ui, r, &resp, false, &t);
+    bg(ui, r, &resp, checked, &t);
     let ic = Rect::from_center_size(pos2(r.center().x, r.min.y + 20.0), vec2(32.0, 32.0));
     let (c, a) = if on { (t.icon, t.accent) } else { (t.text_disabled, t.text_disabled) };
     icons::paint(ui.painter(), ic, icon, c, a);
@@ -132,7 +146,7 @@ pub fn split(
     let tip = tl!(tip);
     let t = Tokens::get(ui.ctx());
     let (r, resp) = ui.allocate_exact_size(vec2(24.0, 22.0), Sense::click());
-    let (ar, aresp) = ui.allocate_exact_size(vec2(11.0, 22.0), Sense::click());
+    let (ar, aresp) = ui.allocate_exact_size(vec2(12.0, 22.0), Sense::click());
     bg(ui, r, &resp, checked, &t);
     bg(ui, ar, &aresp, false, &t);
     let ic = Rect::from_center_size(r.center(), vec2(17.0, 17.0));
@@ -199,26 +213,26 @@ pub fn menu_button(
     });
 }
 
-/// A ribbon group: content, a centred label below and a divider on the right.
+/// A ribbon group: content, an optional dialog launcher in its bottom-right corner and a divider
+/// on the right. Like WPS there is no title row; the title names the launcher in its tooltip.
 pub fn group(ui: &mut Ui, title: &str, launcher: Option<&str>, app: &mut WordApp, add: impl FnOnce(&mut Ui, &mut WordApp)) {
-    // The English title keys the launcher's id; the drawn title is translated.
+    // The English title keys the launcher's id; the tooltip is translated.
     let id_title = title;
     let title = tl!(title);
     let t = Tokens::get(ui.ctx());
-    let label_w = ui.ctx().fonts_mut(|f| f.layout_no_wrap(title.to_string(), regular(11.0), t.group_label).size().x);
     let start = ui.cursor().min;
-    let inner = ui.vertical(|ui| {
-        ui.set_min_width(label_w + if launcher.is_some() { 22.0 } else { 10.0 });
+    ui.vertical(|ui| {
         ui.allocate_ui_with_layout(vec2(ui.available_width(), CONTENT_H), egui::Layout::left_to_right(egui::Align::Min), |ui| {
             ui.spacing_mut().item_spacing = vec2(1.0, 1.0);
             add(ui, app);
         });
     });
-    let r = inner.response.rect;
-    let r = Rect::from_min_max(start, pos2(r.max.x, start.y + CONTENT_H + LABEL_H));
-    ui.painter().text(pos2(r.center().x, r.max.y - 8.0), Align2::CENTER_CENTER, title, regular(11.0), t.group_label);
     if let Some(cmd) = launcher {
-        let lr = Rect::from_center_size(pos2(r.max.x - 6.0, r.max.y - 8.0), vec2(11.0, 11.0));
+        // The launcher sits in its own narrow column so it never covers the group's controls.
+        ui.add_space(2.0);
+        let x = ui.cursor().min.x;
+        ui.add_space(11.0);
+        let lr = Rect::from_min_size(pos2(x, start.y + CONTENT_H - 11.0), vec2(11.0, 11.0));
         let resp = ui.interact(lr, ui.id().with(("launch", id_title)), Sense::click());
         if resp.hovered() {
             ui.painter().rect_filled(lr.expand(2.0), 2.0, t.hover);
@@ -228,10 +242,22 @@ pub fn group(ui: &mut Ui, title: &str, launcher: Option<&str>, app: &mut WordApp
             let _ = app.run(cmd, serde_json::json!({}));
         }
     }
-    ui.add_space(5.0);
+    ui.add_space(4.0);
     let x = ui.cursor().min.x;
-    ui.painter().line_segment([pos2(x, start.y + 4.0), pos2(x, start.y + CONTENT_H + LABEL_H - 4.0)], Stroke::new(1.0, t.border));
-    ui.add_space(6.0);
+    ui.painter().line_segment([pos2(x, start.y + 8.0), pos2(x, start.y + CONTENT_H - 8.0)], Stroke::new(1.0, t.border));
+    ui.add_space(5.0);
+}
+
+/// Stack `rows` small-button rows vertically centred in the ribbon; `add` separates them with
+/// `ui.add_space(ROW_GAP)`.
+pub fn centered_rows(ui: &mut Ui, rows: usize, add: impl FnOnce(&mut Ui)) {
+    let n = rows.max(1) as f32;
+    let top = ((CONTENT_H - n * ROW_H - (n - 1.0) * ROW_GAP) / 2.0).max(0.0);
+    ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing = vec2(1.0, 0.0);
+        ui.add_space(top);
+        add(ui);
+    });
 }
 
 /// A row of small buttons (used inside a vertical stack).
@@ -292,7 +318,8 @@ fn swatch(ui: &mut Ui, c: wordcraft_doc::Rgb) -> bool {
     resp.on_hover_text(format!("#{}", c.hex())).clicked()
 }
 
-/// A ribbon-style text field with a dropdown list. Returns a chosen/typed value.
+/// A ribbon-style text field with a dropdown list (one rounded frame, chevron inside on the
+/// right, as in WPS). Returns a chosen/typed value.
 pub fn combo(
     ui: &mut Ui,
     id: &str,
@@ -305,35 +332,50 @@ pub fn combo(
     let edit_id = ui.id().with(("combo_text", id));
     let mut text = ui.data_mut(|d| d.get_temp::<String>(edit_id)).unwrap_or_else(|| current.to_string());
     let t = Tokens::get(ui.ctx());
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
-        let te = egui::TextEdit::singleline(&mut text).desired_width(width - 16.0).font(regular(12.0)).margin(vec2(4.0, 3.0));
-        let resp = ui.add(te);
-        if resp.has_focus() {
-            ui.data_mut(|d| d.insert_temp(edit_id, text.clone()));
-        } else {
-            ui.data_mut(|d| d.remove::<String>(edit_id));
-        }
-        if resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-            out = Some(text.clone());
-        }
-        let (ar, aresp) = ui.allocate_exact_size(vec2(16.0, resp.rect.height()), Sense::click());
-        ui.painter().rect(ar, 0.0, if aresp.hovered() { t.hover } else { t.input }, Stroke::new(1.0, t.input_border), egui::StrokeKind::Inside);
-        icons::paint(ui.painter(), Rect::from_center_size(ar.center(), vec2(9.0, 9.0)), "dropdown", t.icon, t.accent);
-        egui::Popup::menu(&aresp).show(|ui| {
-            egui::ScrollArea::vertical().max_height(420.0).show(ui, |ui| {
-                ui.set_min_width(width + 60.0);
-                for it in items {
-                    let clicked = match preview {
-                        Some(p) => p(ui, it).clicked(),
-                        None => ui.selectable_label(it == current, it).clicked(),
-                    };
-                    if clicked {
-                        out = Some(it.clone());
-                        ui.close();
-                    }
+    let (r, _) = ui.allocate_exact_size(vec2(width, 24.0), Sense::hover());
+    // The frame is painted after the text field so its colour can follow hover and focus.
+    let frame = ui.painter().add(egui::Shape::Noop);
+    let ar = Rect::from_min_max(pos2(r.max.x - 20.0, r.min.y), r.max);
+    let aresp = ui.interact(ar, ui.id().with(("combo_arrow", id)), Sense::click());
+    let row_h = ui.ctx().fonts_mut(|f| f.row_height(&regular(12.0)));
+    let text_rect = Rect::from_min_max(pos2(r.min.x + 6.0, r.center().y - row_h / 2.0), pos2(ar.min.x - 2.0, r.center().y + row_h / 2.0));
+    let te =
+        egui::TextEdit::singleline(&mut text).frame(egui::Frame::NONE).desired_width(text_rect.width()).font(regular(12.0)).margin(vec2(0.0, 0.0));
+    // A child ui keeps the text field from moving the row's cursor back inside the frame.
+    let resp = ui.new_child(egui::UiBuilder::new().max_rect(text_rect).layout(egui::Layout::left_to_right(egui::Align::Center))).add(te);
+    if resp.has_focus() {
+        ui.data_mut(|d| d.insert_temp(edit_id, text.clone()));
+    } else {
+        ui.data_mut(|d| d.remove::<String>(edit_id));
+    }
+    if resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+        out = Some(text.clone());
+    }
+    let border = if resp.has_focus() {
+        t.accent
+    } else if resp.hovered() || aresp.hovered() {
+        t.border_strong
+    } else {
+        t.input_border
+    };
+    ui.painter().set(frame, egui::epaint::RectShape::new(r, CornerRadius::same(4), t.input, Stroke::new(1.0, border), egui::StrokeKind::Inside));
+    if aresp.hovered() {
+        ui.painter().rect_filled(ar.shrink(2.0), CornerRadius::same(3), t.hover);
+    }
+    icons::paint(ui.painter(), Rect::from_center_size(ar.center(), vec2(11.0, 11.0)), "dropdown", t.icon, t.accent);
+    egui::Popup::menu(&aresp).show(|ui| {
+        egui::ScrollArea::vertical().max_height(420.0).show(ui, |ui| {
+            ui.set_min_width(width + 60.0);
+            for it in items {
+                let clicked = match preview {
+                    Some(p) => p(ui, it).clicked(),
+                    None => ui.selectable_label(it == current, it).clicked(),
+                };
+                if clicked {
+                    out = Some(it.clone());
+                    ui.close();
                 }
-            });
+            }
         });
     });
     out

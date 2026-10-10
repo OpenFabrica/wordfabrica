@@ -174,7 +174,7 @@ fn styles(app: &mut WordApp, ui: &mut Ui) {
     egui::ScrollArea::vertical().show(ui, |ui| {
         for (id, name, is_char) in list {
             ui.horizontal(|ui| {
-                let r = ui.selectable_label(id == cur, &name);
+                let r = ui.selectable_label(id == cur, crate::i18n::style_name(&name));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.label(egui::RichText::new(if is_char { "a" } else { "¶" }).weak());
                 });

@@ -214,6 +214,17 @@ pub fn tr(lang: Lang, s: &str) -> &str {
     lang.catalog().plain(s).unwrap_or(s)
 }
 
+/// A style's display name. Built-in styles are keyed `<name> (style)` in the catalogs so they never
+/// clash with the same English word elsewhere ("Normal" margins vs the Normal style); other
+/// names come back unchanged.
+pub fn style_name(name: &str) -> String {
+    let key = format!("{name} (style)");
+    match current().catalog().plain(&key) {
+        Some(tr) => tr.to_string(),
+        None => name.to_string(),
+    }
+}
+
 /// A ribbon location (`Home › Font`) in the current language, segment by segment.
 pub fn location(loc: &str) -> String {
     loc.split(" › ").map(t).collect::<Vec<_>>().join(" › ")

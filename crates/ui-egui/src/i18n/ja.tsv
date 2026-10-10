@@ -258,6 +258,7 @@
 	Format Page Numbers	ページ番号の書式設定
 	Format Page Numbers…	ページ番号の書式設定…
 	Format Painter	書式のコピー/貼り付け
+	Format\nPainter	書式の\nコピー
 	Formatting at Selection	選択範囲の書式
 	Formula	計算式
 	General	全般
@@ -776,3 +777,21 @@
 	Good morning	おはようございます
 	Good afternoon	こんにちは
 	Good evening	こんばんは
+# Built-in style names (gallery and Styles pane); keyed "<name> (style)", see i18n::style_name.
+	Normal (style)	標準
+	No Spacing (style)	行間詰め
+	Heading 1 (style)	見出し 1
+	Heading 2 (style)	見出し 2
+	Heading 3 (style)	見出し 3
+	Title (style)	表題
+	Subtitle (style)	副題
+	Subtle Emphasis (style)	弱い強調
+	Emphasis (style)	強調
+	Intense Emphasis (style)	強い強調
+	Strong (style)	太字強調
+	Quote (style)	引用文
+	Intense Quote (style)	強い引用
+	Subtle Reference (style)	弱い参照
+	Intense Reference (style)	強い参照
+	Book Title (style)	書名
+	List Paragraph (style)	リスト段落

@@ -259,6 +259,7 @@
 	Format Page Numbers	頁碼格式
 	Format Page Numbers…	頁碼格式…
 	Format Painter	複製格式
+	Format\nPainter	複製格式
 	Formatting at Selection	選取範圍的格式
 	Formula	公式
 	General	一般
@@ -777,3 +778,21 @@
 	Good morning	早安
 	Good afternoon	午安
 	Good evening	晚上好
+# Built-in style names (gallery and Styles pane); keyed "<name> (style)", see i18n::style_name.
+	Normal (style)	內文
+	No Spacing (style)	無間距
+	Heading 1 (style)	標題 1
+	Heading 2 (style)	標題 2
+	Heading 3 (style)	標題 3
+	Title (style)	標題
+	Subtitle (style)	副標題
+	Subtle Emphasis (style)	弱強調
+	Emphasis (style)	強調
+	Intense Emphasis (style)	鮮明強調
+	Strong (style)	要點
+	Quote (style)	引文
+	Intense Quote (style)	鮮明引文
+	Subtle Reference (style)	弱參考
+	Intense Reference (style)	鮮明參考
+	Book Title (style)	書名
+	List Paragraph (style)	清單段落

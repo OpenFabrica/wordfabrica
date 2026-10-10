@@ -165,20 +165,82 @@ fn snippet_blocks(
     Some(egui::ColorImage::from_rgba_unmultiplied([img.width as usize, img.height as usize], &px))
 }
 
-/// The Home tab's Styles gallery.
+/// Crop a preview to its ink (pixels that differ from the paper colour in the top-left corner),
+/// plus `pad` pixels, and make the paper transparent, so it can be centred on a tile. `dark`
+/// flips lightness (keeping hue) so the ink reads on a dark tile. A blank image comes back unchanged.
+fn crop_to_ink(mut img: egui::ColorImage, pad: usize, dark: bool) -> egui::ColorImage {
+    if dark {
+        for c in &mut img.pixels {
+            *c = invert_lightness(*c);
+        }
+    }
+    let [w, h] = img.size;
+    let Some(&paper) = img.pixels.first() else { return img };
+    let ink = |c: egui::Color32| {
+        let d = |a: u8, b: u8| a.abs_diff(b) > 24;
+        d(c.r(), paper.r()) || d(c.g(), paper.g()) || d(c.b(), paper.b())
+    };
+    let (mut x0, mut y0, mut x1, mut y1) = (usize::MAX, usize::MAX, 0usize, 0usize);
+    for (i, c) in img.pixels.iter().enumerate() {
+        if ink(*c) {
+            let (x, y) = (i % w.max(1), i / w.max(1));
+            x0 = x0.min(x);
+            y0 = y0.min(y);
+            x1 = x1.max(x);
+            y1 = y1.max(y);
+        }
+    }
+    if x0 > x1 || y0 > y1 {
+        return img;
+    }
+    let (x0, y0) = (x0.saturating_sub(pad), y0.saturating_sub(pad));
+    let (x1, y1) = ((x1 + pad).min(w.saturating_sub(1)), (y1 + pad).min(h.saturating_sub(1)));
+    let (cw, ch) = (x1 - x0 + 1, y1 - y0 + 1);
+    let mut pixels = Vec::with_capacity(cw * ch);
+    for y in y0..=y1 {
+        for x in x0..=x1 {
+            pixels.push(unpaper(img.pixels.get(y * w + x).copied().unwrap_or(paper), paper));
+        }
+    }
+    egui::ColorImage::new([cw, ch], pixels)
+}
+
+/// Flip an opaque colour's lightness but keep its hue: black ink turns white, dark blue light blue.
+fn invert_lightness(c: egui::Color32) -> egui::Color32 {
+    let (r, g, b) = (c.r() as i32, c.g() as i32, c.b() as i32);
+    let shift = 255 - (r.max(g).max(b) + r.min(g).min(b));
+    let f = |v: i32| (v + shift).clamp(0, 255) as u8;
+    egui::Color32::from_rgb(f(r), f(g), f(b))
+}
+
+/// Turn an opaque pixel rendered over `paper` back into a premultiplied pixel with transparency,
+/// so tile hover/selection colours (and dark mode) show through around the glyphs.
+fn unpaper(c: egui::Color32, paper: egui::Color32) -> egui::Color32 {
+    // Coverage is the largest per-channel distance from the paper, relative to how far that
+    // channel could go; premultiplied colour is then c - (1 - a) * paper.
+    let ch = |v: u8, p: u8| if v < p { (p - v) as f32 / p.max(1) as f32 } else { (v - p) as f32 / (255 - p).max(1) as f32 };
+    let a = ch(c.r(), paper.r()).max(ch(c.g(), paper.g())).max(ch(c.b(), paper.b())).clamp(0.0, 1.0);
+    let pm = |v: u8, p: u8| (v as f32 - (1.0 - a) * p as f32).clamp(0.0, 255.0 * a) as u8;
+    egui::Color32::from_rgba_premultiplied(pm(c.r(), paper.r()), pm(c.g(), paper.g()), pm(c.b(), paper.b()), (a * 255.0) as u8)
+}
+
+/// The Home tab's Styles gallery: each tile shows the style's (translated) name in that style,
+/// centred, as WPS does.
 pub fn style_gallery(app: &mut WordApp, ui: &mut Ui, state: &Value) {
     let t = Tokens::get(ui.ctx());
     let current = state.get("style").and_then(Value::as_str).unwrap_or("Normal").to_string();
-    let styles: Vec<(String, String)> = app.session.doc.styles.gallery().iter().map(|s| (s.id.clone(), s.name.clone())).collect();
+    let styles: Vec<(String, String, bool)> =
+        app.session.doc.styles.gallery().iter().map(|s| (s.id.clone(), s.name.clone(), s.kind == wordcraft_doc::StyleKind::Character)).collect();
     let rev = app.session.rev();
     let skey = app.previews.styles_key(&app.session.doc, rev);
     let ppp = ui.ctx().pixels_per_point();
+    let lang = crate::i18n::current().code();
     let start = ui.data(|d| d.get_temp::<usize>(egui::Id::new("gallery_start"))).unwrap_or(0).min(styles.len().saturating_sub(1));
-    let visible = 6usize;
-    let (area, _) = ui.allocate_exact_size(vec2(visible as f32 * 76.0 + 18.0, crate::widgets::CONTENT_H), Sense::hover());
+    let (visible, tile_w) = (5usize, 76.0);
+    let (area, _) = ui.allocate_exact_size(vec2(visible as f32 * tile_w + 20.0, crate::widgets::CONTENT_H), Sense::hover());
     ui.painter().rect(area.shrink(1.0), 4.0, t.input, Stroke::new(1.0, t.border), egui::StrokeKind::Inside);
-    for (k, (id, name)) in styles.iter().skip(start).take(visible).enumerate() {
-        let r = Rect::from_min_size(pos2(area.min.x + 3.0 + k as f32 * 76.0, area.min.y + 3.0), vec2(74.0, area.height() - 6.0));
+    for (k, (id, name, is_char)) in styles.iter().skip(start).take(visible).enumerate() {
+        let r = Rect::from_min_size(pos2(area.min.x + 4.0 + k as f32 * tile_w, area.min.y + 4.0), vec2(tile_w - 2.0, area.height() - 8.0));
         let resp = ui.interact(r, ui.id().with(("style_tile", id)), Sense::click());
         let active = *id == current;
         if active {
@@ -186,10 +248,16 @@ pub fn style_gallery(app: &mut WordApp, ui: &mut Ui, state: &Value) {
         } else if resp.hovered() {
             ui.painter().rect_filled(r, 3.0, t.hover);
         }
-        let key = format!("style:{id}:{skey}:{ppp}");
+        let label = crate::i18n::style_name(name);
+        let key = format!("style:{id}:{lang}:{}:{skey}:{ppp}", t.dark);
         let doc = &app.session.doc;
         let tex = app.previews.get_or(ui.ctx(), &key, || {
-            let mut p = Paragraph::with_text("AaBbCcDd", CharProps::default()).styled(id);
+            // Character styles apply to the run; paragraph styles to the paragraph.
+            let mut p = if *is_char {
+                Paragraph::with_text(&label, CharProps { style: Some(id.clone()), ..Default::default() })
+            } else {
+                Paragraph::with_text(&label, CharProps::default()).styled(id)
+            };
             p.props.space_before = Some(0.0);
             p.props.align = Some(wordcraft_doc::Align::Left);
             // Keep hanging indents (bullets) but start the first line at the tile's left edge.
@@ -197,20 +265,17 @@ pub fn style_gallery(app: &mut WordApp, ui: &mut Ui, state: &Value) {
             p.props.indent_left = Some(if first.is_finite() { (-first).max(0.0) } else { 0.0 });
             p.props.borders = None;
             p.props.shading = None;
-            snippet(doc, p, 220.0, 30.0, ppp, 1.0)
+            snippet(doc, p, 300.0, 60.0, ppp, 1.0).map(|img| crop_to_ink(img, (2.0 * ppp) as usize, t.dark))
         });
         if let Some(h) = tex {
+            // Shrink (never enlarge) big styles such as Title so the name fits the tile.
             let sz = h.size_vec2() / ppp;
-            let ir = Rect::from_min_size(pos2(r.min.x + 3.0, r.min.y + 4.0), sz.min(vec2(68.0, 32.0)));
-            let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2((ir.width() / sz.x).min(1.0), (ir.height() / sz.y).min(1.0)));
-            ui.painter().with_clip_rect(r).image(h.id(), ir, uv, egui::Color32::WHITE);
+            let max = vec2(r.width() - 8.0, (r.height() - 10.0).min(30.0));
+            let k = (max.x / sz.x.max(1.0)).min(max.y / sz.y.max(1.0)).min(1.0);
+            let ir = Rect::from_center_size(r.center(), sz * k);
+            ui.painter().with_clip_rect(r).image(h.id(), ir, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), egui::Color32::WHITE);
         }
-        let mut job = egui::text::LayoutJob::single_section(name.clone(), egui::TextFormat::simple(regular(10.5), t.text));
-        job.wrap = egui::text::TextWrapping::truncate_at_width(r.width() - 6.0);
-        let galley = ui.painter().layout_job(job);
-        let label_pos = pos2(r.center().x - galley.size().x / 2.0, r.max.y - 9.0 - galley.size().y / 2.0);
-        ui.painter().with_clip_rect(r).galley(label_pos, galley, t.text);
-        if resp.on_hover_text(name).clicked() {
+        if resp.on_hover_text(&label).clicked() {
             let _ = app.run("para.style", json!({"style": id}));
         }
     }

@@ -4,7 +4,7 @@ use egui::{Align2, Rect, Sense, Stroke, Ui, pos2, vec2};
 use serde_json::{Value, json};
 
 use crate::theme::{Tokens, medium, regular, semibold};
-use crate::widgets::{CONTENT_H, LABEL_H, big, color_grid, combo, group, menu_button, small, split};
+use crate::widgets::{CONTENT_H, ROW_GAP, big, big_checked, centered_rows, color_grid, combo, group, menu_button, small, split};
 use crate::{WordApp, icons};
 
 /// Ribbon tabs. File opens from the title bar (`chrome::title_bar`), not from this strip.
@@ -93,7 +93,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
         return;
     }
     egui::Panel::top("ribbon")
-        .exact_size(CONTENT_H + LABEL_H + 10.0)
+        .exact_size(CONTENT_H + 10.0)
         .frame(
             egui::Frame::NONE.fill(t.ribbon).inner_margin(egui::Margin { left: 8, right: 8, top: 4, bottom: 4 }).stroke(Stroke::new(1.0, t.border)),
         )
@@ -141,29 +141,31 @@ fn mi(ui: &mut Ui, app: &mut WordApp, label: &str, id: &str, params: Value) {
 fn home(app: &mut WordApp, ui: &mut Ui) {
     let st = app.session.run("format.state", &json!({})).unwrap_or_default();
     let flag = |k: &str| st.get(k).and_then(Value::as_bool).unwrap_or(false);
+    // WPS-style clipboard: Format Painter and Paste as large buttons, Cut and Copy as icons.
     group(ui, "Clipboard", None, app, |ui, app| {
+        let active = app.session.painter.is_some();
+        big_checked(ui, app, "painter", "Format\nPainter", "edit.formatPainter", json!({}), active);
         menu_button(ui, app, "paste", Some("Paste"), "Paste (⌘V)", true, |ui, app| {
             mi(ui, app, "Paste", "edit.paste", json!({}));
             mi(ui, app, "Keep Text Only", "edit.pasteText", json!({}));
             mi(ui, app, "Merge Formatting", "edit.pasteMerge", json!({}));
         });
-        stack(ui, |ui| {
-            small(ui, app, "cut", Some("Cut"), "Cut", "edit.cut", json!({}), false);
-            let r = small(ui, app, "copy", Some("Copy"), "Copy", "edit.copy", json!({}), false);
+        centered_rows(ui, 2, |ui| {
+            small(ui, app, "cut", None, "Cut", "edit.cut", json!({}), false);
+            ui.add_space(ROW_GAP);
+            let r = small(ui, app, "copy", None, "Copy", "edit.copy", json!({}), false);
             if r.clicked() {
                 ui.ctx().copy_text(app.session.clipboard_text.clone());
             }
-            let active = app.session.painter.is_some();
-            small(ui, app, "painter", Some("Format"), "Format Painter", "edit.formatPainter", json!({}), active);
         });
     });
     group(ui, "Font", Some("format.fontDialog"), app, |ui, app| {
-        stack(ui, |ui| {
+        centered_rows(ui, 2, |ui| {
             crate::widgets::row(ui, |ui| {
                 let font = st.get("font").and_then(Value::as_str).unwrap_or("").to_string();
                 let fams = app.previews.families();
                 let prev = app.previews.font_preview_fn();
-                if let Some(f) = combo(ui, "font", 150.0, &font, &fams, Some(&*prev)) {
+                if let Some(f) = combo(ui, "font", 148.0, &font, &fams, Some(&*prev)) {
                     let _ = app.run("format.font", json!({"name": f}));
                 }
                 let size = st
@@ -173,7 +175,7 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
                     .unwrap_or_default();
                 let sizes: Vec<String> =
                     wordcraft_engine::cmd::format::SIZES.iter().map(|s| if s.fract() == 0.0 { format!("{s:.0}") } else { s.to_string() }).collect();
-                if let Some(v) = combo(ui, "size", 52.0, &size, &sizes, None)
+                if let Some(v) = combo(ui, "size", 62.0, &size, &sizes, None)
                     && let Ok(x) = v.trim().parse::<f64>()
                 {
                     let _ = app.run("format.size", json!({"size": x}));
@@ -190,7 +192,7 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
                 });
                 small(ui, app, "clear", None, "Clear All Formatting", "format.clear", json!({}), false);
             });
-            ui.add_space(3.0);
+            ui.add_space(ROW_GAP);
             crate::widgets::row(ui, |ui| {
                 small(ui, app, "bold", None, "Bold", "format.bold", json!({}), flag("bold"));
                 small(ui, app, "italic", None, "Italic", "format.italic", json!({}), flag("italic"));
@@ -256,7 +258,7 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
     group(ui, "Paragraph", Some("para.dialog"), app, |ui, app| {
         let rp = app.session.doc.para_at(&app.session.sel.focus).map(|p| app.session.doc.styles.resolve_para(&p.props));
         let align = rp.as_ref().map(|r| r.align).unwrap_or_default();
-        stack(ui, |ui| {
+        centered_rows(ui, 2, |ui| {
             crate::widgets::row(ui, |ui| {
                 split(ui, app, "bullets", "Bullets", "para.bullets", json!({}), false, None, |ui, app| {
                     ui.label(egui::RichText::new(tl!("Bullet Library")).small().weak());
@@ -301,7 +303,7 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
                 let marks = app.session.view.marks;
                 small(ui, app, "pilcrow", None, "Show/Hide ¶", "view.marks", json!({}), marks);
             });
-            ui.add_space(3.0);
+            ui.add_space(ROW_GAP);
             crate::widgets::row(ui, |ui| {
                 use wordcraft_doc::Align as A;
                 small(ui, app, "alignLeft", None, "Align Left", "para.alignLeft", json!({}), align == A::Left);
@@ -349,10 +351,12 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
     group(ui, "Styles", Some("styles.pane"), app, |ui, app| {
         crate::previews::style_gallery(app, ui, &st);
     });
+    // WPS-style editing: a large Find button, Replace and Select stacked beside it.
     group(ui, "Editing", None, app, |ui, app| {
-        stack(ui, |ui| {
-            small(ui, app, "find", Some("Find"), "Find", "ui.dialog", json!({"name": "find"}), false).clicked();
+        big(ui, app, "find", "Find", "ui.dialog", json!({"name": "find"}), false);
+        centered_rows(ui, 2, |ui| {
             small(ui, app, "replace", Some("Replace"), "Replace", "ui.dialog", json!({"name": "replace"}), false);
+            ui.add_space(ROW_GAP);
             menu_button(ui, app, "select", Some("Select"), "Select", false, |ui, app| {
                 mi(ui, app, "Select All", "select.all", json!({}));
                 mi(ui, app, "Select Paragraph", "select.paragraph", json!({}));
