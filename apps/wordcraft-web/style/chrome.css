@@ -93,6 +93,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .wc-chip { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 10px; border: 1px solid var(--wc-border-strong);
   border-radius: 4px; background: var(--wc-input); white-space: nowrap; }
 .wc-chip:hover { background: var(--wc-hover); }
+.wc-chip.read-only, .wc-chip.read-only:hover { background: var(--wc-input); color: var(--wc-text-dim); cursor: default; opacity: 1; }
 .wc-share { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 12px; border: 0; border-radius: 4px;
   background: var(--wc-accent); color: #fff; }
 .wc-share:hover { filter: brightness(1.08); }

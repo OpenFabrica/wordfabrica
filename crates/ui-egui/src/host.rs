@@ -116,6 +116,8 @@ pub struct StatusState {
     /// The document-wide default language the language menu marks as current.
     pub default_lang: String,
     pub track_changes: bool,
+    /// The host opened the document read-only (e.g. a view link): the edit-mode button says so.
+    pub read_only: bool,
     pub hosted: Option<HostedStatus>,
     /// The latest status message (English source or already formatted) and a counter that
     /// changes with every message, so the host can show each one for a few seconds.
@@ -485,6 +487,7 @@ impl WordApp {
             doc_lang,
             default_lang: self.session.doc.styles.default_chr.lang.clone().unwrap_or_else(|| "en-US".into()),
             track_changes: self.session.doc.settings.track_changes,
+            read_only: self.session.read_only,
             hosted,
             message: self.status_msg.as_ref().map(|(m, _)| m.clone()),
             message_seq: self.status_seq,

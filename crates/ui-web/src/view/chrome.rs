@@ -87,6 +87,7 @@ pub fn tab_strip(b: Bridge) -> impl IntoView {
     let backstage = b.select(|s| s.backstage);
     let in_table = b.select(|s| s.in_table);
     let track = b.select(|s| s.status.track_changes);
+    let read_only = b.select(|s| s.status.read_only);
     let dark = b.select(|s| s.dark);
     let b1 = b.clone();
     let tabs = move || {
@@ -117,8 +118,15 @@ pub fn tab_strip(b: Bridge) -> impl IntoView {
                 <span class="wc-icon14" inner_html=move || icon_svg("newComment", 14.0, dark.get(), true)></span>
                 {t("Comments")}
             </button>
-            <button class="wc-chip" aria-haspopup="menu" on:mousedown=keep_focus on:click=move |ev| menus::toggle(&b3, "editMode", &ev, MenuSource::EditMode)>
-                {move || format!("✎ {} ▾", if track.get() { t("Reviewing") } else { t("Editing") })}
+            // Read-only (view link): a plain label instead of the Editing/Reviewing menu.
+            <button class="wc-chip" class:read-only=read_only aria-haspopup="menu" disabled=read_only
+                title=move || read_only.get().then(|| t("This document is open read-only"))
+                on:mousedown=keep_focus on:click=move |ev| menus::toggle(&b3, "editMode", &ev, MenuSource::EditMode)>
+                {move || if read_only.get() {
+                    format!("🔒 {}", t("Read only"))
+                } else {
+                    format!("✎ {} ▾", if track.get() { t("Reviewing") } else { t("Editing") })
+                }}
             </button>
             <button class="wc-share" title=t("Export a copy to share (PDF, Word document)") on:mousedown=keep_focus
                 on:click=move |_| b4.send(Action::run("ui.backstage", json!({"value": true, "page": "export"})))>
