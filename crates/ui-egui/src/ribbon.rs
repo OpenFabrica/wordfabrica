@@ -782,8 +782,9 @@ fn review(app: &mut WordApp, ui: &mut Ui) {
             small(ui, app, "prevComment", Some("Previous"), "Previous Comment", "review.previousComment", json!({}), false);
             small(ui, app, "nextComment", Some("Next"), "Next Comment", "review.nextComment", json!({}), false);
         });
-        let shown = app.session.view.comments_pane;
-        big(ui, app, "showComments", "Show\nComments", "view.commentsPane", json!({"value": !shown}), false);
+        // Shows or hides the balloons beside the page; the list lives in the Comments pane.
+        let shown = app.session.view.show_comments;
+        big_checked(ui, app, "showComments", "Show\nComments", "view.showComments", json!({"value": !shown}), shown);
     });
     group(ui, "Tracking", None, app, |ui, app| {
         let on = app.session.doc.settings.track_changes;

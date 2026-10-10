@@ -88,7 +88,7 @@ pub struct Geometry {
 pub fn markup_width(app: &WordApp) -> f32 {
     let v = &app.session.view;
     // Word shows comments either in balloons (contextual) or in the Comments pane (list).
-    let on = v.show_markup && !v.comments_pane && !v.read_mode && !v.multi_page && v.mode == wordcraft_layout::ViewMode::Print;
+    let on = v.show_markup && v.show_comments && !v.comments_pane && !v.read_mode && !v.multi_page && v.mode == wordcraft_layout::ViewMode::Print;
     if on && !app.session.doc.comments.is_empty() { 216.0 } else { 0.0 }
 }
 

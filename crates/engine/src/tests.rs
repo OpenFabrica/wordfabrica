@@ -260,6 +260,12 @@ fn comments() {
     run(&mut s, "edit.undo", json!({}));
     assert_eq!(run(&mut s, "review.comments", json!({}))[0]["text"], "Nice");
     assert!(s.run("review.editComment", &json!({"id": 999, "text": "x"})).is_err());
+    // Show Comments toggles the balloons, not the Comments pane.
+    assert!(s.view.show_comments);
+    run(&mut s, "view.showComments", json!({}));
+    assert!(!s.view.show_comments && !s.view.comments_pane);
+    run(&mut s, "view.showComments", json!({"value": true}));
+    assert!(s.view.show_comments);
     run(&mut s, "review.deleteComment", json!({"id": id}));
     assert!(s.doc.comments.is_empty());
     assert_eq!(s.doc.para_at(&Pos::body(0, 0)).unwrap().objects.len(), 0);

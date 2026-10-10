@@ -262,6 +262,8 @@ impl WordApp {
         if params.get("text").and_then(Value::as_str).is_some_and(|t| !t.is_empty()) {
             return;
         }
+        // Adding a comment brings hidden balloons back, so it can be typed beside the page.
+        self.session.view.show_comments = true;
         if canvas::markup_width(self) > 0.0 {
             canvas::edit_comment(self, id);
         } else {

@@ -51,6 +51,8 @@ pub struct ViewState {
     pub web_width: f32,
     pub dark_mode: bool,
     pub show_markup: bool,
+    /// Comment balloons beside the page (Review › Show Comments).
+    pub show_comments: bool,
     pub track_changes_pane: bool,
     /// Check spelling and grammar as you type.
     pub proofing: bool,
@@ -74,6 +76,7 @@ impl Default for ViewState {
             web_width: 800.0,
             dark_mode: false,
             show_markup: true,
+            show_comments: true,
             track_changes_pane: false,
             proofing: true,
         }
