@@ -3,13 +3,13 @@
 //! running a command, so agents get the same result without the dialog.
 
 use egui::{Sense, Ui, vec2};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::WordApp;
 use crate::theme::{Tokens, semibold};
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "dialog", rename_all = "camelCase")]
 pub enum Dialog {
     Font {
@@ -229,6 +229,222 @@ impl Dialog {
     }
 }
 
+/// A dialog button. Both the egui dialogs and hosted (HTML) dialogs go through [`press`], so a
+/// dialog runs the same commands whichever front end shows it.
+#[derive(Clone, Debug, PartialEq)]
+pub enum DialogButton {
+    Ok,
+    Cancel,
+    /// Find and Replace.
+    FindNext,
+    Replace,
+    ReplaceAll,
+    /// Zoom: fit `pageWidth`, `onePage` or `multiplePages`.
+    Fit(String),
+    /// Bookmark: jump to a bookmark by name.
+    GotoBookmark(String),
+    /// Command search: run this command id.
+    Command(String),
+}
+
+/// Carry out `button` on dialog `d` (as the user left the form). Returns true when the dialog
+/// should close. Messages (Find's match count…) are written back into `d`.
+pub fn press(app: &mut WordApp, d: &mut Dialog, button: &DialogButton) -> bool {
+    use DialogButton as B;
+    if *button == B::Cancel {
+        return true;
+    }
+    match d {
+        Dialog::Font { font, size, bold, italic, underline, strike, sup, sub, small_caps, caps, hidden, color, spacing } => {
+            if *button != B::Ok {
+                return false;
+            }
+            let mut props = json!({
+                "bold": *bold, "italic": *italic, "strike": *strike,
+                "underline": if *underline { "single" } else { "none" },
+                "vertAlign": if *sup { "superscript" } else if *sub { "subscript" } else { "baseline" },
+                "smallCaps": *small_caps, "caps": *caps, "hidden": *hidden, "spacing": *spacing,
+            });
+            if !font.trim().is_empty() {
+                props["font"] = json!(font.trim());
+            }
+            if let Ok(s) = size.trim().parse::<f64>() {
+                props["size"] = json!(s);
+            }
+            if let Some(c) = wordcraft_doc::Rgb::parse(color) {
+                props["color"] = json!({"Rgb": [c.0, c.1, c.2]});
+            }
+            let _ = app.run("format.set", json!({"props": props}));
+            true
+        }
+        Dialog::Paragraph { align, left, right, first, before, after, line, keep_next, keep_lines, page_break, widow } => {
+            if *button != B::Ok {
+                return false;
+            }
+            let _ = app.run("para.align", json!({"value": align}));
+            let _ = app.run(
+                "para.set",
+                json!({"props": {
+                    "indentLeft": *left * 72.0, "indentRight": *right * 72.0, "indentFirst": *first * 72.0,
+                    "spaceBefore": *before, "spaceAfter": *after, "lineSpacing": {"rule": "multiple", "value": *line},
+                    "keepNext": *keep_next, "keepLines": *keep_lines, "pageBreakBefore": *page_break, "widowControl": *widow,
+                }}),
+            );
+            true
+        }
+        Dialog::Find { query, replace, match_case, whole_word, regex, message, .. } => {
+            let opts = json!({"text": query, "with": replace, "matchCase": *match_case, "wholeWord": *whole_word, "regex": *regex});
+            match button {
+                B::ReplaceAll => match app.run("edit.replaceAll", opts) {
+                    Ok(r) => *message = format!("All done. We made {} replacements.", r["replaced"]),
+                    Err(e) => *message = e,
+                },
+                B::Replace => {
+                    let _ = app.run("edit.replace", opts);
+                }
+                B::FindNext | B::Ok => {
+                    let _ = app.session.run("edit.find", &opts);
+                    match app.run("edit.findNext", json!({})) {
+                        Ok(r) => *message = format!("Match {} of {}", r["index"].as_u64().unwrap_or(0) + 1, r["count"]),
+                        Err(e) => *message = e,
+                    }
+                }
+                _ => {}
+            }
+            false
+        }
+        Dialog::Goto { page } => {
+            if *button != B::Ok {
+                return false;
+            }
+            if let Ok(n) = page.trim().parse::<u64>() {
+                let _ = app.run("edit.goto", json!({"page": n}));
+            }
+            true
+        }
+        Dialog::InsertTable { rows, cols } => {
+            if *button != B::Ok {
+                return false;
+            }
+            let _ = app.run("insert.table", json!({"rows": *rows, "cols": *cols}));
+            true
+        }
+        Dialog::PageSetup { top, bottom, left, right, landscape } => {
+            if *button != B::Ok {
+                return false;
+            }
+            let _ = app.run("layout.orientation", json!({"value": if *landscape { "landscape" } else { "portrait" }}));
+            let _ = app.run("layout.margins", json!({"top": *top * 72.0, "bottom": *bottom * 72.0, "left": *left * 72.0, "right": *right * 72.0}));
+            true
+        }
+        Dialog::Link { url, text } => {
+            if *button != B::Ok {
+                return false;
+            }
+            let _ = app.run("insert.link", json!({"url": url, "text": text}));
+            true
+        }
+        Dialog::Bookmark { name } => match button {
+            B::GotoBookmark(n) => {
+                let _ = app.run("edit.goto", json!({"bookmark": n}));
+                false
+            }
+            B::Ok => {
+                let _ = app.run("insert.bookmark", json!({"name": name}));
+                true
+            }
+            _ => false,
+        },
+        Dialog::WordCount { .. } | Dialog::About { .. } => *button == B::Ok,
+        Dialog::Zoom { percent } => match button {
+            B::Fit(f) => {
+                let _ = app.run("view.zoom", json!({"value": f}));
+                true
+            }
+            B::Ok => {
+                let _ = app.run("view.zoom", json!({"value": *percent}));
+                true
+            }
+            _ => false,
+        },
+        Dialog::Watermark { text, diagonal } => {
+            if *button != B::Ok {
+                return false;
+            }
+            let _ = app.run("design.watermark", json!({"text": text, "diagonal": *diagonal}));
+            true
+        }
+        Dialog::NewStyle { name, based_on } => {
+            if *button != B::Ok {
+                return false;
+            }
+            let _ = app.run("styles.create", json!({"name": name, "basedOn": based_on}));
+            true
+        }
+        Dialog::ModifyStyle { id, name, font, size, bold, italic, color, before, after } => {
+            if *button != B::Ok {
+                return false;
+            }
+            let mut chr = json!({"font": font, "size": *size, "bold": *bold, "italic": *italic});
+            if let Some(c) = wordcraft_doc::Rgb::parse(color) {
+                chr["color"] = json!({"Rgb": [c.0, c.1, c.2]});
+            }
+            let _ = app.run("styles.modify", json!({"style": id, "name": name, "chr": chr, "para": {"spaceBefore": *before, "spaceAfter": *after}}));
+            true
+        }
+        Dialog::Commands { .. } => match button {
+            B::Command(id) => {
+                let _ = app.run(id, json!({}));
+                true
+            }
+            _ => false,
+        },
+    }
+}
+
+/// Commands matching a search query (label, translated label, id or ribbon location), as the
+/// command search dialog lists them.
+pub fn command_hits<'a>(reg: &'a wordcraft_engine::Registry, query: &str, max: usize) -> Vec<&'a wordcraft_engine::CommandSpec> {
+    let q = query.to_lowercase();
+    let mut hits: Vec<&wordcraft_engine::CommandSpec> = reg
+        .all()
+        .iter()
+        .filter(|c| {
+            !q.is_empty()
+                && !crate::ribbon::hidden_in_ui(c.id)
+                && (c.label.to_lowercase().contains(&q)
+                    || tl!(c.label).to_lowercase().contains(&q)
+                    || c.id.to_lowercase().contains(&q)
+                    || c.location.to_lowercase().contains(&q)
+                    || crate::i18n::location(c.location).to_lowercase().contains(&q))
+        })
+        .collect();
+    hits.truncate(max);
+    hits
+}
+
+/// The window title of a dialog (English source text).
+pub fn title(d: &Dialog) -> &'static str {
+    match d {
+        Dialog::Font { .. } => "Font",
+        Dialog::Paragraph { .. } => "Paragraph",
+        Dialog::Find { replace_mode: false, .. } => "Find",
+        Dialog::Find { .. } => "Find and Replace",
+        Dialog::Goto { .. } => "Go To",
+        Dialog::InsertTable { .. } => "Insert Table",
+        Dialog::PageSetup { .. } => "Page Setup",
+        Dialog::Link { .. } => "Insert Hyperlink",
+        Dialog::Bookmark { .. } => "Bookmark",
+        Dialog::WordCount { .. } => "Word Count",
+        Dialog::Zoom { .. } => "Zoom",
+        Dialog::Watermark { .. } => "Custom Watermark",
+        Dialog::NewStyle { .. } => "Create New Style",
+        Dialog::ModifyStyle { .. } => "Modify Style",
+        Dialog::Commands { .. } => "Search Commands",
+        Dialog::About { .. } => "About WordCraft",
+    }
+}
+
 /// Grid picker for Insert › Table (hover to size, click to insert).
 pub fn table_grid_picker(ui: &mut Ui, app: &mut WordApp) {
     let t = Tokens::get(ui.ctx());
@@ -270,24 +486,8 @@ pub fn show(app: &mut WordApp, ctx: &egui::Context) {
     let Some(mut d) = app.dialog.take() else { return };
     let mut open = true;
     let mut close = false;
-    let title = match &d {
-        Dialog::Font { .. } => "Font",
-        Dialog::Paragraph { .. } => "Paragraph",
-        Dialog::Find { replace_mode: false, .. } => "Find",
-        Dialog::Find { .. } => "Find and Replace",
-        Dialog::Goto { .. } => "Go To",
-        Dialog::InsertTable { .. } => "Insert Table",
-        Dialog::PageSetup { .. } => "Page Setup",
-        Dialog::Link { .. } => "Insert Hyperlink",
-        Dialog::Bookmark { .. } => "Bookmark",
-        Dialog::WordCount { .. } => "Word Count",
-        Dialog::Zoom { .. } => "Zoom",
-        Dialog::Watermark { .. } => "Custom Watermark",
-        Dialog::NewStyle { .. } => "Create New Style",
-        Dialog::ModifyStyle { .. } => "Modify Style",
-        Dialog::Commands { .. } => "Search Commands",
-        Dialog::About { .. } => "About WordCraft",
-    };
+    let mut pressed = None;
+    let title = title(&d);
     egui::Window::new(tl!(title))
         .id(egui::Id::new(("dialog", title)))
         .collapsible(false)
@@ -296,8 +496,11 @@ pub fn show(app: &mut WordApp, ctx: &egui::Context) {
         .open(&mut open)
         .show(ctx, |ui| {
             ui.set_min_width(340.0);
-            close = body(app, ui, &mut d);
+            pressed = body(app, ui, &mut d);
         });
+    if let Some(b) = pressed {
+        close = press(app, &mut d, &b);
+    }
     if open && !close {
         app.dialog = Some(d);
     } else {
@@ -322,8 +525,19 @@ fn buttons(ui: &mut Ui, ok: &str) -> (bool, bool) {
     r
 }
 
-/// Returns true to close.
-fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
+/// The OK/Cancel pair as a pressed button.
+fn ok_cancel((ok, cancel): (bool, bool)) -> Option<DialogButton> {
+    if ok {
+        Some(DialogButton::Ok)
+    } else if cancel {
+        Some(DialogButton::Cancel)
+    } else {
+        None
+    }
+}
+
+/// Draw the dialog's form; returns the button pressed this frame, if any.
+fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> Option<DialogButton> {
     match d {
         Dialog::Font { font, size, bold, italic, underline, strike, sup, sub, small_caps, caps, hidden, color, spacing } => {
             egui::Grid::new("fontdlg").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
@@ -358,26 +572,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 ui.checkbox(hidden, tl!("Hidden"));
                 ui.end_row();
             });
-            let (ok, cancel) = buttons(ui, tl!("OK"));
-            if ok {
-                let mut props = json!({
-                    "bold": *bold, "italic": *italic, "strike": *strike,
-                    "underline": if *underline { "single" } else { "none" },
-                    "vertAlign": if *sup { "superscript" } else if *sub { "subscript" } else { "baseline" },
-                    "smallCaps": *small_caps, "caps": *caps, "hidden": *hidden, "spacing": *spacing,
-                });
-                if !font.trim().is_empty() {
-                    props["font"] = json!(font.trim());
-                }
-                if let Ok(s) = size.trim().parse::<f64>() {
-                    props["size"] = json!(s);
-                }
-                if let Some(c) = wordcraft_doc::Rgb::parse(color) {
-                    props["color"] = json!({"Rgb": [c.0, c.1, c.2]});
-                }
-                let _ = app.run("format.set", json!({"props": props}));
-            }
-            ok || cancel
+            ok_cancel(buttons(ui, tl!("OK")))
         }
         Dialog::Paragraph { align, left, right, first, before, after, line, keep_next, keep_lines, page_break, widow } => {
             ui.label(egui::RichText::new(tl!("General")).font(semibold(12.5)));
@@ -413,19 +608,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
             ui.checkbox(keep_next, tl!("Keep with next"));
             ui.checkbox(keep_lines, tl!("Keep lines together"));
             ui.checkbox(page_break, tl!("Page break before"));
-            let (ok, cancel) = buttons(ui, tl!("OK"));
-            if ok {
-                let _ = app.run("para.align", json!({"value": align}));
-                let _ = app.run(
-                    "para.set",
-                    json!({"props": {
-                        "indentLeft": *left * 72.0, "indentRight": *right * 72.0, "indentFirst": *first * 72.0,
-                        "spaceBefore": *before, "spaceAfter": *after, "lineSpacing": {"rule": "multiple", "value": *line},
-                        "keepNext": *keep_next, "keepLines": *keep_lines, "pageBreakBefore": *page_break, "widowControl": *widow,
-                    }}),
-                );
-            }
-            ok || cancel
+            ok_cancel(buttons(ui, tl!("OK")))
         }
         Dialog::Find { query, replace, match_case, whole_word, regex, replace_mode, message } => {
             ui.horizontal(|ui| {
@@ -454,43 +637,31 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
             if !message.is_empty() {
                 ui.label(egui::RichText::new(message.as_str()).weak());
             }
-            let opts = json!({"text": query, "with": replace, "matchCase": *match_case, "wholeWord": *whole_word, "regex": *regex});
-            let mut close = false;
+            let mut pressed = None;
             ui.horizontal(|ui| {
                 if *replace_mode {
                     if ui.button(tl!("Replace All")).clicked() {
-                        match app.run("edit.replaceAll", opts.clone()) {
-                            Ok(r) => *message = format!("All done. We made {} replacements.", r["replaced"]),
-                            Err(e) => *message = e,
-                        }
+                        pressed = Some(DialogButton::ReplaceAll);
                     }
                     if ui.button(tl!("Replace")).clicked() {
-                        let _ = app.run("edit.replace", opts.clone());
+                        pressed = Some(DialogButton::Replace);
                     }
                 }
                 if ui.button(tl!("Find Next")).clicked() || ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                    let _ = app.session.run("edit.find", &opts);
-                    match app.run("edit.findNext", json!({})) {
-                        Ok(r) => *message = format!("Match {} of {}", r["index"].as_u64().unwrap_or(0) + 1, r["count"]),
-                        Err(e) => *message = e,
-                    }
+                    pressed = Some(DialogButton::FindNext);
                 }
                 if ui.button(tl!("Close")).clicked() || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
-                    close = true;
+                    pressed = Some(DialogButton::Cancel);
                 }
             });
-            close
+            pressed
         }
         Dialog::Goto { page } => {
             ui.horizontal(|ui| {
                 ui.label(tl!("Enter page number:"));
                 ui.text_edit_singleline(page);
             });
-            let (ok, cancel) = buttons(ui, tl!("Go To"));
-            if ok && let Ok(n) = page.trim().parse::<u64>() {
-                let _ = app.run("edit.goto", json!({"page": n}));
-            }
-            ok || cancel
+            ok_cancel(buttons(ui, tl!("Go To")))
         }
         Dialog::InsertTable { rows, cols } => {
             egui::Grid::new("it").num_columns(2).show(ui, |ui| {
@@ -501,11 +672,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 ui.add(egui::DragValue::new(rows).range(1..=1000));
                 ui.end_row();
             });
-            let (ok, cancel) = buttons(ui, tl!("OK"));
-            if ok {
-                let _ = app.run("insert.table", json!({"rows": *rows, "cols": *cols}));
-            }
-            ok || cancel
+            ok_cancel(buttons(ui, tl!("OK")))
         }
         Dialog::PageSetup { top, bottom, left, right, landscape } => {
             ui.label(egui::RichText::new(tl!("Margins")).font(semibold(12.5)));
@@ -526,13 +693,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 ui.radio_value(landscape, false, tl!("Portrait"));
                 ui.radio_value(landscape, true, tl!("Landscape"));
             });
-            let (ok, cancel) = buttons(ui, tl!("OK"));
-            if ok {
-                let _ = app.run("layout.orientation", json!({"value": if *landscape { "landscape" } else { "portrait" }}));
-                let _ =
-                    app.run("layout.margins", json!({"top": *top * 72.0, "bottom": *bottom * 72.0, "left": *left * 72.0, "right": *right * 72.0}));
-            }
-            ok || cancel
+            ok_cancel(buttons(ui, tl!("OK")))
         }
         Dialog::Link { url, text } => {
             egui::Grid::new("lnk").num_columns(2).show(ui, |ui| {
@@ -543,26 +704,19 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 ui.text_edit_singleline(url);
                 ui.end_row();
             });
-            let (ok, cancel) = buttons(ui, tl!("OK"));
-            if ok {
-                let _ = app.run("insert.link", json!({"url": url, "text": text}));
-            }
-            ok || cancel
+            ok_cancel(buttons(ui, tl!("OK")))
         }
         Dialog::Bookmark { name } => {
             ui.label(tl!("Bookmark name:"));
             ui.text_edit_singleline(name);
             let marks = app.session.doc.bookmarks();
+            let mut pressed = None;
             for (n, _) in &marks {
                 if ui.selectable_label(false, n).clicked() {
-                    let _ = app.run("edit.goto", json!({"bookmark": n}));
+                    pressed = Some(DialogButton::GotoBookmark(n.clone()));
                 }
             }
-            let (ok, cancel) = buttons(ui, tl!("Add"));
-            if ok {
-                let _ = app.run("insert.bookmark", json!({"name": name}));
-            }
-            ok || cancel
+            ok_cancel(buttons(ui, tl!("Add"))).or(pressed)
         }
         Dialog::WordCount { stats } => {
             egui::Grid::new("wc").num_columns(2).spacing(vec2(30.0, 6.0)).show(ui, |ui| {
@@ -579,8 +733,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                     ui.end_row();
                 }
             });
-            let (ok, cancel) = buttons(ui, tl!("Close"));
-            ok || cancel
+            ok_cancel(buttons(ui, tl!("Close")))
         }
         Dialog::Zoom { percent } => {
             ui.horizontal(|ui| {
@@ -602,14 +755,9 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 }
             });
             if let Some(f) = fit {
-                let _ = app.run("view.zoom", json!({"value": f}));
-                return true;
+                return Some(DialogButton::Fit(f.to_string()));
             }
-            let (ok, cancel) = buttons(ui, tl!("OK"));
-            if ok {
-                let _ = app.run("view.zoom", json!({"value": *percent}));
-            }
-            ok || cancel
+            ok_cancel(buttons(ui, tl!("OK")))
         }
         Dialog::Watermark { text, diagonal } => {
             ui.horizontal(|ui| {
@@ -620,11 +768,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 ui.radio_value(diagonal, true, tl!("Diagonal"));
                 ui.radio_value(diagonal, false, tl!("Horizontal"));
             });
-            let (ok, cancel) = buttons(ui, tl!("OK"));
-            if ok {
-                let _ = app.run("design.watermark", json!({"text": text, "diagonal": *diagonal}));
-            }
-            ok || cancel
+            ok_cancel(buttons(ui, tl!("OK")))
         }
         Dialog::NewStyle { name, based_on } => {
             egui::Grid::new("ns").num_columns(2).show(ui, |ui| {
@@ -636,13 +780,9 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 ui.end_row();
             });
             ui.label(egui::RichText::new(tl!("The new style takes the formatting of the current paragraph.")).small().weak());
-            let (ok, cancel) = buttons(ui, tl!("OK"));
-            if ok {
-                let _ = app.run("styles.create", json!({"name": name, "basedOn": based_on}));
-            }
-            ok || cancel
+            ok_cancel(buttons(ui, tl!("OK")))
         }
-        Dialog::ModifyStyle { id, name, font, size, bold, italic, color, before, after } => {
+        Dialog::ModifyStyle { name, font, size, bold, italic, color, before, after, .. } => {
             egui::Grid::new("ms").num_columns(2).show(ui, |ui| {
                 ui.label(tl!("Name:"));
                 ui.text_edit_singleline(name);
@@ -667,46 +807,25 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 ui.checkbox(bold, tl!("Bold"));
                 ui.checkbox(italic, tl!("Italic"));
             });
-            let (ok, cancel) = buttons(ui, tl!("OK"));
-            if ok {
-                let mut chr = json!({"font": font, "size": *size, "bold": *bold, "italic": *italic});
-                if let Some(c) = wordcraft_doc::Rgb::parse(color) {
-                    chr["color"] = json!({"Rgb": [c.0, c.1, c.2]});
-                }
-                let _ =
-                    app.run("styles.modify", json!({"style": id, "name": name, "chr": chr, "para": {"spaceBefore": *before, "spaceAfter": *after}}));
-            }
-            ok || cancel
+            ok_cancel(buttons(ui, tl!("OK")))
         }
         Dialog::Commands { query } => {
             let r = ui.add(egui::TextEdit::singleline(query).hint_text(tl!("Type a command, e.g. \"insert table\"")).desired_width(380.0));
             r.request_focus();
-            let q = query.to_lowercase();
             let reg = app.session.registry.clone();
-            let mut hits: Vec<&wordcraft_engine::CommandSpec> = reg
-                .all()
-                .iter()
-                .filter(|c| {
-                    !q.is_empty()
-                        && !crate::ribbon::hidden_in_ui(c.id)
-                        && (c.label.to_lowercase().contains(&q)
-                            || tl!(c.label).to_lowercase().contains(&q)
-                            || c.id.to_lowercase().contains(&q)
-                            || c.location.to_lowercase().contains(&q)
-                            || crate::i18n::location(c.location).to_lowercase().contains(&q))
-                })
-                .collect();
-            hits.truncate(14);
-            let mut close = false;
+            let hits = command_hits(&reg, query, 14);
+            let mut pressed = None;
             for c in hits {
                 let sc = crate::widgets::shortcut_text(app, c.id);
                 let label = format!("{}   —   {}", tl!(c.label), crate::i18n::location(c.location));
                 if ui.add(egui::Button::new(label).shortcut_text(sc).min_size(vec2(380.0, 0.0))).clicked() {
-                    let _ = app.run(c.id, json!({}));
-                    close = true;
+                    pressed = Some(DialogButton::Command(c.id.to_string()));
                 }
             }
-            close || ui.input(|i| i.key_pressed(egui::Key::Escape))
+            if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                pressed = Some(DialogButton::Cancel);
+            }
+            pressed
         }
         Dialog::About { tab } => {
             ui.set_width(660.0);
@@ -741,8 +860,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                     );
                 }
             }
-            let (ok, cancel) = buttons(ui, tl!("Close"));
-            ok || cancel
+            ok_cancel(buttons(ui, tl!("Close")))
         }
     }
 }

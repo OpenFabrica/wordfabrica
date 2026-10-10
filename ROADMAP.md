@@ -112,6 +112,15 @@ the icon art).
 - Initial scope is a single trusted workspace. Realtime co-editing, accounts and revision history are future work.
 - Setup, API and boundaries: [web storage](docs/web-storage.md); [user help](docs/web-help.md).
 
+## Web chrome (WEB.2, 2026-10-10)
+
+- The browser's title bar, tabs, ribbon, menus, panes, dialogs, File screen and status bar are HTML/CSS written in Rust (Leptos, `crates/ui-web`); the document stays the egui canvas.
+- One editing state: the chrome reads a `ChromeState` snapshot after each frame and sends `Action`s; it never keeps its own copy of the document, selection or undo history.
+- Dialog buttons share `dialogs::press` with egui; icons are the same code-drawn artwork exported as SVG; previews are engine-rendered PNGs.
+- Focus: toolbar clicks keep the selection, text fields don't trigger document shortcuts, F6/Escape move between ribbon and document. `?egui-chrome` keeps the all-egui interface.
+- Web Layout: its one long page renders in texture bands at full resolution (no blurry text), and the status bar and Word Count report printed pages.
+- Design and rules: [web UI](docs/web-ui.md).
+
 ## Recently landed
 - Text wraps around floating pictures and shapes; text boxes lay out their own text.
 - Table rows split across pages between lines (Can't Split honoured, header rows repeat).

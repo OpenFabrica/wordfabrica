@@ -63,15 +63,7 @@ impl Previews {
                     ui.ctx().request_repaint();
                     return None;
                 }
-                let ppp = ui.ctx().pixels_per_point();
-                let img = snippet(
-                    &Document::new(),
-                    Paragraph::with_text(name, CharProps { font: Some(name.to_string()), size: Some(13.0), ..Default::default() }),
-                    240.0,
-                    20.0,
-                    ppp,
-                    2.0,
-                )?;
+                let img = font_image(name, ui.ctx().pixels_per_point())?;
                 let h = ui.ctx().load_texture(&key, img, egui::TextureOptions::LINEAR);
                 ui.ctx().data_mut(|d| d.insert_temp(egui::Id::new(&key), h.clone()));
                 Some(h)
@@ -118,7 +110,7 @@ impl Previews {
     }
 
     /// Hash of the style sheet (recomputed only when the document revision changes).
-    fn styles_key(&mut self, app_doc: &Document, rev: u64) -> u64 {
+    pub(crate) fn styles_key(&mut self, app_doc: &Document, rev: u64) -> u64 {
         if self.styles_hash.0 != rev {
             let s = serde_json::to_string(&(&app_doc.styles, &app_doc.settings.theme_colors)).unwrap_or_default();
             use std::hash::{Hash, Hasher};
@@ -251,22 +243,7 @@ pub fn style_gallery(app: &mut WordApp, ui: &mut Ui, state: &Value) {
         let label = crate::i18n::style_name(name);
         let key = format!("style:{id}:{lang}:{}:{skey}:{ppp}", t.dark);
         let doc = &app.session.doc;
-        let tex = app.previews.get_or(ui.ctx(), &key, || {
-            // Character styles apply to the run; paragraph styles to the paragraph.
-            let mut p = if *is_char {
-                Paragraph::with_text(&label, CharProps { style: Some(id.clone()), ..Default::default() })
-            } else {
-                Paragraph::with_text(&label, CharProps::default()).styled(id)
-            };
-            p.props.space_before = Some(0.0);
-            p.props.align = Some(wordcraft_doc::Align::Left);
-            // Keep hanging indents (bullets) but start the first line at the tile's left edge.
-            let first = doc.styles.resolve_para(&p.props).indent_first;
-            p.props.indent_left = Some(if first.is_finite() { (-first).max(0.0) } else { 0.0 });
-            p.props.borders = None;
-            p.props.shading = None;
-            snippet(doc, p, 300.0, 60.0, ppp, 1.0).map(|img| crop_to_ink(img, (2.0 * ppp) as usize, t.dark))
-        });
+        let tex = app.previews.get_or(ui.ctx(), &key, || style_image(doc, id, &label, *is_char, ppp, t.dark));
         if let Some(h) = tex {
             // Shrink (never enlarge) big styles such as Title so the name fits the tile.
             let sz = h.size_vec2() / ppp;
@@ -320,16 +297,7 @@ fn style_set_tiles(app: &mut WordApp, ui: &mut Ui) {
             ui.painter().rect_filled(r, 3.0, t.hover);
         }
         let key = format!("set:{name}:{ppp}");
-        let tex = app.previews.get_or(ui.ctx(), &key, || {
-            let mut s = wordcraft_engine::Session::new(Document::new());
-            let _ = s.run("design.styleSet", &json!({"name": name}));
-            let blocks = vec![
-                Block::Para(Paragraph::with_text("Title", CharProps::default()).styled("Title")),
-                Block::Para(Paragraph::with_text("Heading 1", CharProps::default()).styled("Heading1")),
-                Block::Para(Paragraph::with_text("Body text in a short paragraph to show spacing.", CharProps::default())),
-            ];
-            snippet_blocks(&s.doc, blocks, 120.0, 110.0, ppp * 0.42, 6.0, None)
-        });
+        let tex = app.previews.get_or(ui.ctx(), &key, || style_set_image(name, ppp));
         if let Some(h) = tex {
             let sz = h.size_vec2() / ppp;
             let ir = Rect::from_min_size(pos2(r.min.x + 3.0, r.min.y + 3.0), sz.min(vec2(50.0, 60.0)));
@@ -353,16 +321,7 @@ pub fn table_style_tile(ui: &mut Ui, app: &mut WordApp, style: &str) -> Response
     }
     let key = format!("tstyle:{style}:{ppp}");
     let doc = &app.session.doc;
-    let tex = app.previews.get_or(ui.ctx(), &key, || {
-        let mut tb = Table::new(5, 4, 100.0);
-        tb.props.style = Some(style.to_string());
-        for row in &mut tb.rows {
-            for c in &mut row.cells {
-                c.blocks = vec![para_block(Paragraph::with_text(" ", CharProps { size: Some(5.0), ..Default::default() }))];
-            }
-        }
-        snippet_blocks(doc, vec![Block::Table(tb), Block::Para(Paragraph::new())], 104.0, 70.0, ppp * 0.48, 4.0, None)
-    });
+    let tex = app.previews.get_or(ui.ctx(), &key, || table_style_image(doc, style, ppp));
     if let Some(h) = tex {
         let sz = h.size_vec2() / ppp;
         let ir = Rect::from_center_size(r.center(), sz.min(vec2(54.0, 42.0)));
@@ -370,6 +329,77 @@ pub fn table_style_tile(ui: &mut Ui, app: &mut WordApp, style: &str) -> Response
         ui.painter().image(h.id(), ir, uv, egui::Color32::WHITE);
     }
     resp
+}
+
+/// The font menu entry for `name`: the name set in its own face.
+pub fn font_image(name: &str, ppp: f32) -> Option<egui::ColorImage> {
+    snippet(
+        &Document::new(),
+        Paragraph::with_text(name, CharProps { font: Some(name.to_string()), size: Some(13.0), ..Default::default() }),
+        240.0,
+        20.0,
+        ppp,
+        2.0,
+    )
+}
+
+/// A Styles gallery tile: `label` in style `id`, cropped to its ink on a transparent background.
+pub fn style_image(doc: &Document, id: &str, label: &str, is_char: bool, ppp: f32, dark: bool) -> Option<egui::ColorImage> {
+    // Character styles apply to the run; paragraph styles to the paragraph.
+    let mut p = if is_char {
+        Paragraph::with_text(label, CharProps { style: Some(id.to_string()), ..Default::default() })
+    } else {
+        Paragraph::with_text(label, CharProps::default()).styled(id)
+    };
+    p.props.space_before = Some(0.0);
+    p.props.align = Some(wordcraft_doc::Align::Left);
+    // Keep hanging indents (bullets) but start the first line at the tile's left edge.
+    let first = doc.styles.resolve_para(&p.props).indent_first;
+    p.props.indent_left = Some(if first.is_finite() { (-first).max(0.0) } else { 0.0 });
+    p.props.borders = None;
+    p.props.shading = None;
+    snippet(doc, p, 300.0, 60.0, ppp, 1.0).map(|img| crop_to_ink(img, (2.0 * ppp) as usize, dark))
+}
+
+/// Design ▸ Document Formatting: a style set shown on a title, a heading and body text.
+pub fn style_set_image(name: &str, ppp: f32) -> Option<egui::ColorImage> {
+    let mut s = wordcraft_engine::Session::new(Document::new());
+    let _ = s.run("design.styleSet", &json!({"name": name}));
+    let blocks = vec![
+        Block::Para(Paragraph::with_text("Title", CharProps::default()).styled("Title")),
+        Block::Para(Paragraph::with_text("Heading 1", CharProps::default()).styled("Heading1")),
+        Block::Para(Paragraph::with_text("Body text in a short paragraph to show spacing.", CharProps::default())),
+    ];
+    snippet_blocks(&s.doc, blocks, 120.0, 110.0, ppp * 0.42, 6.0, None)
+}
+
+/// Table Design: a small empty table in style `style`.
+pub fn table_style_image(doc: &Document, style: &str, ppp: f32) -> Option<egui::ColorImage> {
+    let mut tb = Table::new(5, 4, 100.0);
+    tb.props.style = Some(style.to_string());
+    for row in &mut tb.rows {
+        for c in &mut row.cells {
+            c.blocks = vec![para_block(Paragraph::with_text(" ", CharProps { size: Some(5.0), ..Default::default() }))];
+        }
+    }
+    snippet_blocks(doc, vec![Block::Table(tb), Block::Para(Paragraph::new())], 104.0, 70.0, ppp * 0.48, 4.0, None)
+}
+
+/// File ▸ New: the first page of a template, `width_px` pixels wide.
+pub fn template_image(template: &str, width_px: f32) -> Option<egui::ColorImage> {
+    let mut s = wordcraft_engine::Session::new(Document::new());
+    let _ = s.run("file.new", &json!({"template": template}));
+    let l = s.export_layout();
+    let page = l.pages.first()?;
+    let img = wordcraft_render::render_page(&s.doc, page, width_px / page.w, &Default::default());
+    let px = img.to_straight();
+    Some(egui::ColorImage::from_rgba_unmultiplied([img.width as usize, img.height as usize], &px))
+}
+
+/// Straight (not premultiplied) RGBA bytes of an image, row by row, for hosts that show
+/// previews outside egui (the web chrome puts them in `<img>` elements).
+pub fn straight_rgba(img: &egui::ColorImage) -> Vec<u8> {
+    img.pixels.iter().flat_map(|c| c.to_srgba_unmultiplied()).collect()
 }
 
 #[cfg(test)]

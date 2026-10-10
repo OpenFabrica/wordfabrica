@@ -46,6 +46,7 @@ pub const TABLE: &[(&str, Class)] = &[
     ("engine", Class::Layer(4)),
     ("mcp", Class::Layer(5)),
     ("ui-egui", Class::Layer(6)),
+    ("ui-web", Class::Layer(6)),
     ("testkit", Class::Testkit),
     // apps and tooling
     ("wordcraft", Class::Exempt),
@@ -59,7 +60,8 @@ pub const TABLE: &[(&str, Class)] = &[
 /// The L0 foundation is a small chain: `raster` builds on `color` and
 /// `geom`, which the §3 diagram draws on one line. The GPU backend (`gpu`)
 /// reuses the CPU reference (`compose`) for LUTs and parity tests.
-pub const INTRA_LAYER_ORDER: &[&[&str]] = &[&["doc", "fonts"]];
+/// The web chrome (`ui-web`) wraps the egui app, so it may use `ui-egui`.
+pub const INTRA_LAYER_ORDER: &[&[&str]] = &[&["doc", "fonts"], &["ui-egui", "ui-web"]];
 
 fn intra_layer_allowed(from: &str, to: &str) -> bool {
     let (from, to) = (short_name(from), short_name(to));
@@ -269,6 +271,13 @@ mod tests {
         assert!(check(&[c("wordcraft-doc", &[("wordcraft-geom", Normal, true)])]).is_empty());
         let v = check(&[c("wordcraft-geom", &[("wordcraft-doc", Normal, true)])]);
         assert!(matches!(v[..], [Violation::Upward { from: 0, to: 1, .. }]));
+    }
+
+    #[test]
+    fn web_chrome_may_use_egui_app_not_the_reverse() {
+        assert!(check(&[c("wordcraft-ui-web", &[("wordcraft-ui-egui", Normal, true), ("leptos", Normal, false)])]).is_empty());
+        let v = check(&[c("wordcraft-ui-egui", &[("wordcraft-ui-web", Normal, true)])]);
+        assert!(matches!(v[..], [Violation::Upward { from: 6, to: 6, .. }]));
     }
 
     #[test]

@@ -137,6 +137,8 @@ pub struct Session {
     rev: u64,
     cache: LayoutCache,
     layout: Option<(u64, f32, ViewMode, Arc<DocLayout>, bool)>,
+    /// Print Layout pagination while another view is shown: revision, hidden text shown, layout.
+    print_layout: Option<(u64, bool, Arc<DocLayout>)>,
     /// Picture edits: edited media key → original media key (Reset Picture).
     pub originals: std::collections::HashMap<String, String>,
     /// Last mutating command (Repeat).
@@ -188,6 +190,7 @@ impl Session {
             rev: 1,
             cache: LayoutCache::new(),
             layout: None,
+            print_layout: None,
             originals: Default::default(),
             last_command: None,
             recording: None,
@@ -228,6 +231,29 @@ impl Session {
         self.layout = Some((self.rev, ww, self.view.mode, l.clone(), self.view.proofing));
         l
     }
+    /// The printed pages and the caret's page (1-based), as the status bar and Word Count show
+    /// them. Web Layout and Draft lay the document out as one long page, so their page numbers
+    /// come from a Print Layout pagination kept alongside (like Word).
+    pub fn page_status(&mut self) -> (usize, usize) {
+        let (l, hint) = if self.view.mode == ViewMode::Print {
+            (self.layout(), self.page_hint)
+        } else {
+            let marks = self.view.marks;
+            let l = match &self.print_layout {
+                Some((r, m, l)) if *r == self.rev && *m == marks => l.clone(),
+                _ => {
+                    let opts = LayoutOptions { view: ViewMode::Print, web_width: 0.0, show_hidden: marks, proofing: false };
+                    let l = Arc::new(wordcraft_layout::layout(&self.doc, &mut self.cache, &opts));
+                    self.print_layout = Some((self.rev, marks, l.clone()));
+                    l
+                }
+            };
+            (l, 0)
+        };
+        let page = l.caret_on(&self.sel.focus, hint).map(|c| c.page + 1).unwrap_or(1);
+        (page, l.pages.len().max(1))
+    }
+
     /// A layout for output (PDF, images, print): no proofing marks, print view.
     pub fn export_layout(&self) -> Arc<DocLayout> {
         let opts = LayoutOptions { view: ViewMode::Print, web_width: 0.0, show_hidden: false, proofing: false };
@@ -237,6 +263,7 @@ impl Session {
     /// Invalidate the cached layout (fonts changed etc.).
     pub fn relayout(&mut self) {
         self.layout = None;
+        self.print_layout = None;
         self.cache.clear();
     }
 

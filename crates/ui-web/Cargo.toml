@@ -1,0 +1,25 @@
+[package]
+name = "wordcraft-ui-web"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "WordCraft web chrome: HTML/CSS ribbon, panes, dialogs and File screen (Leptos) around the egui document canvas"
+
+[lints]
+workspace = true
+
+[dependencies]
+wordcraft-ui-egui = { workspace = true }
+wordcraft-engine = { workspace = true }
+wordcraft-doc = { workspace = true }
+wordcraft-geom = { workspace = true }
+serde_json = { workspace = true }
+log = { workspace = true }
+
+# The DOM side only exists in the browser; native builds keep the ribbon model and its tests.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+egui = { workspace = true }
+leptos = { version = "0.8", features = ["csr"] }
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "HtmlCanvasElement", "HtmlDialogElement", "HtmlInputElement", "CanvasRenderingContext2d", "ImageData", "KeyboardEvent", "MouseEvent", "FocusEvent", "Event", "EventTarget", "Navigator", "Node", "DomRect", "CssStyleDeclaration"] }

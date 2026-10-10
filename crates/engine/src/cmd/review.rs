@@ -375,7 +375,7 @@ fn word_count(s: &mut Session, _: &Value) -> CmdResult {
             .map(|it| if let wordcraft_layout::Placed::Lines { l0, l1, story: StoryRef::Body, .. } = it { l1 - l0 } else { 0 })
             .sum()
     };
-    let pages = s.layout().pages.len();
+    let (_, pages) = s.page_status();
     Ok(
         json!({"pages": pages, "words": words, "characters": chars_no_spaces, "charactersWithSpaces": chars, "paragraphs": paragraphs, "lines": lines}),
     )

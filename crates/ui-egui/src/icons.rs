@@ -1,59 +1,213 @@
 //! WordCraft's icon set, drawn in code (original artwork; no external icon assets).
 //!
 //! Icons are designed on a 20×20 grid in two colours: line work (`c`) and an accent (`a`).
+//! The same drawing code paints into egui ([`paint`]) and writes SVG for the web chrome ([`svg`]).
+
+use std::cell::RefCell;
+use std::fmt::Write as _;
 
 use egui::{Color32, FontId, Painter, Pos2, Rect, Shape, Stroke, pos2, vec2};
 
+/// Where an icon is drawn: an egui painter filling a screen rect, or an SVG document whose
+/// coordinates are the 20×20 design grid, `px` pixels wide when shown.
+enum Target<'a> {
+    Egui { p: &'a Painter, r: Rect },
+    Svg { out: RefCell<String>, px: f32 },
+}
+
 struct Pen<'a> {
-    p: &'a Painter,
-    r: Rect,
+    t: &'a Target<'a>,
     c: Color32,
     a: Color32,
     w: f32,
+    /// Nested icons (a smaller icon inside another): grid offset and scale.
+    ox: f32,
+    oy: f32,
+    k: f32,
+}
+
+/// `#rrggbb` and opacity of a colour, for SVG attributes.
+fn svg_color(c: Color32) -> (String, f32) {
+    let [r, g, b, a] = c.to_srgba_unmultiplied();
+    (format!("#{r:02x}{g:02x}{b:02x}"), a as f32 / 255.0)
+}
+
+/// SVG `fill`/`stroke` attribute pair (`kind` is `fill` or `stroke`), with opacity when needed.
+fn svg_paint(kind: &str, c: Color32) -> String {
+    let (hex, op) = svg_color(c);
+    if op >= 0.999 { format!("{kind}=\"{hex}\"") } else { format!("{kind}=\"{hex}\" {kind}-opacity=\"{op:.3}\"") }
+}
+
+/// Text is escaped for SVG character data.
+fn svg_escape(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
 }
 
 impl Pen<'_> {
+    /// Screen pixels per grid unit (including the nesting scale).
     fn s(&self) -> f32 {
-        self.r.width().min(self.r.height()) / 20.0
+        let base = match self.t {
+            Target::Egui { r, .. } => r.width().min(r.height()) / 20.0,
+            Target::Svg { px, .. } => px / 20.0,
+        };
+        base * self.k
     }
+    /// A design-grid point after the nesting transform (still grid units).
+    fn g(&self, x: f32, y: f32) -> (f32, f32) {
+        (self.ox + x * self.k, self.oy + y * self.k)
+    }
+    /// A design-grid point on screen (egui only; SVG keeps grid units).
     fn pt(&self, x: f32, y: f32) -> Pos2 {
-        let s = self.s();
-        let o = self.r.center() - vec2(10.0 * s, 10.0 * s);
-        pos2(o.x + x * s, o.y + y * s)
+        let (gx, gy) = self.g(x, y);
+        match self.t {
+            Target::Egui { r, .. } => {
+                let s = r.width().min(r.height()) / 20.0;
+                let o = r.center() - vec2(10.0 * s, 10.0 * s);
+                pos2(o.x + gx * s, o.y + gy * s)
+            }
+            Target::Svg { .. } => pos2(gx, gy),
+        }
     }
     fn stroke(&self, c: Color32) -> Stroke {
         Stroke::new(self.w * self.s(), c)
+    }
+    /// Append an SVG element (no-op when painting with egui).
+    fn svg(&self, el: String) {
+        if let Target::Svg { out, .. } = self.t {
+            out.borrow_mut().push_str(&el);
+        }
+    }
+    /// SVG `points` attribute for grid points.
+    fn svg_points(&self, pts: &[(f32, f32)]) -> String {
+        let mut s = String::new();
+        for &(x, y) in pts {
+            let (gx, gy) = self.g(x, y);
+            let _ = write!(s, "{gx:.3},{gy:.3} ");
+        }
+        s
+    }
+    /// A polyline `width_px` screen pixels wide (open or closed).
+    fn poly_px(&self, pts: &[(f32, f32)], closed: bool, width_px: f32, c: Color32) {
+        match self.t {
+            Target::Egui { p, .. } => {
+                let v: Vec<Pos2> = pts.iter().map(|&(x, y)| self.pt(x, y)).collect();
+                let stroke = Stroke::new(width_px, c);
+                p.add(if closed { Shape::closed_line(v, stroke) } else { Shape::line(v, stroke) });
+            }
+            Target::Svg { .. } => {
+                let tag = if closed { "polygon" } else { "polyline" };
+                let w = width_px / self.s().max(0.001);
+                self.svg(format!(
+                    "<{tag} points=\"{}\" fill=\"none\" {} stroke-width=\"{w:.3}\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>",
+                    self.svg_points(pts),
+                    svg_paint("stroke", c)
+                ));
+            }
+        }
     }
     fn line(&self, pts: &[(f32, f32)]) {
         self.line_c(pts, self.c);
     }
     fn line_c(&self, pts: &[(f32, f32)], c: Color32) {
-        let v: Vec<Pos2> = pts.iter().map(|&(x, y)| self.pt(x, y)).collect();
-        self.p.add(Shape::line(v, self.stroke(c)));
+        self.poly_px(pts, false, self.w * self.s(), c);
     }
     fn closed(&self, pts: &[(f32, f32)], c: Color32) {
-        let v: Vec<Pos2> = pts.iter().map(|&(x, y)| self.pt(x, y)).collect();
-        self.p.add(Shape::closed_line(v, self.stroke(c)));
+        self.poly_px(pts, true, self.w * self.s(), c);
     }
     fn fill(&self, pts: &[(f32, f32)], c: Color32) {
-        let v: Vec<Pos2> = pts.iter().map(|&(x, y)| self.pt(x, y)).collect();
-        self.p.add(Shape::convex_polygon(v, c, Stroke::NONE));
+        match self.t {
+            Target::Egui { p, .. } => {
+                let v: Vec<Pos2> = pts.iter().map(|&(x, y)| self.pt(x, y)).collect();
+                p.add(Shape::convex_polygon(v, c, Stroke::NONE));
+            }
+            Target::Svg { .. } => self.svg(format!("<polygon points=\"{}\" {}/>", self.svg_points(pts), svg_paint("fill", c))),
+        }
+    }
+    /// Rectangle outline; `radius_px` is in screen pixels like egui's corner radius.
+    fn rect_r(&self, x0: f32, y0: f32, x1: f32, y1: f32, radius_px: f32, width_px: f32, c: Color32) {
+        match self.t {
+            Target::Egui { p, .. } => {
+                p.rect_stroke(Rect::from_min_max(self.pt(x0, y0), self.pt(x1, y1)), radius_px, Stroke::new(width_px, c), egui::StrokeKind::Middle);
+            }
+            Target::Svg { .. } => {
+                let ((gx0, gy0), (gx1, gy1)) = (self.g(x0, y0), self.g(x1, y1));
+                let s = self.s().max(0.001);
+                self.svg(format!(
+                    "<rect x=\"{gx0:.3}\" y=\"{gy0:.3}\" width=\"{:.3}\" height=\"{:.3}\" rx=\"{:.3}\" fill=\"none\" {} stroke-width=\"{:.3}\"/>",
+                    gx1 - gx0,
+                    gy1 - gy0,
+                    radius_px / s,
+                    svg_paint("stroke", c),
+                    width_px / s
+                ));
+            }
+        }
     }
     fn rect(&self, x0: f32, y0: f32, x1: f32, y1: f32, c: Color32) {
-        self.p.rect_stroke(Rect::from_min_max(self.pt(x0, y0), self.pt(x1, y1)), 1.0, self.stroke(c), egui::StrokeKind::Middle);
+        self.rect_r(x0, y0, x1, y1, 1.0, self.w * self.s(), c);
     }
     fn frect(&self, x0: f32, y0: f32, x1: f32, y1: f32, c: Color32) {
-        self.p.rect_filled(Rect::from_min_max(self.pt(x0, y0), self.pt(x1, y1)), 0.5, c);
+        match self.t {
+            Target::Egui { p, .. } => {
+                p.rect_filled(Rect::from_min_max(self.pt(x0, y0), self.pt(x1, y1)), 0.5, c);
+            }
+            Target::Svg { .. } => {
+                let ((gx0, gy0), (gx1, gy1)) = (self.g(x0, y0), self.g(x1, y1));
+                self.svg(format!(
+                    "<rect x=\"{gx0:.3}\" y=\"{gy0:.3}\" width=\"{:.3}\" height=\"{:.3}\" rx=\"{:.3}\" {}/>",
+                    gx1 - gx0,
+                    gy1 - gy0,
+                    0.5 / self.s().max(0.001),
+                    svg_paint("fill", c)
+                ));
+            }
+        }
     }
     fn circle(&self, x: f32, y: f32, r: f32, c: Color32) {
-        self.p.circle_stroke(self.pt(x, y), r * self.s(), self.stroke(c));
+        match self.t {
+            Target::Egui { p, .. } => {
+                p.circle_stroke(self.pt(x, y), r * self.s(), self.stroke(c));
+            }
+            Target::Svg { .. } => {
+                let (gx, gy) = self.g(x, y);
+                self.svg(format!(
+                    "<circle cx=\"{gx:.3}\" cy=\"{gy:.3}\" r=\"{:.3}\" fill=\"none\" {} stroke-width=\"{:.3}\"/>",
+                    r * self.k,
+                    svg_paint("stroke", c),
+                    self.w * self.k
+                ));
+            }
+        }
     }
     fn fcircle(&self, x: f32, y: f32, r: f32, c: Color32) {
-        self.p.circle_filled(self.pt(x, y), r * self.s(), c);
+        match self.t {
+            Target::Egui { p, .. } => {
+                p.circle_filled(self.pt(x, y), r * self.s(), c);
+            }
+            Target::Svg { .. } => {
+                let (gx, gy) = self.g(x, y);
+                self.svg(format!("<circle cx=\"{gx:.3}\" cy=\"{gy:.3}\" r=\"{:.3}\" {}/>", r * self.k, svg_paint("fill", c)));
+            }
+        }
     }
     fn text(&self, x: f32, y: f32, size: f32, t: &str, c: Color32, bold: bool) {
-        let font = if bold { crate::theme::semibold(size * self.s()) } else { FontId::proportional(size * self.s()) };
-        self.p.text(self.pt(x, y), egui::Align2::CENTER_CENTER, t, font, c);
+        match self.t {
+            Target::Egui { p, .. } => {
+                let font = if bold { crate::theme::semibold(size * self.s()) } else { FontId::proportional(size * self.s()) };
+                p.text(self.pt(x, y), egui::Align2::CENTER_CENTER, t, font, c);
+            }
+            Target::Svg { .. } => {
+                let (gx, gy) = self.g(x, y);
+                // egui sizes fonts by line height; SVG by em. 0.8 em is close to the cap layout.
+                self.svg(format!(
+                    "<text x=\"{gx:.3}\" y=\"{gy:.3}\" font-size=\"{:.3}\" font-family=\"system-ui, sans-serif\" font-weight=\"{}\" text-anchor=\"middle\" dominant-baseline=\"central\" {}>{}</text>",
+                    size * self.k * 0.8,
+                    if bold { 600 } else { 400 },
+                    svg_paint("fill", c),
+                    svg_escape(t)
+                ));
+            }
+        }
     }
     /// Horizontal text lines (a paragraph).
     fn lines(&self, x0: f32, x1: f32, ys: &[f32]) {
@@ -66,11 +220,35 @@ impl Pen<'_> {
         self.closed(&[(x0, y0), (x1 - 4.0, y0), (x1, y0 + 4.0), (x1, y1), (x0, y1)], self.c);
         self.line(&[(x1 - 4.0, y0), (x1 - 4.0, y0 + 4.0), (x1, y0 + 4.0)]);
     }
+    /// A smaller copy of this pen: icon `name` drawn scaled by `k` from the grid's top-left.
+    fn nested(&self, name: &str, k: f32, c: Color32, accent: Color32) {
+        let pen = Pen { t: self.t, c, a: accent, w: self.w, ox: self.ox, oy: self.oy, k: self.k * k };
+        draw(&pen, name, c, accent);
+    }
 }
 
 /// Paint icon `name` into `r`. `c` is the line colour; the accent comes from the theme.
 pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32, accent: Color32) {
-    let pen = Pen { p, r, c, a: accent, w: 1.25 };
+    let t = Target::Egui { p, r };
+    let pen = Pen { t: &t, c, a: accent, w: 1.25, ox: 0.0, oy: 0.0, k: 1.0 };
+    draw(&pen, name, c, accent);
+}
+
+/// Icon `name` as a standalone SVG document shown `px` pixels square (stroke widths match
+/// [`paint`] at that size).
+pub fn svg(name: &str, px: f32, c: Color32, accent: Color32) -> String {
+    let t = Target::Svg { out: RefCell::new(String::new()), px: px.clamp(4.0, 256.0) };
+    let pen = Pen { t: &t, c, a: accent, w: 1.25, ox: 0.0, oy: 0.0, k: 1.0 };
+    draw(&pen, name, c, accent);
+    let body = match t {
+        Target::Svg { out, .. } => out.into_inner(),
+        Target::Egui { .. } => String::new(),
+    };
+    format!("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" width=\"{px}\" height=\"{px}\" aria-hidden=\"true\">{body}</svg>")
+}
+
+/// The drawing of every icon, shared by both targets.
+fn draw(pen: &Pen, name: &str, c: Color32, accent: Color32) {
     let a = accent;
     let red = Color32::from_rgb(0xD1, 0x3B, 0x3B);
     let yellow = Color32::from_rgb(0xF2, 0xC8, 0x11);
@@ -187,15 +365,15 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32, accent: Color32) {
         "pilcrow" => pen.text(10.0, 10.5, 15.0, "¶", c, false),
         "alignLeft" => {
             pen.lines(3.0, 17.0, &[4.0, 10.0, 16.0]);
-            ().then_lines(&pen, 3.0, 12.0, &[7.0, 13.0])
+            ().then_lines(pen, 3.0, 12.0, &[7.0, 13.0])
         }
         "alignCenter" => {
             pen.lines(3.0, 17.0, &[4.0, 10.0, 16.0]);
-            ().then_lines(&pen, 6.0, 14.0, &[7.0, 13.0])
+            ().then_lines(pen, 6.0, 14.0, &[7.0, 13.0])
         }
         "alignRight" => {
             pen.lines(3.0, 17.0, &[4.0, 10.0, 16.0]);
-            ().then_lines(&pen, 8.0, 17.0, &[7.0, 13.0])
+            ().then_lines(pen, 8.0, 17.0, &[7.0, 13.0])
         }
         "justify" => pen.lines(3.0, 17.0, &[4.0, 7.0, 10.0, 13.0, 16.0]),
         "lineSpacing" => {
@@ -285,7 +463,7 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32, accent: Color32) {
             pen.fcircle(13.5, 7.0, 1.5, yellow);
         }
         "onlinePicture" => {
-            paint(p, Rect::from_min_size(r.min, r.size() * 0.8), "picture", c, accent);
+            pen.nested("picture", 0.8, c, accent);
             pen.circle(15.0, 15.0, 3.5, a);
         }
         "shapes" => {
@@ -921,29 +1099,25 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32, accent: Color32) {
         }
         "undo" => {
             pen.line(&[(5.0, 8.0), (13.0, 8.0)]);
-            pen.p.add(Shape::line(
-                (0..=12)
-                    .map(|i| {
-                        let t = -std::f32::consts::FRAC_PI_2 + std::f32::consts::PI * i as f32 / 12.0;
-                        pen.pt(13.0 + 4.5 * t.cos(), 12.5 + 4.5 * t.sin())
-                    })
-                    .collect(),
-                pen.stroke(c),
-            ));
+            let arc: Vec<(f32, f32)> = (0..=12)
+                .map(|i| {
+                    let t = -std::f32::consts::FRAC_PI_2 + std::f32::consts::PI * i as f32 / 12.0;
+                    (13.0 + 4.5 * t.cos(), 12.5 + 4.5 * t.sin())
+                })
+                .collect();
+            pen.line_c(&arc, c);
             pen.line(&[(13.0, 17.0), (8.0, 17.0)]);
             pen.fill(&[(2.5, 8.0), (6.5, 4.5), (6.5, 11.5)], a);
         }
         "redo" => {
             pen.line(&[(15.0, 8.0), (7.0, 8.0)]);
-            pen.p.add(Shape::line(
-                (0..=12)
-                    .map(|i| {
-                        let t = std::f32::consts::FRAC_PI_2 + std::f32::consts::PI * i as f32 / 12.0;
-                        pen.pt(7.0 + 4.5 * t.cos(), 12.5 - 4.5 * t.sin())
-                    })
-                    .collect(),
-                pen.stroke(c),
-            ));
+            let arc: Vec<(f32, f32)> = (0..=12)
+                .map(|i| {
+                    let t = std::f32::consts::FRAC_PI_2 + std::f32::consts::PI * i as f32 / 12.0;
+                    (7.0 + 4.5 * t.cos(), 12.5 - 4.5 * t.sin())
+                })
+                .collect();
+            pen.line_c(&arc, c);
             pen.line(&[(7.0, 17.0), (12.0, 17.0)]);
             pen.fill(&[(17.5, 8.0), (13.5, 4.5), (13.5, 11.5)], a);
         }
@@ -958,16 +1132,13 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32, accent: Color32) {
         }
         "user" => {
             pen.fcircle(10.0, 7.0, 3.5, a);
-            pen.p.add(Shape::convex_polygon(
-                (0..=16)
-                    .map(|i| {
-                        let t = std::f32::consts::PI * i as f32 / 16.0;
-                        pen.pt(10.0 - 6.5 * t.cos(), 18.0 - 6.0 * t.sin())
-                    })
-                    .collect(),
-                a,
-                Stroke::NONE,
-            ));
+            let dome: Vec<(f32, f32)> = (0..=16)
+                .map(|i| {
+                    let t = std::f32::consts::PI * i as f32 / 16.0;
+                    (10.0 - 6.5 * t.cos(), 18.0 - 6.0 * t.sin())
+                })
+                .collect();
+            pen.fill(&dome, a);
         }
         "close" => {
             pen.line(&[(5.0, 5.0), (15.0, 15.0)]);
@@ -975,8 +1146,7 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32, accent: Color32) {
         }
         // A small open chevron; a fixed 1.2 px stroke keeps it crisp at the 9–12 px sizes it's drawn at.
         "dropdown" => {
-            let v = vec![pen.pt(5.0, 8.0), pen.pt(10.0, 13.0), pen.pt(15.0, 8.0)];
-            p.add(Shape::line(v, Stroke::new(1.2, c)));
+            pen.poly_px(&[(5.0, 8.0), (10.0, 13.0), (15.0, 8.0)], false, 1.2, c);
         }
         // Three bars: the File menu button in the title bar.
         "menu" => pen.lines(4.0, 16.0, &[5.5, 10.0, 14.5]),
@@ -1023,19 +1193,72 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32, accent: Color32) {
         }
         _ => {
             // Fallback: a rounded tile with the first letter.
-            p.rect_stroke(r.shrink(r.width() * 0.12), 3.0, Stroke::new(1.0, c), egui::StrokeKind::Middle);
+            pen.rect_r(2.4, 2.4, 17.6, 17.6, 3.0, 1.0, c);
             let ch = name.chars().next().map(|x| x.to_ascii_uppercase().to_string()).unwrap_or_default();
-            p.text(r.center(), egui::Align2::CENTER_CENTER, ch, FontId::proportional(r.height() * 0.45), a);
+            pen.text(10.0, 10.0, 9.0, &ch, a, false);
         }
     }
 }
 
 trait ThenLines {
-    fn then_lines(self, pen: &Pen, x0: f32, x1: f32, ys: &[f32]);
+    fn then_lines(self, pen: &Pen<'_>, x0: f32, x1: f32, ys: &[f32]);
 }
 
 impl ThenLines for () {
-    fn then_lines(self, pen: &Pen, x0: f32, x1: f32, ys: &[f32]) {
+    fn then_lines(self, pen: &Pen<'_>, x0: f32, x1: f32, ys: &[f32]) {
         pen.lines(x0, x1, ys);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every icon name with its own drawing, read from the match arms above.
+    fn names() -> Vec<String> {
+        include_str!("icons.rs")
+            .lines()
+            .map(str::trim_start)
+            .filter(|l| l.starts_with('"') && l.contains("=>"))
+            .flat_map(|l| l.split("=>").next().unwrap_or("").split('|').map(|n| n.trim().trim_matches('"').to_string()).collect::<Vec<_>>())
+            .filter(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_alphanumeric()))
+            .collect()
+    }
+
+    #[test]
+    fn every_icon_has_svg_output() {
+        let names = names();
+        assert!(names.len() > 100, "found only {} icon names", names.len());
+        let fallback = svg("zzzUnknown", 16.0, Color32::BLACK, Color32::BLUE);
+        for n in &names {
+            let s = svg(n, 16.0, Color32::BLACK, Color32::BLUE);
+            assert!(s.starts_with("<svg ") && s.ends_with("</svg>"), "{n}: {s}");
+            assert!(s.len() > 120, "{n} drew nothing: {s}");
+            assert!(!s.contains("NaN") && !s.contains("inf"), "{n}: {s}");
+            assert_ne!(s, fallback, "{n} fell through to the fallback tile");
+        }
+    }
+
+    #[test]
+    fn svg_is_sized_and_escaped() {
+        let s = svg("<&>", 1e9, Color32::BLACK, Color32::BLUE);
+        assert!(s.contains("width=\"1000000000\""), "{s}");
+        assert!(!s.contains("<&>"));
+        assert!(svg("bold", 32.0, Color32::from_rgba_unmultiplied(0, 0, 0, 128), Color32::BLUE).contains("opacity"));
+    }
+
+    #[test]
+    fn every_icon_paints_with_egui() {
+        let ctx = egui::Context::default();
+        crate::theme::install_fonts(&ctx);
+        let names = names();
+        let mut out = ctx.run_ui(egui::RawInput::default(), |ui| {
+            let p = ui.ctx().layer_painter(egui::LayerId::background());
+            for n in &names {
+                paint(&p, Rect::from_min_size(pos2(0.0, 0.0), vec2(20.0, 20.0)), n, Color32::BLACK, Color32::BLUE);
+            }
+        });
+        // No renderer here: drop the font atlas upload on purpose.
+        out.textures_delta.clear();
     }
 }

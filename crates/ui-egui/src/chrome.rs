@@ -183,12 +183,11 @@ pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
         .show(ui, |ui| {
             ui.horizontal_centered(|ui| {
                 ui.spacing_mut().item_spacing = vec2(14.0, 0.0);
-                let l = app.session.layout();
-                let page = l.caret_on(&app.session.sel.focus, app.session.page_hint).map(|c| c.page + 1).unwrap_or(1);
+                let (page, pages) = app.session.page_status();
                 let st = |ui: &mut Ui, s: &str| {
                     ui.add(egui::Label::new(egui::RichText::new(s).font(regular(11.5)).color(t.text_dim)).sense(Sense::click()))
                 };
-                if st(ui, &crate::i18n::fmt(tl!("Page {page} of {pages}"), &[("page", &page.to_string()), ("pages", &l.pages.len().to_string())]))
+                if st(ui, &crate::i18n::fmt(tl!("Page {page} of {pages}"), &[("page", &page.to_string()), ("pages", &pages.to_string())]))
                     .on_hover_text(tl!("Go To (⌘⌥G)"))
                     .clicked()
                 {

@@ -113,17 +113,8 @@ fn template_tile(ui: &mut Ui, app: &mut WordApp, label: &str, template: &str) {
         let ppp = ui.ctx().pixels_per_point();
         let key = format!("tpl:{template}:{ppp}");
         let tex = ui.ctx().data(|d| d.get_temp::<egui::TextureHandle>(egui::Id::new(&key))).or_else(|| {
-            let mut s = wordcraft_engine::Session::new(wordcraft_doc::Document::new());
-            let _ = s.run("file.new", &json!({"template": template}));
-            let l = s.export_layout();
-            let page = l.pages.first()?;
-            let img = wordcraft_render::render_page(&s.doc, page, 150.0 / page.w * ppp, &Default::default());
-            let px = img.to_straight();
-            let h = ui.ctx().load_texture(
-                &key,
-                egui::ColorImage::from_rgba_unmultiplied([img.width as usize, img.height as usize], &px),
-                egui::TextureOptions::LINEAR,
-            );
+            let img = crate::previews::template_image(template, 150.0 * ppp)?;
+            let h = ui.ctx().load_texture(&key, img, egui::TextureOptions::LINEAR);
             ui.ctx().data_mut(|d| d.insert_temp(egui::Id::new(&key), h.clone()));
             Some(h)
         });
@@ -289,14 +280,7 @@ fn export_page(app: &mut WordApp, ui: &mut Ui) {
         ("Page image (*.png)", "png"),
     ] {
         if ui.add(egui::Button::new(egui::RichText::new(tl!(label)).font(medium(13.5))).min_size(vec2(320.0, 34.0))).clicked() {
-            let name = format!("{}.{ext}", app.title_stem());
-            let picked = app.services.pick_save.as_ref().and_then(|f| f(&name));
-            if let Some(path) = picked {
-                let r = if ext == "png" { app.run("file.exportPng", json!({"path": path})) } else { app.run("file.saveAs", json!({"path": path})) };
-                if r.is_ok() {
-                    app.status(crate::i18n::fmt(tl!("Exported {path}"), &[("path", &path)]));
-                }
-            }
+            app.export_copy(ext);
         }
         ui.add_space(4.0);
     }

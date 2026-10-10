@@ -2,7 +2,8 @@
 use crate::WordApp;
 use serde_json::json;
 
-fn label(code: &str) -> &str {
+/// Display name of a document language code (translated).
+pub fn label(code: &str) -> &str {
     match code {
         "zh-CN" | "zh-Hans" => tl!("Chinese (China)"),
         "en-US" => tl!("English (United States)"),
@@ -10,12 +11,12 @@ fn label(code: &str) -> &str {
     }
 }
 
-pub(crate) fn current_label(app: &WordApp) -> String {
+pub fn current_label(app: &WordApp) -> String {
     let state = wordcraft_engine::cmd::format::state(&app.session);
     state.get("lang").and_then(serde_json::Value::as_str).map(label).unwrap_or(tl!("Multiple languages")).to_string()
 }
 
-pub(crate) fn menu(app: &mut WordApp, ui: &mut egui::Ui) {
+pub fn menu(app: &mut WordApp, ui: &mut egui::Ui) {
     ui.label(tl!("Document language"));
     ui.label(tl!("Apply to the entire document"));
     ui.separator();

@@ -402,3 +402,20 @@ fn selection_language_preserves_other_text_and_reports_mixed_language() {
     run(&mut s, "select.all", json!({}));
     assert!(cmd::format::state(&s)["lang"].is_null());
 }
+
+#[test]
+fn web_layout_reports_printed_pages() {
+    let mut s = s();
+    for _ in 0..3 {
+        run(&mut s, "insert.pageBreak", json!({}));
+    }
+    run(&mut s, "text.insert", json!({"text": "Last page"}));
+    let print = s.page_status();
+    assert_eq!(print, (4, 4), "caret on the last of four printed pages");
+    run(&mut s, "view.webLayout", json!({}));
+    assert_eq!(s.layout().pages.len(), 1, "Web Layout is one long page");
+    assert_eq!(s.page_status(), print, "the status bar still counts printed pages");
+    assert_eq!(run(&mut s, "review.wordCount", json!({}))["pages"], 4);
+    run(&mut s, "text.insert", json!({"text": " more"}));
+    assert_eq!(s.page_status(), print, "the print pagination follows edits");
+}

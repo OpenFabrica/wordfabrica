@@ -1,0 +1,75 @@
+/* WordCraft web side panes: Navigation (left of the canvas), Styles and Comments (right of it,
+   stacked when both are open). Colours come from the --wc-* theme variables on <html>. */
+
+.wc-pane, .wc-pane button, .wc-pane input, .wc-pane textarea { font: 13px/1.35 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+.wc-pane { display: flex; flex-direction: column; min-height: 0; box-sizing: border-box; padding: 10px;
+  background: var(--wc-panel); color: var(--wc-text); }
+.wc-nav-pane { width: 260px; height: 100%; border-right: 1px solid var(--wc-border); }
+.wc-panes-right { display: flex; flex-direction: column; width: 280px; height: 100%; min-height: 0; border-left: 1px solid var(--wc-border); }
+/* Both right panes share the height; each scrolls its own list. */
+.wc-panes-right > .wc-pane { flex: 1 1 0; }
+.wc-panes-right > .wc-pane + .wc-pane { border-top: 1px solid var(--wc-border); }
+
+/* ---------- header ---------- */
+.wc-pane-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex: none; }
+.wc-pane-title { flex: 1; margin: 0; font-size: 15px; font-weight: 600; }
+.wc-pane-close { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--wc-text-dim); }
+.wc-pane-close:hover { background: var(--wc-hover); color: var(--wc-text); }
+.wc-pane-close:active { background: var(--wc-pressed); }
+
+/* ---------- shared controls ---------- */
+.wc-pane-search { flex: none; box-sizing: border-box; width: 100%; height: 28px; padding: 0 8px; border: 1px solid var(--wc-input-border);
+  border-radius: 4px; background: var(--wc-input); color: var(--wc-text); }
+.wc-pane-search:focus { outline: none; border-color: var(--wc-accent); }
+.wc-pane-tabs { display: flex; gap: 2px; flex: none; margin: 6px 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--wc-border); }
+.wc-pane-tab { padding: 4px 8px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: var(--wc-text-dim); }
+.wc-pane-tab:hover { color: var(--wc-text); background: var(--wc-hover); }
+.wc-pane-tab.active { color: var(--wc-accent-text); border-bottom-color: var(--wc-accent); font-weight: 600; }
+.wc-pane-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 1px; }
+.wc-pane-buttons { display: flex; flex-wrap: wrap; gap: 4px; flex: none; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--wc-border); }
+.wc-pane-button { padding: 3px 8px; border: 1px solid var(--wc-border-strong); border-radius: 4px; background: var(--wc-input); color: var(--wc-text); }
+.wc-pane-button:hover:not(:disabled) { background: var(--wc-hover); }
+.wc-pane-button:active:not(:disabled) { background: var(--wc-pressed); }
+.wc-pane-button:disabled { color: var(--wc-text-disabled); }
+.wc-pane-item { display: block; width: 100%; box-sizing: border-box; padding: 4px 6px; border: 0; border-radius: 4px; text-align: left;
+  background: transparent; color: var(--wc-text); overflow-wrap: anywhere; }
+.wc-pane-item:hover { background: var(--wc-hover); }
+.wc-pane-item.active { background: var(--wc-checked); }
+.wc-pane-help { margin: 6px 2px; color: var(--wc-text-dim); white-space: pre-line; }
+.wc-pane-note { margin: 0 0 6px; font-size: 12px; color: var(--wc-text-dim); flex: none; }
+.wc-pane-count { margin: 2px 2px 4px; font-size: 11.5px; color: var(--wc-text-dim); }
+.wc-pane button:focus-visible, .wc-pane input:focus-visible, .wc-pane textarea:focus-visible { outline: 2px solid var(--wc-accent); outline-offset: -2px; }
+
+/* ---------- navigation ---------- */
+.wc-nav-heading { font-size: 12.5px; }
+.wc-nav-heading.top { font-weight: 600; }
+.wc-nav-result { font-size: 12px; padding: 6px; border-bottom: 1px solid var(--wc-border); border-radius: 0; }
+.wc-nav-result mark { background: #fff176; color: #000; font-weight: 600; }
+
+/* ---------- styles ---------- */
+.wc-style-row { border-radius: 4px; }
+.wc-style-row.active { background: var(--wc-checked); }
+.wc-style-line { display: flex; align-items: center; }
+.wc-style-name { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+.wc-style-row.active .wc-style-name { background: transparent; }
+.wc-style-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wc-style-kind { flex: none; color: var(--wc-text-dim); }
+.wc-style-more { flex: none; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: transparent;
+  color: var(--wc-text-dim); opacity: 0; }
+.wc-style-row:hover .wc-style-more, .wc-style-more:focus-visible, .wc-style-more[aria-expanded="true"] { opacity: 1; }
+.wc-style-more:hover { background: var(--wc-hover); color: var(--wc-text); }
+.wc-style-actions { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 6px 6px; }
+
+/* ---------- comments ---------- */
+.wc-comment { margin-bottom: 6px; padding: 8px; border: 1px solid var(--wc-border); border-radius: 6px; background: var(--wc-input); }
+.wc-comment.reply { margin-left: 16px; }
+.wc-comment.resolved { opacity: 0.75; }
+.wc-comment-head { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; }
+.wc-comment-author { font-size: 12px; font-weight: 600; }
+.wc-comment-date { font-size: 11px; color: var(--wc-text-dim); }
+.wc-comment-resolved { font-size: 11px; color: var(--wc-green); }
+.wc-comment-text { display: block; box-sizing: border-box; width: 100%; min-height: 34px; padding: 4px 6px; resize: vertical;
+  border: 1px solid var(--wc-input-border); border-radius: 4px; background: var(--wc-input); color: var(--wc-text); }
+.wc-comment-text:focus { outline: none; border-color: var(--wc-accent); }
+.wc-comment-actions { display: flex; gap: 4px; margin-top: 6px; }
+.wc-comment-actions .wc-pane-button { padding: 2px 7px; font-size: 12px; }

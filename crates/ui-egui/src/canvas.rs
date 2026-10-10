@@ -19,7 +19,9 @@ const GAP: f32 = 18.0;
 const RULER: f32 = 22.0;
 
 pub struct CanvasState {
-    textures: HashMap<usize, (u64, TextureHandle)>,
+    /// Page textures by (page, band): a page taller than one texture (Web Layout's single long
+    /// page) is drawn in horizontal bands so it keeps full resolution.
+    textures: HashMap<(usize, usize), (u64, TextureHandle)>,
     pub scroll_to_caret: bool,
     pub caret_visible_since: f64,
     dragging: bool,
@@ -74,6 +76,9 @@ impl Default for CanvasState {
         }
     }
 }
+
+/// Height in pixels of one texture band of a page taller than a texture.
+const BAND_PX: f32 = 1024.0;
 
 /// Page positions in content space (points), for the current zoom.
 pub struct Geometry {
@@ -213,6 +218,9 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
         let ppp = ui.ctx().pixels_per_point();
         let max_tex = ui.ctx().input(|i| i.max_texture_side) as f32;
         let mut rendered = 0;
+        // Bands drawn this frame, and pages drawn in bands (their far-away bands are dropped).
+        let mut keep = std::collections::HashSet::new();
+        let mut banded = std::collections::HashSet::new();
         let t0 = crate::now_ms();
         let mut rects = Vec::with_capacity(geo.rects.len());
         let content_origin = ui.min_rect().min;
@@ -226,35 +234,65 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             // Shadow and paper.
             painter.rect_filled(sr.translate(vec2(0.0, 2.0)).expand(1.5), 1.0, t.page_shadow);
             painter.rect_filled(sr, 0.0, Color32::WHITE);
-            let scale_px = (geo.scale * ppp).min(max_tex / page.w.max(1.0)).min(max_tex / page.h.clamp(1.0, 1e6)).max(0.05);
-            let key = page_key(app, page, scale_px);
-            let fresh = app.canvas.textures.get(&i).is_some_and(|(k, _)| *k == key);
-            if !fresh && (rendered < 2 || !app.canvas.textures.contains_key(&i) && rendered < 4) {
-                let mut opts = wordcraft_render::RenderOptions::default();
-                opts.display.marks = app.session.view.marks;
-                opts.display.markup = app.session.view.show_markup;
-                let editing_hf = matches!(app.session.sel.focus.story, StoryRef::Part(_));
-                opts.display.dim_header = !editing_hf;
-                opts.display.dim_body = editing_hf;
-                let img = wordcraft_render::render_page(&app.session.doc, page, scale_px, &opts);
-                let px = img.to_straight();
-                let ci = egui::ColorImage::from_rgba_unmultiplied([img.width as usize, img.height as usize], &px);
-                match app.canvas.textures.get_mut(&i) {
-                    Some((k, tex)) => {
-                        tex.set(ci, egui::TextureOptions::LINEAR);
-                        *k = key;
-                    }
-                    None => {
-                        let tex = ui.ctx().load_texture(format!("page{i}"), ci, egui::TextureOptions::LINEAR);
-                        app.canvas.textures.insert(i, (key, tex));
-                    }
-                }
-                rendered += 1;
-            } else if !fresh {
-                ui.ctx().request_repaint();
+            let page_h = page.h.clamp(1.0, 1e6);
+            let scale_px = (geo.scale * ppp).min(max_tex / page.w.max(1.0)).max(0.05);
+            // A page that fits one texture is one band. A taller one (Web Layout, high zoom) is cut
+            // into bands rendered only near the view, instead of shrinking the whole page into one
+            // texture and stretching it back (blurry text).
+            let single = page_h * scale_px <= max_tex.min(4096.0);
+            let band_pt = if single { page_h } else { (BAND_PX / scale_px).max(1.0) };
+            let bands = ((page_h / band_pt).ceil() as usize).clamp(1, 100_000);
+            if !single {
+                banded.insert(i);
             }
-            if let Some((_, tex)) = app.canvas.textures.get(&i) {
-                painter.image(tex.id(), sr, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+            let pkey = page_key(app, page, scale_px);
+            for band in 0..bands {
+                let y0 = band as f32 * band_pt;
+                let y1 = (y0 + band_pt).min(page_h);
+                let br = Rect::from_min_max(pos2(sr.min.x, sr.min.y + y0 * geo.scale), pos2(sr.max.x, sr.min.y + y1 * geo.scale));
+                let id = (i, band);
+                // Bands within a screen of the view keep their textures, so scrolling back and
+                // forth doesn't re-render them; only the ones near the view are drawn.
+                let clip = ui.clip_rect();
+                if br.intersects(clip.expand2(vec2(0.0, clip.height()))) {
+                    keep.insert(id);
+                }
+                if !br.intersects(clip.expand(200.0)) {
+                    continue;
+                }
+                let key = pkey ^ (band as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ u64::from(band_pt.to_bits());
+                let fresh = app.canvas.textures.get(&id).is_some_and(|(k, _)| *k == key);
+                if !fresh && (rendered < 2 || !app.canvas.textures.contains_key(&id) && rendered < 4) {
+                    let mut opts = wordcraft_render::RenderOptions::default();
+                    opts.display.marks = app.session.view.marks;
+                    opts.display.markup = app.session.view.show_markup;
+                    let editing_hf = matches!(app.session.sel.focus.story, StoryRef::Part(_));
+                    opts.display.dim_header = !editing_hf;
+                    opts.display.dim_body = editing_hf;
+                    let img = if single {
+                        wordcraft_render::render_page(&app.session.doc, page, scale_px, &opts)
+                    } else {
+                        wordcraft_render::render_area(&app.session.doc, page, 0.0, y0, page.w, y1 - y0, scale_px, &opts)
+                    };
+                    let px = img.to_straight();
+                    let ci = egui::ColorImage::from_rgba_unmultiplied([img.width as usize, img.height as usize], &px);
+                    match app.canvas.textures.get_mut(&id) {
+                        Some((k, tex)) => {
+                            tex.set(ci, egui::TextureOptions::LINEAR);
+                            *k = key;
+                        }
+                        None => {
+                            let tex = ui.ctx().load_texture(format!("page{i}.{band}"), ci, egui::TextureOptions::LINEAR);
+                            app.canvas.textures.insert(id, (key, tex));
+                        }
+                    }
+                    rendered += 1;
+                } else if !fresh {
+                    ui.ctx().request_repaint();
+                }
+                if let Some((_, tex)) = app.canvas.textures.get(&id) {
+                    painter.image(tex.id(), br, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+                }
             }
             // Header/footer editing chrome.
             if let StoryRef::Part(id) = app.session.sel.focus.story {
@@ -286,9 +324,10 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
         if rendered > 0 {
             app.canvas.render_ms = crate::now_ms() - t0;
         }
-        // Drop textures of pages that no longer exist.
+        // Drop textures of pages that no longer exist, and bands of long pages scrolled far away
+        // (they're re-rendered when they come back; keeping them all would hold the whole document).
         let n = layout.pages.len();
-        app.canvas.textures.retain(|k, _| *k < n);
+        app.canvas.textures.retain(|k, _| k.0 < n && (!banded.contains(&k.0) || keep.contains(k)));
         app.canvas.page_rects = rects.clone();
         balloons(app, ui, &painter, &rects, &layout, geo.scale, geo.markup);
         // Selection.

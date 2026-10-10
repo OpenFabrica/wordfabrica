@@ -26,7 +26,12 @@ pub fn start() {
         {
             create.instance_descriptor.backends = eframe::wgpu::Backends::GL;
         }
-        let local = query().trim_start_matches('?').split('&').any(|p| p == "local");
+        let local = has_flag("local");
+        // `?egui-chrome` keeps the old all-egui interface (the HTML slots are hidden by CSS).
+        let egui_chrome = has_flag("egui-chrome");
+        if egui_chrome && let Some(body) = document.body() {
+            body.class_list().add_1("egui-chrome").ok();
+        }
         if let Some(el) = document.get_element_by_id(LOADING_ID) {
             el.set_text_content(Some("正在加载文档字体… / Loading document fonts…"));
         }
@@ -39,6 +44,9 @@ pub fn start() {
                     if let Some(rs) = &cc.wgpu_render_state {
                         log::info!("wordcraft-web: wgpu backend {:?}", rs.adapter.get_info().backend);
                     }
+                    // A browser tab has no window decorations to theme; eframe's web backend would
+                    // only log that it can't.
+                    cc.egui_ctx.options_mut(|o| o.sync_window_theme = false);
                     let inbox: Inbox = Inbox::default();
                     let doc = if query().contains("sample") { wordcraft_engine::sample::sample_document() } else { wordcraft_doc::Document::new() };
                     let mut app = WordApp::new(Session::new(doc), services(inbox.clone(), cc.egui_ctx.clone()));
@@ -50,7 +58,8 @@ pub fn start() {
                         let requested = remote.requested.clone();
                         app.services.request_save = Some(Box::new(move || requested.set(true)));
                     }
-                    Ok(Box::new(WebShell { app, inbox, remote, locale, font_error, title: String::new() }))
+                    let bridge = if egui_chrome { None } else { mount_chrome(&mut app, &cc.egui_ctx) };
+                    Ok(Box::new(WebShell { app, inbox, remote, locale, font_error, title: String::new(), bridge }))
                 }),
             )
             .await;
@@ -71,6 +80,20 @@ fn query() -> String {
     web_sys::window().and_then(|w| w.location().search().ok()).unwrap_or_default()
 }
 
+/// Whether the page URL has the bare query flag `name` (`?local`, `?egui-chrome`, …).
+fn has_flag(name: &str) -> bool {
+    query().trim_start_matches('?').split('&').any(|p| p == name)
+}
+
+/// Mount the HTML chrome (title bar, ribbon, panes, dialogs, File screen, status bar) around the
+/// canvas and let egui draw only the document. Without the page slots, egui keeps its chrome.
+fn mount_chrome(app: &mut WordApp, ctx: &egui::Context) -> Option<wordcraft_ui_web::Bridge> {
+    let ctx = ctx.clone();
+    let bridge = wordcraft_ui_web::Bridge::mount(app, move || ctx.request_repaint())?;
+    app.html_chrome = wordcraft_ui_egui::HostedChrome::ALL;
+    Some(bridge)
+}
+
 /// Wraps the app to read dropped files asynchronously (browsers can't read them synchronously)
 /// and feed them through the inbox.
 struct WebShell {
@@ -81,6 +104,8 @@ struct WebShell {
     font_error: bool,
     /// The browser tab title last written, so `document.title` only changes when it must.
     title: String,
+    /// The HTML chrome, unless the page asked for egui's (`?egui-chrome`).
+    bridge: Option<wordcraft_ui_web::Bridge>,
 }
 
 impl eframe::App for WebShell {
@@ -105,6 +130,10 @@ impl eframe::App for WebShell {
             remote.logic(&mut self.app, ctx);
         }
         if !self.remote.as_ref().is_some_and(|r| r.busy_loading()) {
+            // Clicks and edits from the HTML chrome run before the frame, like egui's own input.
+            if let Some(bridge) = &self.bridge {
+                bridge.apply_actions(&mut self.app);
+            }
             self.app.logic(ctx);
         }
     }
@@ -135,6 +164,10 @@ impl eframe::App for WebShell {
         self.locale.sync(&mut self.app);
         if let Some(remote) = &self.remote {
             remote.after_ui(&self.app, ui.ctx());
+        }
+        // The HTML chrome follows the app: publish this frame's state once it's final.
+        if let Some(bridge) = &self.bridge {
+            bridge.publish(&mut self.app);
         }
         self.sync_title();
     }

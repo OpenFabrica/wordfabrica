@@ -19,10 +19,11 @@ pub mod chrome;
 pub mod control;
 pub mod credits;
 pub mod dialogs;
+pub mod host;
 pub mod i18n;
 pub mod icons;
 pub mod keys;
-mod language;
+pub mod language;
 pub mod panes;
 pub mod previews;
 pub mod ribbon;
@@ -35,6 +36,7 @@ use serde_json::{Value, json};
 use wordcraft_engine::Session;
 
 pub use control::ControlRequest;
+pub use host::{Action, ChromeState, HostedChrome};
 
 /// Platform services injected by the host (file dialogs, file I/O).
 #[derive(Default)]
@@ -153,6 +155,14 @@ pub struct WordApp {
     pub document_epoch: u64,
     pub word_count: (u64, usize),
     last_autosave: f64,
+    /// Chrome the host draws itself (web: HTML); egui skips those parts.
+    pub html_chrome: HostedChrome,
+    /// Counts status messages, so a hosted status bar can tell a repeated message from an old one.
+    pub status_seq: u64,
+    /// Text a hosted Copy/Cut button put on the clipboard; handed to egui next frame.
+    pub(crate) copy_out: Option<String>,
+    /// The window title last sent to the platform window.
+    sent_title: String,
 }
 
 impl WordApp {
@@ -182,6 +192,10 @@ impl WordApp {
             document_epoch: 0,
             word_count: (0, 0),
             last_autosave: 0.0,
+            html_chrome: HostedChrome::NONE,
+            status_seq: 0,
+            copy_out: None,
+            sent_title: String::new(),
         }
     }
 
@@ -380,6 +394,7 @@ impl WordApp {
 
     pub fn status(&mut self, s: impl Into<String>) {
         self.status_msg = Some((s.into(), now_ms()));
+        self.status_seq = self.status_seq.wrapping_add(1);
     }
 
     fn open_dialog(&mut self) {
@@ -516,24 +531,54 @@ impl WordApp {
             return;
         }
         let t = theme::Tokens::get(&ctx);
-        if self.ui.backstage {
+        let hosted = self.html_chrome;
+        if let Some(text) = self.copy_out.take() {
+            ctx.copy_text(text);
+        }
+        if self.ui.backstage && !hosted.backstage {
             backstage::show(self, ui);
+        } else if self.ui.backstage {
+            // The host's File screen covers the window; the document must not take typing meanwhile.
+            egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.canvas)).show(ui, |_| {});
         } else {
-            chrome::title_bar(self, ui);
-            ribbon::show(self, ui);
-            chrome::status_bar(self, ui);
-            panes::show(self, ui);
+            if !hosted.title_bar {
+                chrome::title_bar(self, ui);
+            }
+            if !hosted.ribbon {
+                ribbon::show(self, ui);
+            }
+            if !hosted.status_bar {
+                chrome::status_bar(self, ui);
+            }
+            if !hosted.panes {
+                panes::show(self, ui);
+            }
             egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.canvas)).show(ui, |ui| {
                 canvas::show(self, ui);
             });
         }
-        dialogs::show(self, &ctx);
+        if !hosted.dialogs {
+            dialogs::show(self, &ctx);
+        }
         keys::global_shortcuts(self, &ctx);
         if let Some(url) = self.canvas.open_url.take() {
             ctx.open_url(egui::OpenUrl::new_tab(url));
         }
-        ctx.send_viewport_cmd(egui::ViewportCommand::Title(self.window_title()));
+        self.sync_window_title(&ctx);
         self.frame_ms = now_ms() - t0;
+    }
+
+    /// Send the window title only when it changes. The web shell sets the browser tab title itself
+    /// (eframe's web backend can't, and would log a warning every frame).
+    fn sync_window_title(&mut self, ctx: &egui::Context) {
+        if cfg!(target_arch = "wasm32") {
+            return;
+        }
+        let title = self.window_title();
+        if title != self.sent_title {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
+            self.sent_title = title;
+        }
     }
 
     /// Files that arrived asynchronously (web picker, drops): documents open, pictures insert.

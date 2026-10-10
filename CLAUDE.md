@@ -38,7 +38,8 @@ People trust WordCraft with their writing; a crash loses their work. **This outr
 | L4 | `engine` | Session, undo, **command registry**, Word feature catalog, samples, I/O dispatch |
 | L5 | `mcp` | MCP server (headless or bridged to the app) |
 | L6 | `ui-egui` | Word-style egui front end (swappable) |
-| apps | `apps/wordcraft`, `apps/wordcraft-cli`, `apps/wordcraft-web` | binaries |
+| L6 | `ui-web` | web chrome in HTML/CSS (Leptos) around the egui document canvas; reads `ChromeState`, sends `Action`s (`docs/web-ui.md`) |
+| apps | `apps/wordcraft`, `apps/wordcraft-cli`, `apps/wordcraft-web`, `apps/wordcraft-server` | binaries |
 
 - **Everything is a command.** User-visible behaviour = a `CommandSpec` in `crates/engine/src/cmd/*.rs` (id, label, ribbon location, shortcut, params doc, `enabled`, `run`) + tests. UI-only commands (`ui.*`) live in `crates/ui-egui/src/lib.rs`. The ribbon, shortcuts, command search, CLI, control channel and MCP all dispatch by id. Programmatic calls never open dialogs.
 - **Parity is measured:** `crates/engine/src/catalog.rs` lists Word's ribbon/menu features with command ids. `cargo xtask parity` writes `docs/parity.md`; a test enforces a floor that only rises. Implement missing ids to raise it.
