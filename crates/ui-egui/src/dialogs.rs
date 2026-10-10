@@ -850,7 +850,6 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> Option<DialogButton> 
                     ));
                     ui.add_space(6.0);
                     ui.hyperlink_to(tl!("openfabrica.dev"), "https://openfabrica.dev");
-                    ui.hyperlink_to(tl!("Join the community: GitHub Discussions"), "https://github.com/OpenFabrica/wordfabrica/discussions");
                     ui.hyperlink_to(tl!("Source code: github.com/OpenFabrica/wordfabrica"), "https://github.com/OpenFabrica/wordfabrica");
                     ui.add_space(6.0);
                     ui.label(

@@ -775,7 +775,6 @@ fn about_view() -> impl IntoView {
         <p class="wc-about-text">{t("A free, open-source word processor written from scratch in Rust.\nPart of OpenFabrica: open source tools for makers, builders, and creatives.")}</p>
         <div class="wc-about-links">
             {link("openfabrica.dev", "https://openfabrica.dev")}
-            {link("Join the community: GitHub Discussions", "https://github.com/OpenFabrica/wordfabrica/discussions")}
             {link("Source code: github.com/OpenFabrica/wordfabrica", "https://github.com/OpenFabrica/wordfabrica")}
         </div>
         <p class="wc-dlg-note">{t("MIT OR Apache-2.0. Copyright (c) 2026 the OpenFabrica contributors. Based on WordCraft by the ArtCraft Team and the WordCraft contributors.")}</p>

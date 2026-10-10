@@ -38,9 +38,8 @@ pub fn title_bar(b: Bridge) -> impl IntoView {
     let autosave = b.select(|s| (s.autosave, s.autosave_ready));
     let title = b.select(|s| if s.title_status.is_empty() { s.title.clone() } else { format!("{} — {}", s.title, tl!(&s.title_status)) });
     let author = b.select(|s| s.author.clone());
-    let community = b.select(|s| s.show_community);
     let always = Memo::new(|_| true);
-    let (b1, b2, b3, b4) = (b.clone(), b.clone(), b.clone(), b.clone());
+    let (b1, b2, b3) = (b.clone(), b.clone(), b.clone());
     let initials = move || author.get().split_whitespace().filter_map(|w| w.chars().next()).take(2).collect::<String>();
     view! {
         <div class="wc-titlebar-left">
@@ -65,16 +64,6 @@ pub fn title_bar(b: Bridge) -> impl IntoView {
                 <span class="wc-icon16" inner_html=move || icon_svg("search", 16.0, dark.get(), true)></span>
                 <span>{t("Search commands and help")}</span>
             </button>
-            {move || community.get().then(|| {
-                let b = b4.clone();
-                view! {
-                    <button class="wc-community" title=t("Join the OpenFabrica community on GitHub") on:mousedown=keep_focus
-                        on:click=move |_| b.send(Action::run("ui.community", json!({})))>
-                        <span class="wc-icon14" inner_html=icon_svg_in("community", 14.0, egui::Color32::WHITE)></span>
-                        <span>{t("Community")}</span>
-                    </button>
-                }
-            })}
             <span class="wc-avatar" title=move || format!("{} — set your name in File › Options", author.get())>{initials}</span>
         </div>
     }

@@ -135,7 +135,7 @@ impl Server {
                     "capabilities": {"tools": {}, "resources": {}},
                     "serverInfo": {"name": "wordfabrica", "title": "WordFabrica", "version": env!("CARGO_PKG_VERSION"), "websiteUrl": "https://openfabrica.dev"},
                     "instructions": format!(
-                        "{INSTRUCTIONS} Backend: {}. Community: https://github.com/OpenFabrica/wordfabrica/discussions · https://openfabrica.dev · https://github.com/OpenFabrica/wordfabrica",
+                        "{INSTRUCTIONS} Backend: {}. Website: https://openfabrica.dev · Source: https://github.com/OpenFabrica/wordfabrica",
                         self.backend.describe()
                     ),
                 }))

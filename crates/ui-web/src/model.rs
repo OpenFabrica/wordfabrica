@@ -844,7 +844,7 @@ const VIEW: &[Group] = &[
 // ---- Help ----
 
 const HELP: &[Group] = &[
-    group("Help", &[big("help", "Help", cp("ui.dialog", r#"{"name":"about"}"#)), big("community", "Community\nDiscussions", c("ui.community"))]),
+    group("Help", &[big("help", "Help", cp("ui.dialog", r#"{"name":"about"}"#))]),
     group("Agents", &[big("macros", "Commands", cp("ui.dialog", r#"{"name":"commands"}"#))]),
 ];
 
@@ -1014,7 +1014,6 @@ pub const CHROME_IDS: &[&str] = &[
     "ui.tab",
     "ui.backstage",
     "ui.collapseRibbon",
-    "ui.community",
     "review.trackChanges",
     "view.commentsPane",
     "view.zoom",

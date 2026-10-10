@@ -260,7 +260,6 @@ pub struct ChromeState {
     pub autosave: bool,
     pub autosave_ready: bool,
     pub author: String,
-    pub show_community: bool,
     pub tab: String,
     pub backstage: bool,
     pub ribbon_collapsed: bool,
@@ -340,7 +339,6 @@ pub enum Action {
     /// File ▸ Options.
     SetAuthor(String),
     SetAutosave(bool),
-    SetShowCommunity(bool),
     /// Title bar AutoSave switch: toggles, or asks for a file name first.
     ToggleAutosave,
     /// Put the selection on the system clipboard (after `edit.copy` / `edit.cut`).
@@ -441,7 +439,6 @@ impl WordApp {
             autosave: (self.session.path.is_some() || hosted_storage) && self.autosave,
             autosave_ready: self.session.path.is_some() || hosted_storage,
             author: self.session.author.clone(),
-            show_community: self.ui.show_community,
             tab: self.ui.tab.clone(),
             backstage: self.ui.backstage,
             ribbon_collapsed: self.ui.ribbon_collapsed,
@@ -664,7 +661,6 @@ impl WordApp {
             Action::File(f) => self.file_action(f),
             Action::SetAuthor(name) => self.session.author = name,
             Action::SetAutosave(on) => self.autosave = on,
-            Action::SetShowCommunity(on) => self.ui.show_community = on,
             Action::ToggleAutosave => {
                 if self.session.path.is_some() || self.services.request_save.is_some() {
                     self.toggle_autosave();

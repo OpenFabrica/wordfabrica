@@ -73,8 +73,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   overflow: hidden; white-space: nowrap; }
 .wc-search:hover { border-color: var(--wc-accent); }
 .wc-search span:last-child { overflow: hidden; text-overflow: ellipsis; }
-.wc-community { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border: 0; border-radius: 13px;
-  background: var(--wc-accent); color: #fff; }
 .wc-avatar { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin-left: 4px;
   border-radius: 50%; background: var(--wc-accent); color: #fff; font-size: 11px; font-weight: 600; }
 

@@ -31,7 +31,7 @@
     <Property Id="ARPPRODUCTICON" Value="WordfabricaIcon.ico" />
     <Property Id="ARPURLINFOABOUT" Value="https://openfabrica.dev" />
     <Property Id="ARPURLUPDATEINFO" Value="https://github.com/OpenFabrica/wordfabrica/releases" />
-    <Property Id="ARPHELPLINK" Value="https://github.com/OpenFabrica/wordfabrica/discussions" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/OpenFabrica/wordfabrica/issues" />
 
     <StandardDirectory Id="ProgramFiles6432Folder">
       <Directory Id="INSTALLFOLDER" Name="WordFabrica" />

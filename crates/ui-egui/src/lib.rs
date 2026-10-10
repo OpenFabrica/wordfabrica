@@ -98,7 +98,6 @@ pub struct UiState {
     pub recent: Vec<String>,
     pub dark: bool,
     pub nav_tab: String,
-    pub show_community: bool,
     /// User name (File › Options) for comments and tracked changes; empty keeps the default.
     pub author: String,
     /// Desktop: the main window's size and position, restored at the next launch.
@@ -117,7 +116,6 @@ impl Default for UiState {
             recent: Vec::new(),
             dark: false,
             nav_tab: "headings".into(),
-            show_community: true,
             author: String::new(),
             window: None,
             language: i18n::AUTO.into(),
@@ -382,10 +380,6 @@ impl WordApp {
             }
             "ui.openFileDialog" => {
                 self.open_dialog();
-                json!({})
-            }
-            "ui.community" => {
-                self.canvas.open_url = Some("https://github.com/OpenFabrica/wordfabrica/discussions".into());
                 json!({})
             }
             _ => return None,

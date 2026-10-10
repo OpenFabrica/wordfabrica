@@ -84,14 +84,14 @@ fn screen(b: Bridge) -> impl IntoView {
             }
         })
         .collect_view();
-    let (b1, b2, b3, b4, b5) = (b.clone(), b.clone(), b.clone(), b.clone(), b.clone());
+    let (b1, b2, b3, b4) = (b.clone(), b.clone(), b.clone(), b.clone());
     let content = move || match page.get().as_str() {
-        "open" => open_page(b5.clone()).into_any(),
-        "info" => info_page(b5.clone()).into_any(),
-        "print" => export_page(b5.clone(), "Print").into_any(),
-        "export" => export_page(b5.clone(), "Export").into_any(),
-        "options" => options_page(b5.clone()).into_any(),
-        _ => new_page(b5.clone()).into_any(),
+        "open" => open_page(b4.clone()).into_any(),
+        "info" => info_page(b4.clone()).into_any(),
+        "print" => export_page(b4.clone(), "Print").into_any(),
+        "export" => export_page(b4.clone(), "Export").into_any(),
+        "options" => options_page(b4.clone()).into_any(),
+        _ => new_page(b4.clone()).into_any(),
     };
     view! {
         <div class="wc-file" role="dialog" aria-modal="true" aria-label=t("File")
@@ -108,9 +108,6 @@ fn screen(b: Bridge) -> impl IntoView {
                 <div class="wc-file-nav-spacer"></div>
                 <button class="wc-file-nav-minor" on:click=move |_| b3.send(Action::run("ui.dialog", json!({"name": "about"})))>
                     {t("About")}
-                </button>
-                <button class="wc-file-nav-minor" on:click=move |_| b4.send(Action::run("ui.community", json!({})))>
-                    {t("Community")}
                 </button>
             </nav>
             <div class="wc-file-content">{content}</div>
@@ -356,7 +353,6 @@ fn options_page(b: Bridge) -> impl IntoView {
     let author = b.select(|s| s.author.clone());
     let dark = b.select(|s| s.dark);
     let autosave = b.select(|s| s.file.as_ref().is_some_and(|f| f.autosave));
-    let community = b.select(|s| s.show_community);
     let marks = b.select(|s| s.toggles.get("marks").copied().unwrap_or(false));
     let ruler = b.select(|s| s.toggles.get("ruler").copied().unwrap_or(false));
     // No "Automatic" entry: on the web the language is always an explicit pick (like egui's wasm build).
@@ -384,7 +380,6 @@ fn options_page(b: Bridge) -> impl IntoView {
         </div>
         {check("Dark mode", dark, &b, |on| Action::run("ui.dark", json!({"value": on})))}
         {check("AutoSave documents that have been saved", autosave, &b, Action::SetAutosave)}
-        {check("Show the community button in the title bar", community, &b, Action::SetShowCommunity)}
         <h2 class="wc-file-subheading">{t("Display")}</h2>
         {check("Show all formatting marks", marks, &b, |on| Action::run("view.marks", json!({"value": on})))}
         {check("Show rulers", ruler, &b, |on| Action::run("view.ruler", json!({"value": on})))}
