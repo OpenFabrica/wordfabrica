@@ -108,7 +108,7 @@ the icon art).
 - Browser editing reuses the Rust/WASM engine; one Rust HTTP process serves the editor and a document API.
 - Embedded SQLite stores full-fidelity model snapshots with transactionally checked versions.
 - Document list, title editing, autosave/manual save, reload links, DOCX downloads and conflict recovery.
-- Browser interface switches between Simplified Chinese and English, remembers the preference, and embeds Chinese UI/document glyphs through craft-fonts.
+- Browser interface switches between Simplified Chinese and English, remembers the preference, and embeds Chinese UI/document glyphs from versioned `resources/fonts/` (resource tags: `fonts-v*`).
 - Initial scope is a single trusted workspace. Realtime co-editing, accounts and revision history are future work.
 - Setup, API and boundaries: [web storage](docs/web-storage.md); [user help](docs/web-help.md).
 

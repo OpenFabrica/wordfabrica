@@ -1,7 +1,7 @@
-//! Optional craft-fonts build input (https://github.com/storytold/craft-fonts, recipe from its
-//! `docs/integration.md`). With `CRAFT_FONTS_DIR=<checkout>` the fonts in its
-//! `fonts/manifest.txt` are embedded as `CRAFT_FONTS`; unset, `CRAFT_FONTS` is empty. Web
-//! (wasm32) builds embed the regular UI faces for Simplified Chinese and Japanese. It only reads the local checkout: no network.
+//! Embed the font manifest in resources/fonts by default. CRAFT_FONTS_DIR can override
+//! the resource root (it must contain fonts/manifest.txt). No separate font project is needed.
+//! Web builds embed only the regular Chinese and Japanese UI faces; additional document
+//! fonts can be served at runtime. Missing built-in resources fail the build.
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
@@ -9,14 +9,15 @@ fn main() {
     println!("cargo::rerun-if-env-changed=CRAFT_FONTS_DIR");
     println!("cargo::rerun-if-env-changed=CRAFT_FONTS_REQUIRED");
     let mut src = String::from("pub static CRAFT_FONTS: &[CraftFont] = &[\n");
-    if let Some(dir) = std::env::var_os("CRAFT_FONTS_DIR").map(PathBuf::from) {
-        match craft_fonts(&dir) {
-            Ok(entries) => src.push_str(&entries),
-            Err(e) if std::env::var_os("CRAFT_FONTS_REQUIRED").is_some() => {
-                println!("cargo::error=CRAFT_FONTS_DIR={}: {e}", dir.display());
-            }
-            Err(e) => println!("cargo::warning=building without craft-fonts: CRAFT_FONTS_DIR={}: {e}", dir.display()),
+    let override_dir = std::env::var_os("CRAFT_FONTS_DIR").map(PathBuf::from);
+    let required = override_dir.is_none() || std::env::var_os("CRAFT_FONTS_REQUIRED").is_some();
+    let dir = override_dir.unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../resources"));
+    match craft_fonts(&dir) {
+        Ok(entries) => src.push_str(&entries),
+        Err(e) if required => {
+            println!("cargo::error=CRAFT_FONTS_DIR={}: {e}", dir.display());
         }
+        Err(e) => println!("cargo::warning=building without optional fonts: CRAFT_FONTS_DIR={}: {e}", dir.display()),
     }
     src.push_str("];\n");
     let out = PathBuf::from(std::env::var_os("OUT_DIR").unwrap_or_default()).join("craft_fonts.rs");

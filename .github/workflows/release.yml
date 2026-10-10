@@ -72,13 +72,6 @@ jobs:
       WORDCRAFT_BUILD_DATE: ${{ needs.version.outputs.date }}
     steps:
       - uses: actions/checkout@v4
-      # Optional font input (docs: storytold/craft-fonts docs/integration.md); releases always embed it.
-      - name: Check out craft-fonts
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
-        with:
-          repository: storytold/craft-fonts
-          ref: abb83316d96aa59c1cf64784289e378fe9fa5695
-          path: craft-fonts
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin, x86_64-apple-darwin
@@ -96,7 +89,7 @@ jobs:
         run: packaging/macos/import-cert.sh
       - name: Build, sign, notarize
         env:
-          CRAFT_FONTS_DIR: ${{ github.workspace }}/craft-fonts
+          CRAFT_FONTS_DIR: ${{ github.workspace }}/resources
           CRAFT_FONTS_REQUIRED: "1"
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
@@ -131,13 +124,6 @@ jobs:
       WORDCRAFT_BUILD_DATE: ${{ needs.version.outputs.date }}
     steps:
       - uses: actions/checkout@v4
-      # Optional font input (docs: storytold/craft-fonts docs/integration.md); releases always embed it.
-      - name: Check out craft-fonts
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
-        with:
-          repository: storytold/craft-fonts
-          ref: abb83316d96aa59c1cf64784289e378fe9fa5695
-          path: craft-fonts
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -154,7 +140,7 @@ jobs:
       - name: Build, sign, package
         shell: pwsh
         env:
-          CRAFT_FONTS_DIR: ${{ github.workspace }}/craft-fonts
+          CRAFT_FONTS_DIR: ${{ github.workspace }}/resources
           CRAFT_FONTS_REQUIRED: "1"
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
@@ -190,13 +176,6 @@ jobs:
       NFPM_VERSION: 2.47.0
     steps:
       - uses: actions/checkout@v4
-      # Optional font input (docs: storytold/craft-fonts docs/integration.md); releases always embed it.
-      - name: Check out craft-fonts
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
-        with:
-          repository: storytold/craft-fonts
-          ref: abb83316d96aa59c1cf64784289e378fe9fa5695
-          path: craft-fonts
       - name: Install build and packaging tools
         run: |
           sudo apt-get update
@@ -215,7 +194,7 @@ jobs:
         run: cargo xtask version set "$WORDCRAFT_VERSION"
       - name: Build and package (AppImage, deb, rpm, tar.gz)
         env:
-          CRAFT_FONTS_DIR: ${{ github.workspace }}/craft-fonts
+          CRAFT_FONTS_DIR: ${{ github.workspace }}/resources
           CRAFT_FONTS_REQUIRED: "1"
         run: packaging/linux/package.sh
       - name: Check the packages
@@ -286,13 +265,6 @@ jobs:
       TRUNK_VERSION: 0.21.14
     steps:
       - uses: actions/checkout@v4
-      # Optional font input (docs: storytold/craft-fonts docs/integration.md); releases always embed it.
-      - name: Check out craft-fonts
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
-        with:
-          repository: storytold/craft-fonts
-          ref: 8dcdacd5153e64560d109541a47d806f26f048c0
-          path: craft-fonts
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
@@ -309,7 +281,7 @@ jobs:
         run: cargo xtask version set "$WORDCRAFT_VERSION"
       - name: Build and zip
         env:
-          CRAFT_FONTS_DIR: ${{ github.workspace }}/craft-fonts
+          CRAFT_FONTS_DIR: ${{ github.workspace }}/resources
           CRAFT_FONTS_REQUIRED: "1"
         run: packaging/web/package.sh
       - uses: actions/upload-artifact@v4
@@ -329,14 +301,6 @@ jobs:
       WORDCRAFT_BUILD_DATE: ${{ needs.version.outputs.date }}
     steps:
       - uses: actions/checkout@v4
-      # Optional font input (docs: storytold/craft-fonts docs/integration.md); releases always embed it.
-      # Synced into the VM with the sources.
-      - name: Check out craft-fonts
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
-        with:
-          repository: storytold/craft-fonts
-          ref: abb83316d96aa59c1cf64784289e378fe9fa5695
-          path: craft-fonts
       - name: Build in a FreeBSD VM
         uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1
         with:
@@ -353,14 +317,14 @@ jobs:
             . "$HOME/.cargo/env"
             git config --global --add safe.directory "*"
             cargo run -q -p xtask -- version set "$WORDCRAFT_VERSION"
-            CRAFT_FONTS_DIR="$PWD/craft-fonts" CRAFT_FONTS_REQUIRED=1 cargo build --release --locked -p wordcraft -p wordcraft-cli
+            CRAFT_FONTS_DIR="$PWD/resources" CRAFT_FONTS_REQUIRED=1 cargo build --release --locked -p wordcraft -p wordcraft-cli
             name="wordcraft-$WORDCRAFT_VERSION-freebsd-x86_64"
             mkdir -p "dist/release/$name"
             cp target/release/wordcraft target/release/wordcraft-cli LICENSE-MIT LICENSE-APACHE NOTICE ATTRIBUTION.md README.md "dist/release/$name/"
             cp packaging/linux/ai.storyteller.wordcraft.desktop "dist/release/$name/"
             cp assets/app-icon/hicolor/256x256/apps/ai.storyteller.wordcraft.png "dist/release/$name/"
-            # The embedded craft-fonts' licences, as in the Linux packages (OFL-<family>.txt).
-            for f in craft-fonts/fonts/*/OFL.txt; do cp "$f" "dist/release/$name/OFL-$(basename "$(dirname "$f")").txt"; done
+            # The embedded font licences, as in the Linux packages (OFL-<family>.txt).
+            for f in resources/fonts/*/OFL.txt; do cp "$f" "dist/release/$name/OFL-$(basename "$(dirname "$f")").txt"; done
             tar -C dist/release -czf "dist/release/$name.tar.gz" "$name"
             rm -rf "dist/release/$name" target
       - uses: actions/upload-artifact@v4

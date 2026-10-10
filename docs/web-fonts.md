@@ -5,14 +5,14 @@
 网页不能读取访问者电脑中的系统字体。文档中文字的字形、换行、分页和 PDF 导出必须使用同一套字体数据。
 现有 `FontDb` 负责字体解析和排版；HTTP 服务只分发管理员提供的文件，不增加字体数据库或独立服务。
 
-- **内置字体**：随 WASM 编译的基础字体，包括提供 `CRAFT_FONTS_DIR` 时的 Noto Sans CJK SC Regular。
-- **服务端字体**：`WORDCRAFT_FONTS_DIR` 中的 TTF、OTF、TTC 文件；启动时校验并读取内存。
+- **内置字体**：随 WASM 编译的基础字体，默认包含项目资源中的 Noto Sans CJK SC Regular。
+- **服务端字体**：默认来自 `resources/fonts/server/`，可用 `WORDCRAFT_FONTS_DIR` 覆盖的 TTF、OTF、TTC 文件；启动时校验并读取内存。
 - **字体族/样式**：读取字体文件内部名称，文件名不参与文档格式。相同字体族和样式优先保留内置/先加载版本；新增粗体等样式可以补充已有字体族。
 - **字体 ID**：每次服务启动分配的 UUID，只用于下载；不是服务器路径，也不写入文档。服务重启后旧 ID 返回 404，避免混用新旧目录。
 
 ## 安装和扩展
 
-字体保存在 WordCraft 仓库外，例如 `/srv/wordcraft-fonts`。仅放入有权分发的字体，并在该外部目录保留来源与许可证。
+默认字体资源保存在项目的 `resources/fonts/`。额外字体可放在项目目录，也可使用管理员指定的目录，例如 `/srv/wordcraft-fonts`。仅放入有权分发的字体，并保留来源与许可证。
 推荐使用 Noto CJK 的开放字体；不要复制商业办公软件内附字体。
 
 ```sh
@@ -33,6 +33,35 @@ Noto Serif CJK SC 来自 [Noto CJK 官方仓库](https://github.com/notofonts/no
 许可证见 [Serif/LICENSE](https://github.com/notofonts/noto-cjk/blob/main/Serif/LICENSE)。
 客户端不需要安装字体。增加/删除/替换文件后重启服务，然后保存当前编辑并刷新网页；无需重编译 WASM。
 只有可解析的字体文件会发布，其他文件不会通过字体 API 暴露。配置错误、无效字体或超过限制会使服务启动失败并输出原因。
+
+
+### 项目资源和版本
+
+字体随 WordCraft 放在 `resources/fonts/`，没有独立 Git 仓库、Cargo 包或服务：
+
+```text
+resources/fonts/
+  manifest.txt               # 构建字体、来源、许可证、SHA-256
+  SHA256SUMS                 # 所有字体的校验值，含服务端字体
+  <family>/                  # 内置字体文件及 OFL.txt
+  server/noto-serif-cjk-sc/   # 宋体替代字体及 OFL.txt
+```
+
+新增顶层 `resources/` 只存放可分发的运行资源；Rust 代码继续留在 `crates/` 和 `apps/`。
+字体模块的构建脚本读取清单并嵌入所需字体；HTTP 服务读取 `server/`。字体资源不依赖应用代码。
+默认构建无需环境变量或额外下载；`CRAFT_FONTS_DIR` 可覆盖资源根目录（其中需包含 `fonts/manifest.txt`），保留与旧构建配置的兼容性。
+
+资源使用 `fonts-v1.0.0` 起的独立 annotated tag 标记版本，tag 指向包含资源的 WordCraft 提交，资源与代码共享一个 Git 仓库。
+更新字体时同时更新清单、许可证、根目录 `ATTRIBUTION.md` 和校验值，再创建新的 `fonts-v*` tag；不移动已有 tag。
+可独立导出资源包，无需分出新项目：
+
+```sh
+git archive --format=tar.gz --output=wordcraft-fonts-v1.0.0.tar.gz fonts-v1.0.0 resources/fonts
+(cd resources/fonts && shasum -a 256 -c SHA256SUMS)
+```
+
+完整克隆会包含字体历史；tag 是版本标记，不减少仓库体积。
+部署单独的服务端二进制时，需同时安装 `resources/fonts/server/`，或用 `WORDCRAFT_FONTS_DIR` 指向自己的字体目录。
 
 ## 加载流程与规则
 

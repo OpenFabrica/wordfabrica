@@ -11,6 +11,7 @@ on:
       - Cargo.lock
       - "**/Cargo.toml"
       - "crates/fonts/**"
+      - "resources/fonts/**"
       - .github/workflows/freebsd.yml
   workflow_dispatch:
 
@@ -28,13 +29,6 @@ jobs:
     timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
-      # The Japanese font tests run against craft-fonts (an optional build input; they skip without it).
-      - name: Check out craft-fonts
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
-        with:
-          repository: storytold/craft-fonts
-          ref: abb83316d96aa59c1cf64784289e378fe9fa5695
-          path: craft-fonts
       - name: Build and test in a FreeBSD VM
         uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1
         with:
@@ -53,4 +47,4 @@ jobs:
             git config --global --add safe.directory "*"
             rustc --version
             CARGO_PROFILE_DEV_DEBUG=0 cargo build --workspace --all-targets --locked
-            CRAFT_FONTS_DIR="$PWD/craft-fonts" CARGO_PROFILE_DEV_DEBUG=0 cargo test --workspace --locked
+            CRAFT_FONTS_DIR="$PWD/resources" CARGO_PROFILE_DEV_DEBUG=0 cargo test --workspace --locked

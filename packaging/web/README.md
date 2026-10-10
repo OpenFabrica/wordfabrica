@@ -17,9 +17,9 @@ see [the storage guide](../../docs/web-storage.md). Hosted mode expects same-ori
 ## Chinese and English
 
 The browser toolbar switches between Simplified Chinese and English and remembers the choice per origin.
-Build with `CRAFT_FONTS_DIR` pointing to craft-fonts revision `8dcdacd5153e64560d109541a47d806f26f048c0`
-(or later) for embedded Noto Sans CJK SC glyphs. The release workflow supplies this input.
-The font remains an external build input; do not copy font files into this repository.
+Builds embed Noto Sans CJK SC from the project's `resources/fonts/` by default.
+No separate font checkout or download is needed. `CRAFT_FONTS_DIR` can override the resource root;
+see [font setup and resource tags](../../docs/web-fonts.md). Keep licences with redistributed fonts.
 
 ## Any path works
 

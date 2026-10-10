@@ -146,7 +146,7 @@ Web with server storage and Chinese/English switching: prepare the external CJK 
 in [the setup guide](docs/web-storage.md), build with `cd apps/wordcraft-web && trunk build --release`, then from
  the repository root run `cargo run -p wordcraft-server`. Open <http://127.0.0.1:8771/>.
  The single Rust process serves the WASM editor and saves versioned documents in embedded SQLite.
-Server fonts can be extended through `WORDCRAFT_FONTS_DIR` without rebuilding WASM; see [font setup](docs/web-fonts.md).
+Fonts live in `resources/fonts/` in this repository, versioned with `fonts-v*` tags. No separate font project is required. Server fonts default to `resources/fonts/server/` and can be extended through `WORDCRAFT_FONTS_DIR` without rebuilding WASM; see [font setup](docs/web-fonts.md).
  See [server architecture and setup](docs/web-storage.md) and [browser editing help](docs/web-help.md).
 
 Standalone browser demo: `cd apps/wordcraft-web && trunk serve`, then open

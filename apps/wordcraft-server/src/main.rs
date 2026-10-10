@@ -16,8 +16,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("data directory must be outside the public web directory".into());
     }
     let store = Arc::new(wordcraft_server::store::Store::open(&data.join("documents.sqlite3"))?);
-    let font_dir = std::env::var_os("WORDCRAFT_FONTS_DIR").map(PathBuf::from);
-    let fonts = Arc::new(wordcraft_server::fonts::Catalog::load(font_dir.as_deref())?);
+    // Relative to the launch directory, like the default web and data directories.
+    // Packaged deployments can set WORDCRAFT_FONTS_DIR to their installed resource path.
+    let font_dir = PathBuf::from(std::env::var_os("WORDCRAFT_FONTS_DIR").unwrap_or_else(|| "resources/fonts/server".into()));
+    let fonts = Arc::new(wordcraft_server::fonts::Catalog::load(Some(&font_dir))?);
     println!("Server font files: {}", fonts.len());
     let listener = tokio::net::TcpListener::bind(&address).await?;
     println!("WordCraft: http://{} (data: {})", listener.local_addr()?, data.canonicalize()?.display());

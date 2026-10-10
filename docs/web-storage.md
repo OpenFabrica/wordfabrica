@@ -16,11 +16,7 @@
 ```sh
 rustup target add wasm32-unknown-unknown
 cargo install trunk --locked
-# 已有 craft-fonts 时复用；字体文件保存在 WordCraft 仓库外。
-git clone https://github.com/storytold/craft-fonts.git ../craft-fonts
-git -C ../craft-fonts checkout 8dcdacd5153e64560d109541a47d806f26f048c0
-export CRAFT_FONTS_DIR="$(cd ../craft-fonts && pwd)"
-export CRAFT_FONTS_REQUIRED=1
+# 默认使用项目 resources/fonts/，无需额外字体项目或环境变量。
 cd apps/wordcraft-web
 trunk build --release
 cd ../..
@@ -34,7 +30,7 @@ cargo run -p wordcraft-server
 | `WORDCRAFT_LISTEN` | `127.0.0.1:8771` | 监听地址 |
 | `WORDCRAFT_WEB_DIR` | `dist/web` | 静态网页目录 |
 | `WORDCRAFT_DATA_DIR` | `data` | SQLite 数据目录，不能放进静态网页目录 |
-| `WORDCRAFT_FONTS_DIR` | 未设置 | 可选的服务端字体目录；见 [字体扩展](web-fonts.md) |
+| `WORDCRAFT_FONTS_DIR` | `resources/fonts/server` | 可选的服务端字体目录；见 [字体扩展](web-fonts.md) |
 
 路径相对启动目录。备份时停止服务再复制数据目录，或使用 SQLite backup API 在线备份；运行中不要只复制主数据库而忽略 WAL。
 静态部署可用 `?local` 保留下载模式；`?sample` 创建演示内容；`?doc=<uuid>` 重新打开服务端文档。
@@ -113,6 +109,6 @@ HTTP 测试覆盖创建/读取/列表/重试/冲突/非法 JSON/体积限制/跨
 切换即时更新菜单、保存状态、列表和错误文案，同时设置 HTML `lang`；不修改正文、格式、undo 历史或保存版本。
 浏览器禁止存储时仍可切换，并显示偏好未保存的提示。网页端仅开放中英文；桌面端已有其他语言不受影响。
 
-中文字形通过外部 `craft-fonts` 的 Noto Sans CJK SC Regular (OFL-1.1) 嵌入 WASM，离线加载也可显示。
-构建时必须按上面的命令提供包含中文字体的 `CRAFT_FONTS_DIR` 才能得到完整中文显示；不需要客户端安装字体。
+中文字形通过项目资源中的 Noto Sans CJK SC Regular (OFL-1.1) 默认嵌入 WASM，离线加载也可显示。字体资源用独立 `fonts-v*` tag 标记，无需额外项目。
+只有使用自定义资源时才需要设置 `CRAFT_FONTS_DIR`，其中应包含中文字体；不需要客户端安装字体。
 `crates/fonts/build.rs` 同时为中文 UI 和文档正文保留该字体，发布工作流已固定到包含它的字体版本。

@@ -7,6 +7,5 @@ plan/
 .DS_Store
 /.claude/
 /target-*/
-/craft-fonts/
 
 /data/

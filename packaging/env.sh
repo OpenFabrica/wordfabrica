@@ -11,6 +11,7 @@
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export ROOT
+export CRAFT_FONTS_DIR="${CRAFT_FONTS_DIR:-$ROOT/resources}"
 
 # The version lives in exactly one place: `[workspace.package] version` in the root Cargo.toml.
 # (`cargo xtask version` prints the same thing; awk avoids compiling xtask here.)
@@ -53,8 +54,8 @@ copy_docs() {
   copy_font_licences "$dest"
 }
 
-# Builds made with craft-fonts (CRAFT_FONTS_DIR, set by the release workflow) embed its fonts, so
-# the package carries their licences as OFL-<family-dir>.txt. Nothing without CRAFT_FONTS_DIR.
+# Embedded fonts ship their licences as OFL-<family-dir>.txt.
+# CRAFT_FONTS_DIR defaults to the in-repository resources above.
 copy_font_licences() {
   local dest="$1" f
   [ -n "${CRAFT_FONTS_DIR:-}" ] || return 0
