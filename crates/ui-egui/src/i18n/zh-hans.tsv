@@ -831,3 +831,19 @@
 	Chinese (China)	中文（中国）
 	Multiple languages	多种语言
 	Apply to the entire document	应用于整个文档
+
+# Document context menus and proofing messages
+	Font…	字体…
+	Paragraph…	段落…
+	Link…	链接…
+	Insert Rows Above	在上方插入行
+	Insert Rows Below	在下方插入行
+	Insert Columns to the Left	在左侧插入列
+	Insert Columns to the Right	在右侧插入列
+	Possible spelling mistake	可能存在拼写错误
+	Repeated word: "{word}"	重复单词：“{word}”
+	Use "an" before a vowel sound	元音发音前应使用“an”
+	Use "a" before a consonant sound	辅音发音前应使用“a”
+	Remove the space before the punctuation	删除标点前的空格
+	Extra space	多余的空格
+	Capitalize the first word of a sentence	句首单词应大写

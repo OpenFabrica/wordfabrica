@@ -748,12 +748,21 @@ pub fn pos_from_screen(app: &mut WordApp, p: Pos2) -> Option<Pos> {
     app.session.layout().hit(page, x, y, story)
 }
 
+/// Translate proofing UI text while preserving the word supplied by the document.
+fn proofing_message(message: &str) -> String {
+    if let Some(word) = message.strip_prefix("Repeated word: \"").and_then(|s| s.strip_suffix('"')) {
+        crate::i18n::fmt(tl!("Repeated word: \"{word}\""), &[("word", word)])
+    } else {
+        tl!(message).to_owned()
+    }
+}
+
 fn context_menu(app: &mut WordApp, ui: &mut Ui) {
     ui.set_min_width(220.0);
     let item = |ui: &mut Ui, app: &mut WordApp, label: &str, id: &str, params: serde_json::Value| {
         let sc = crate::widgets::shortcut_text(app, id);
         let on = crate::widgets::enabled(app, id);
-        if ui.add_enabled(on, egui::Button::new(label).shortcut_text(sc)).clicked() {
+        if ui.add_enabled(on, egui::Button::new(tl!(label)).shortcut_text(sc)).clicked() {
             let _ = app.run(id, params);
             ui.close();
         }
@@ -764,7 +773,7 @@ fn context_menu(app: &mut WordApp, ui: &mut Ui) {
             .and_then(|v| v.as_array())
             .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
             .unwrap_or_default();
-        ui.label(egui::RichText::new(issue.get("message").and_then(|m| m.as_str()).unwrap_or("")).small().weak());
+        ui.label(egui::RichText::new(proofing_message(issue.get("message").and_then(|m| m.as_str()).unwrap_or(""))).small().weak());
         if sugg.is_empty() {
             ui.label(egui::RichText::new(tl!("(no suggestions)")).italics());
         }
@@ -828,10 +837,39 @@ fn context_menu(app: &mut WordApp, ui: &mut Ui) {
 }
 
 #[cfg(test)]
-mod ime_tests {
+mod tests {
     use super::*;
     use wordcraft_doc::Document;
     use wordcraft_engine::Session;
+
+    #[test]
+    fn context_menu_follows_interface_language_and_preserves_suggestions() {
+        for (code, labels) in [
+            ("zh-hans", ["剪切", "粘贴", "字体…", "段落…", "链接…", "新建批注", "可能存在拼写错误", "全部忽略", "添加到词典"]),
+            ("en", ["Cut", "Paste", "Font…", "Paragraph…", "Link…", "New Comment", "Possible spelling mistake", "Ignore All", "Add to Dictionary"]),
+        ] {
+            crate::i18n::set_current(crate::i18n::Lang::from_code(code).unwrap());
+            let mut app = WordApp::new(Session::new(Document::new()), Default::default());
+            app.canvas.context_issue = Some(json!({"kind":"spelling", "message":"Possible spelling mistake", "suggestions":["ceramics"]}));
+            let mut h = egui_kittest::Harness::builder().build_ui_state(|ui, app| context_menu(app, ui), app);
+            h.run();
+            let rendered: Vec<_> = h
+                .output()
+                .shapes
+                .iter()
+                .filter_map(|shape| match &shape.shape {
+                    egui::Shape::Text(text) => Some(text.galley.job.text.as_str()),
+                    _ => None,
+                })
+                .collect();
+            for label in labels.into_iter().chain(["ceramics"]) {
+                assert!(rendered.contains(&label), "{code}: missing {label:?} in {rendered:?}");
+            }
+            let repeated = proofing_message("Repeated word: \"the\"");
+            assert_eq!(repeated, if code == "zh-hans" { "重复单词：“the”" } else { "Repeated word: \"the\"" });
+        }
+        crate::i18n::set_current(crate::i18n::Lang::EN);
+    }
 
     #[test]
     fn ime_cursor_follows_composition_without_changing_document() {
