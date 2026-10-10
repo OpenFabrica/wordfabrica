@@ -238,10 +238,10 @@ fn comments(app: &mut WordApp, ui: &mut Ui) {
                         ui.data_mut(|d| d.insert_temp(key, text.clone()));
                     }
                     if r.lost_focus() {
-                        let blocks =
-                            text.split('\n').map(|l| wordcraft_doc::para_block(wordcraft_doc::Paragraph::with_text(l, Default::default()))).collect();
-                        let _ = app.session.doc.set_story(StoryRef::Part(part), blocks);
-                        app.session.touch();
+                        // Same undoable command the balloons use.
+                        if text != app.session.doc.plain_text(StoryRef::Part(part)) {
+                            let _ = app.run("review.editComment", json!({"id": id, "text": text}));
+                        }
                         ui.data_mut(|d| d.remove::<String>(key));
                     }
                 }

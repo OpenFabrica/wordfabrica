@@ -24,3 +24,5 @@ thiserror = { workspace = true }
 log = { workspace = true }
 regex = { workspace = true }
 image = { workspace = true }
+# Wall-clock time that also works in the browser (std::time panics on wasm32).
+web-time = "1.1"

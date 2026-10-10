@@ -244,10 +244,29 @@ impl WordApp {
             self.document_epoch = self.document_epoch.wrapping_add(1);
         }
         self.after_command(id);
+        if id == "review.newComment"
+            && let Ok(v) = &r
+        {
+            self.after_new_comment(v, &params);
+        }
         if let Err(e) = &r {
             self.status(e.clone());
         }
         r
+    }
+
+    /// A new, empty comment is typed straight into its balloon beside the page (WPS style); when
+    /// balloons aren't shown (Comments pane, Read Mode, Web Layout…) the pane opens instead.
+    fn after_new_comment(&mut self, result: &Value, params: &Value) {
+        let Some(id) = result.get("id").and_then(Value::as_u64).and_then(|x| u32::try_from(x).ok()) else { return };
+        if params.get("text").and_then(Value::as_str).is_some_and(|t| !t.is_empty()) {
+            return;
+        }
+        if canvas::markup_width(self) > 0.0 {
+            canvas::edit_comment(self, id);
+        } else {
+            self.session.view.comments_pane = true;
+        }
     }
 
     fn after_command(&mut self, id: &str) {

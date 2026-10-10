@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
-use egui::{Color32, Pos2, Rect, Sense, Stroke, TextureHandle, Ui, pos2, vec2};
+use egui::{Align2, Color32, Pos2, Rect, Sense, Stroke, TextureHandle, Ui, pos2, vec2};
 use serde_json::json;
 use wordcraft_doc::{Pos, StoryRef};
 use wordcraft_layout::{DocLayout, Page, Placed};
@@ -40,6 +40,11 @@ pub struct CanvasState {
     pub want_focus: bool,
     pub context_issue: Option<serde_json::Value>,
     pub context_synonyms: Option<serde_json::Value>,
+    /// The comment being edited in place in its balloon, its unsaved text, and whether its
+    /// text field should take keyboard focus this frame.
+    pub editing_comment: Option<u32>,
+    pub comment_draft: String,
+    pub focus_comment: bool,
 }
 
 impl Default for CanvasState {
@@ -62,6 +67,9 @@ impl Default for CanvasState {
             ime_cursor: None,
             want_focus: true,
             context_issue: None,
+            editing_comment: None,
+            comment_draft: String::new(),
+            focus_comment: false,
             context_synonyms: None,
         }
     }
@@ -70,6 +78,8 @@ impl Default for CanvasState {
 /// Page positions in content space (points), for the current zoom.
 pub struct Geometry {
     pub rects: Vec<Rect>,
+    /// Width of the comment balloon column beside each page (points), or 0.
+    pub markup: f32,
     pub size: egui::Vec2,
     pub scale: f32,
 }
@@ -84,8 +94,16 @@ pub fn markup_width(app: &WordApp) -> f32 {
 
 pub fn geometry(app: &WordApp, l: &DocLayout, avail: egui::Vec2) -> Geometry {
     let v = &app.session.view;
-    let markup = markup_width(app);
-    let maxw = l.pages.iter().map(|p| p.w).fold(0.0f32, f32::max).max(72.0) + markup;
+    let mut markup = markup_width(app);
+    let page_w = l.pages.iter().map(|p| p.w).fold(0.0f32, f32::max).max(72.0);
+    // At a fixed zoom the balloon column narrows (down to 150 pt) to fit the window, so the
+    // balloons stay on screen instead of past the right edge.
+    let fixed_zoom = !matches!(v.fit.as_str(), "pageWidth" | "onePage" | "multiplePages") && !v.read_mode;
+    if markup > 0.0 && fixed_zoom {
+        let room = (avail.x - 2.0 * GAP - 20.0) / (v.zoom.clamp(0.1, 5.0) * PX_PER_PT) - page_w;
+        markup = room.clamp(150.0, markup);
+    }
+    let maxw = page_w + markup;
     let maxh = l.pages.iter().map(|p| p.h.min(20_000.0)).fold(0.0f32, f32::max).max(72.0);
     let web = v.mode != wordcraft_layout::ViewMode::Print;
     let mut scale = v.zoom.clamp(0.1, 5.0) * PX_PER_PT;
@@ -118,7 +136,7 @@ pub fn geometry(app: &WordApp, l: &DocLayout, avail: egui::Vec2) -> Geometry {
         }
         y += h + GAP;
     }
-    Geometry { rects, size: vec2(content_w, y.max(avail.y)), scale }
+    Geometry { rects, markup, size: vec2(content_w, y.max(avail.y)), scale }
 }
 
 /// Fingerprint of a page's content for the texture cache.
@@ -272,7 +290,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
         let n = layout.pages.len();
         app.canvas.textures.retain(|k, _| *k < n);
         app.canvas.page_rects = rects.clone();
-        balloons(app, ui, &painter, &rects, &layout, geo.scale);
+        balloons(app, ui, &painter, &rects, &layout, geo.scale, geo.markup);
         // Selection.
         if !app.session.sel.is_collapsed() {
             let (a, b) = app.session.sel.ordered();
@@ -371,10 +389,66 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
     }
 }
 
-/// Comment balloons in the markup area right of each page, joined to their anchors.
-fn balloons(app: &mut WordApp, ui: &mut Ui, painter: &egui::Painter, rects: &[Rect], layout: &DocLayout, scale: f32) {
-    let mw = markup_width(app);
+/// Minutes to add to UTC for local time: the browser's zone on the web; UTC on desktop.
+fn utc_offset_minutes() -> i64 {
+    #[cfg(target_arch = "wasm32")]
+    {
+        -(js_sys::Date::new_0().get_timezone_offset() as i64)
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        0
+    }
+}
+
+/// A comment's `2026-10-10T01:55:00Z` date as local `2026-10-10 09:55`. Dates without a `Z`
+/// are already local and malformed ones are shown as written (never panics).
+fn comment_stamp(iso: &str, offset_min: i64) -> String {
+    let fallback = || iso.get(..16).unwrap_or(iso).replace('T', " ");
+    if !iso.ends_with('Z') {
+        return fallback();
+    }
+    let num = |a: usize, b: usize| iso.get(a..b).and_then(|s| s.parse::<i64>().ok());
+    let (Some(y), Some(mo), Some(d), Some(h), Some(mi)) = (num(0, 4), num(5, 7), num(8, 10), num(11, 13), num(14, 16)) else { return fallback() };
+    // Howard Hinnant's days-from-civil; the inputs are at most four digits, so no overflow.
+    let yy = if mo <= 2 { y - 1 } else { y };
+    let era = if yy >= 0 { yy } else { yy - 399 } / 400;
+    let yoe = yy - era * 400;
+    let doy = (153 * ((mo + 9) % 12) + 2) / 5 + d - 1;
+    let days = era * 146_097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719_468;
+    let mins = days * 1440 + h * 60 + mi + offset_min;
+    let (y, m, d) = wordcraft_engine::cmd::civil_from_days(mins.div_euclid(1440));
+    let t = mins.rem_euclid(1440);
+    format!("{y:04}-{m:02}-{d:02} {:02}:{:02}", t / 60, t % 60)
+}
+
+/// Start editing comment `id` in its balloon (WPS style), saving any other balloon first.
+pub fn edit_comment(app: &mut WordApp, id: u32) {
+    if app.canvas.editing_comment == Some(id) {
+        return;
+    }
+    commit_comment(app);
+    let text = app.session.doc.comments.get(&id).map(|c| app.session.doc.plain_text(StoryRef::Part(c.part))).unwrap_or_default();
+    app.canvas.editing_comment = Some(id);
+    app.canvas.comment_draft = text.trim_end().to_string();
+    app.canvas.focus_comment = true;
+}
+
+/// Write the balloon being edited back to its comment (only if the text changed) and stop editing.
+fn commit_comment(app: &mut WordApp) {
+    let Some(id) = app.canvas.editing_comment.take() else { return };
+    let draft = std::mem::take(&mut app.canvas.comment_draft);
+    let Some(part) = app.session.doc.comments.get(&id).map(|c| c.part) else { return };
+    if app.session.doc.plain_text(StoryRef::Part(part)).trim_end() != draft {
+        let _ = app.run("review.editComment", json!({"id": id, "text": draft}));
+    }
+}
+
+/// Comment balloons in the markup area right of each page, joined to their anchors. A clicked
+/// (or new) balloon turns into a text field so the comment is edited right there.
+fn balloons(app: &mut WordApp, ui: &mut Ui, painter: &egui::Painter, rects: &[Rect], layout: &DocLayout, scale: f32, mw: f32) {
     if mw <= 0.0 {
+        commit_comment(app);
         return;
     }
     let t = Tokens::get(ui.ctx());
@@ -388,7 +462,9 @@ fn balloons(app: &mut WordApp, ui: &mut Ui, painter: &egui::Painter, rects: &[Re
     }
     let palette = [t.blue, Color32::from_rgb(0xB0, 0x3A, 0x2E), Color32::from_rgb(0x2E, 0x7D, 0x32), Color32::from_rgb(0x8E, 0x44, 0xAD), t.orange];
     let mut authors: Vec<String> = Vec::new();
-    let mut clicked: Option<Pos> = None;
+    let mut clicked: Option<(u32, Pos)> = None;
+    let mut action: Option<(&str, u32)> = None;
+    let mut edit_drawn = false;
     // The markup area extends each page.
     for pr in rects {
         let area = Rect::from_min_max(pos2(pr.max.x, pr.min.y), pos2(pr.max.x + mw * scale, pr.max.y));
@@ -407,18 +483,37 @@ fn balloons(app: &mut WordApp, ui: &mut Ui, painter: &egui::Painter, rects: &[Re
         let w = (mw * scale - 20.0).max(60.0);
         let mut next_y = pr.min.y;
         for (ax, ay, id, pos) in list.iter() {
-            let Some(c) = app.session.doc.comments.get(id) else { continue };
-            let text = app.session.doc.plain_text(StoryRef::Part(c.part));
-            let author = if c.author.is_empty() { tl!("Author").to_string() } else { c.author.clone() };
+            // Copy what the card needs: editing below borrows the app mutably.
+            let Some((c_author, c_date, c_resolved, c_part)) =
+                app.session.doc.comments.get(id).map(|c| (c.author.clone(), c.date.clone(), c.resolved, c.part))
+            else {
+                continue;
+            };
+            let editing = app.canvas.editing_comment == Some(*id);
+            let text = if editing { app.canvas.comment_draft.clone() } else { app.session.doc.plain_text(StoryRef::Part(c_part)).trim().to_string() };
+            let author = if c_author.is_empty() { tl!("Author").to_string() } else { c_author };
             let ai = authors.iter().position(|a| *a == author).unwrap_or_else(|| {
                 authors.push(author.clone());
                 authors.len() - 1
             });
             let color = palette.get(ai % palette.len()).copied().unwrap_or(t.blue);
             let fs = (11.0 * scale / PX_PER_PT).clamp(8.0, 16.0);
-            let head = painter.layout(author.clone(), semibold(fs), t.text, w - 16.0);
-            let body = painter.layout(text.trim().to_string(), regular(fs), if c.resolved { t.text_dim } else { t.text }, w - 16.0);
-            let h = head.size().y + body.size().y + 16.0;
+            // Header: author on the left, date and time ("2026-10-10 09:55") on the right.
+            let date = comment_stamp(&c_date, utc_offset_minutes());
+            let date_g = painter.layout_no_wrap(date, regular(fs * 0.9), t.text_dim);
+            // The date sits beside the author when both fit, else on its own line below.
+            let author_w = painter.layout_no_wrap(author.clone(), semibold(fs), color).size().x;
+            let date_inline = author_w + date_g.size().x + 40.0 <= w;
+            let head_w = if date_inline { w - 40.0 - date_g.size().x } else { w - 40.0 };
+            let head = painter.layout(author.clone(), semibold(fs), color, head_w.max(20.0));
+            let date_row = if date_inline { 0.0 } else { date_g.size().y + 2.0 };
+            // An empty comment shows the hint, so a fresh balloon never looks blank.
+            let shown = if text.is_empty() { tl!("Add a comment").to_string() } else { text.clone() };
+            let body_color = if text.is_empty() || c_resolved { t.text_dim } else { t.text };
+            let body = painter.layout(shown, regular(fs), body_color, w - 20.0);
+            let body_h = body.size().y.max(fs * 1.3);
+            let resolved_h = if c_resolved { fs * 1.4 } else { 0.0 };
+            let h = head.size().y + date_row + body_h + resolved_h + 18.0;
             let anchor = pos2(pr.min.x + ax * scale, pr.min.y + ay * scale);
             let top = (anchor.y - 12.0).max(next_y);
             let card = Rect::from_min_size(pos2(x0, top), vec2(w, h));
@@ -426,29 +521,96 @@ fn balloons(app: &mut WordApp, ui: &mut Ui, painter: &egui::Painter, rects: &[Re
             if !card.intersects(clip) {
                 continue;
             }
-            let selected = app.session.sel.focus.path == pos.path && app.session.sel.focus.story == pos.story;
+            let selected = editing || (app.session.sel.focus.path == pos.path && app.session.sel.focus.story == pos.story);
             // Leader: from the anchor along the text to the page edge, then to the card.
             let lead = Stroke::new(if selected { 1.5 } else { 1.0 }, color.linear_multiply(if selected { 1.0 } else { 0.7 }));
             dashed(painter, anchor, pos2(pr.max.x, anchor.y), lead);
             painter.line_segment([pos2(pr.max.x, anchor.y), pos2(x0, top + 10.0)], lead);
             painter.rect_filled(card.translate(vec2(0.0, 1.0)), 4.0, t.page_shadow);
-            painter.rect_filled(card, 4.0, if selected { t.checked } else { Color32::WHITE });
+            painter.rect_filled(card, 4.0, Color32::WHITE);
             painter.rect_stroke(card, 4.0, Stroke::new(if selected { 1.5 } else { 1.0 }, color), egui::StrokeKind::Inside);
             painter.rect_filled(Rect::from_min_size(card.min, vec2(4.0, h)), egui::CornerRadius { nw: 4, sw: 4, ne: 0, se: 0 }, color);
-            painter.galley(pos2(card.min.x + 10.0, card.min.y + 6.0), head.clone(), t.text);
-            painter.galley(pos2(card.min.x + 10.0, card.min.y + 10.0 + head.size().y), body, t.text);
+            let head_y = card.min.y + 6.0;
+            painter.galley(pos2(card.min.x + 10.0, head_y), head.clone(), color);
+            let menu_r = Rect::from_min_size(pos2(card.max.x - 22.0, head_y - 2.0), vec2(18.0, 18.0));
+            let date_pos = if date_inline {
+                pos2(menu_r.min.x - 4.0 - date_g.size().x, head_y + (head.size().y - date_g.size().y) / 2.0)
+            } else {
+                pos2(card.min.x + 10.0, head_y + head.size().y + 2.0)
+            };
+            painter.galley(date_pos, date_g, t.text_dim);
+            let body_rect = Rect::from_min_size(pos2(card.min.x + 10.0, head_y + head.size().y + date_row + 4.0), vec2(w - 20.0, body_h));
             let r = ui.interact(card, ui.id().with(("balloon", *id)), Sense::click());
-            if r.hovered() {
-                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+            if editing {
+                // The balloon is the editor: a frameless text field in the body area.
+                edit_drawn = true;
+                painter.rect_filled(body_rect.expand2(vec2(4.0, 2.0)), 3.0, t.hover.linear_multiply(0.6));
+                let te = egui::TextEdit::multiline(&mut app.canvas.comment_draft)
+                    .frame(egui::Frame::NONE)
+                    .margin(vec2(0.0, 0.0))
+                    .font(regular(fs))
+                    .text_color(t.text)
+                    .desired_width(body_rect.width())
+                    .desired_rows(1)
+                    .hint_text(tl!("Add a comment"));
+                let mut child = ui.new_child(egui::UiBuilder::new().max_rect(body_rect).layout(egui::Layout::top_down(egui::Align::Min)));
+                let tr = child.add(te);
+                if std::mem::take(&mut app.canvas.focus_comment) {
+                    tr.request_focus();
+                    // A narrow window may have the balloon column off to the right.
+                    ui.scroll_to_rect(card, None);
+                } else if tr.lost_focus() {
+                    commit_comment(app);
+                }
+            } else {
+                painter.galley(body_rect.min, body, body_color);
+                if r.hovered() {
+                    ui.ctx().set_cursor_icon(egui::CursorIcon::Text);
+                }
+                if r.clicked() {
+                    clicked = Some((*id, pos.clone()));
+                }
             }
-            if r.clicked() {
-                clicked = Some(pos.clone());
+            if c_resolved {
+                painter.text(pos2(body_rect.min.x, body_rect.max.y + 4.0), Align2::LEFT_TOP, tl!("Resolved"), regular(fs * 0.9), t.green);
+            }
+            // The ⋯ menu appears on hover or while editing: resolve, delete.
+            if r.hovered() || editing || ui.rect_contains_pointer(menu_r) {
+                let mr = ui.interact(menu_r, ui.id().with(("balloon_menu", *id)), Sense::click());
+                if mr.hovered() {
+                    painter.rect_filled(menu_r, 3.0, t.hover);
+                }
+                crate::icons::paint(painter, menu_r.shrink(2.0), "more", t.icon, t.accent);
+                egui::Popup::menu(&mr).show(|ui| {
+                    ui.set_min_width(140.0);
+                    if ui.button(tl!(if c_resolved { "Reopen" } else { "Resolve" })).clicked() {
+                        action = Some(("review.resolveComment", *id));
+                        ui.close();
+                    }
+                    if ui.button(tl!("Delete")).clicked() {
+                        action = Some(("review.deleteComment", *id));
+                        ui.close();
+                    }
+                });
             }
         }
     }
-    if let Some(p) = clicked {
+    // The edited balloon scrolled out of view (or vanished): keep what was typed.
+    if app.canvas.editing_comment.is_some() && !edit_drawn && !app.canvas.focus_comment {
+        commit_comment(app);
+    }
+    if let Some((id, p)) = clicked {
         app.session.sel = wordcraft_engine::Selection::caret(p);
-        app.canvas.want_focus = true;
+        edit_comment(app, id);
+    }
+    if let Some((cmd, id)) = action {
+        commit_comment(app);
+        let mut params = json!({"id": id});
+        if cmd == "review.resolveComment" {
+            let resolved = app.session.doc.comments.get(&id).is_some_and(|c| c.resolved);
+            params = json!({"id": id, "value": !resolved});
+        }
+        let _ = app.run(cmd, params);
     }
 }
 
@@ -838,6 +1000,16 @@ fn context_menu(app: &mut WordApp, ui: &mut Ui) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn comment_times_show_in_local_time() {
+        assert_eq!(super::comment_stamp("2026-10-10T01:55:00Z", 0), "2026-10-10 01:55");
+        assert_eq!(super::comment_stamp("2026-10-10T20:30:00Z", 8 * 60), "2026-10-11 04:30");
+        assert_eq!(super::comment_stamp("2026-03-01T00:10:00Z", -60), "2026-02-28 23:10");
+        assert_eq!(super::comment_stamp("2026-10-10T09:55:00", 480), "2026-10-10 09:55");
+        assert_eq!(super::comment_stamp("garbage", 480), "garbage");
+        assert_eq!(super::comment_stamp("20x6-1é-10T09:55:00Z", 480), "20x6-1é-10 09:5");
+    }
+
     use super::*;
     use wordcraft_doc::Document;
     use wordcraft_engine::Session;

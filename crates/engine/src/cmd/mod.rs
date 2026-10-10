@@ -182,20 +182,13 @@ pub fn split_para(s: &mut Session, at: &Pos) -> Result<Pos, CmdError> {
     Ok(new)
 }
 
-/// ISO-8601 timestamp (UTC, seconds).
+/// ISO-8601 timestamp (UTC, seconds). `web_time` reads the real clock in browsers too.
 pub fn now_iso() -> String {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-        let days = (secs / 86_400) as i64;
-        let (y, m, d) = civil_from_days(days);
-        let t = secs % 86_400;
-        format!("{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z", t / 3600, t / 60 % 60, t % 60)
-    }
-    #[cfg(target_arch = "wasm32")]
-    {
-        "2026-01-01T00:00:00Z".to_string()
-    }
+    let secs = web_time::SystemTime::now().duration_since(web_time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let days = (secs / 86_400) as i64;
+    let (y, m, d) = civil_from_days(days);
+    let t = secs % 86_400;
+    format!("{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z", t / 3600, t / 60 % 60, t % 60)
 }
 
 /// Days since 1970-01-01 → (year, month, day) (Howard Hinnant's algorithm).

@@ -11,6 +11,7 @@ pub fn specs() -> Vec<CommandSpec> {
     vec![
         CommandSpec::new("review.newComment", "New Comment", "Review › Comments", new_comment).key("Mod+Alt+M").params(r#"{"text": string}"#),
         CommandSpec::new("review.reply", "Reply", "Review › Comments", reply).params(r#"{"id": n, "text": string}"#),
+        CommandSpec::new("review.editComment", "Edit Comment", "Review › Comments", edit_comment).params(r#"{"id": n, "text": string}"#),
         CommandSpec::new("review.deleteComment", "Delete", "Review › Comments", delete_comment).params(r#"{"id"?: n, "all"?: bool}"#),
         CommandSpec::new("review.resolveComment", "Resolve", "Review › Comments", |s, v| {
             let id = p::u64(v, "id").map(|x| x as u32).or_else(|| comment_at_caret(s)).ok_or_else(|| CmdError::Params("`id` required".into()))?;
@@ -112,8 +113,18 @@ fn new_comment(s: &mut Session, v: &Value) -> CmdResult {
     let props = Default::default();
     s.doc.insert_object(&b, InlineObject::CommentEnd { id }, &props)?;
     s.doc.insert_object(&a, InlineObject::CommentStart { id }, &props)?;
-    s.view.comments_pane = true;
+    // The front end decides where to edit the new comment (its balloon, or the Comments pane).
     Ok(json!({"id": id, "story": part}))
+}
+
+/// Replace a comment's text (one paragraph per line); its author, date and anchor stay.
+fn edit_comment(s: &mut Session, v: &Value) -> CmdResult {
+    let id = p::u64(v, "id").and_then(|x| u32::try_from(x).ok()).ok_or_else(|| CmdError::Params("`id` required".into()))?;
+    let text = p::req_str(v, "text")?;
+    let part = s.doc.comments.get(&id).map(|c| c.part).ok_or_else(|| CmdError::Params("no such comment".into()))?;
+    let blocks = text.split('\n').map(|l| para_block(Paragraph::with_text(l.trim_end_matches('\r'), Default::default()))).collect();
+    s.doc.set_story(StoryRef::Part(part), blocks)?;
+    Ok(json!({"id": id}))
 }
 
 fn reply(s: &mut Session, v: &Value) -> CmdResult {

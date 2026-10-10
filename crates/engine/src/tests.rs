@@ -254,6 +254,12 @@ fn comments() {
     let l = run(&mut s, "review.comments", json!({}));
     assert_eq!(l[0]["text"], "Nice");
     assert_eq!(text(&s), "Some text here");
+    // Editing in place replaces the text (one paragraph per line) and is undoable.
+    run(&mut s, "review.editComment", json!({"id": id, "text": "Nicer\nTwo lines"}));
+    assert_eq!(run(&mut s, "review.comments", json!({}))[0]["text"], "Nicer\nTwo lines");
+    run(&mut s, "edit.undo", json!({}));
+    assert_eq!(run(&mut s, "review.comments", json!({}))[0]["text"], "Nice");
+    assert!(s.run("review.editComment", &json!({"id": 999, "text": "x"})).is_err());
     run(&mut s, "review.deleteComment", json!({"id": id}));
     assert!(s.doc.comments.is_empty());
     assert_eq!(s.doc.para_at(&Pos::body(0, 0)).unwrap().objects.len(), 0);
