@@ -24,11 +24,12 @@ pub fn left(b: Bridge) -> impl IntoView {
 /// more than one is open.
 pub fn right(b: Bridge) -> impl IntoView {
     let open = b.select(|s| (s.styles_pane.is_some(), s.comments.is_some()));
+    // Only the open plugin's id: its pane follows tag edits itself, keeping its search and form.
     let plugin = {
         let (pane, plugins) = (b.plugin_pane.clone(), b.plugins.clone());
         Memo::new(move |_| {
             let id = pane.get()?;
-            plugins.with(|ps| ps.iter().find(|p| p.id == id).cloned())
+            plugins.with(|ps| ps.iter().any(|p| p.id == id)).then_some(id)
         })
     };
     move || {

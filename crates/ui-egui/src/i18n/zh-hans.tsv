@@ -878,3 +878,24 @@
 	Search tags	搜索标签
 	No matching tags	没有匹配的标签
 	Insert {text}	插入 {text}
+	Edit	编辑
+	Done	完成
+	Category	分类
+	Name	名称
+	Text to insert	插入文字
+	Leave empty to insert the name	留空则插入名称
+	Note	说明
+	Optional	可不填
+	Pick or type a new category	选择，或输入新分类
+	Edit tags	编辑标签
+	Enter a category	请填写分类
+	Enter a name	请填写名称
+	Plugin not found	找不到插件
+	A name, text or note is too long or has line breaks	名称、文字或说明太长，或含有换行
+	Rename category	重命名分类
+	New name for category {name}	分类“{name}”的新名称
+	Delete category	删除分类
+	Delete category {name} and its {count} tags?	删除分类“{name}”和其中的 {count} 个标签？
+	Delete tag {name}?	删除标签“{name}”？
+	Someone else changed these tags. They have been reloaded; please make your change again.	其他人刚改过这些标签。已重新加载，请再改一次。
+	Tags not saved: {error}	标签没有保存：{error}

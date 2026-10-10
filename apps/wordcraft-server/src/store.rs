@@ -4,7 +4,7 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{Connection, OptionalExtension, params};
-use wordcraft_remote::{MAX_BYTES, Metadata, Snapshot, WriteRequest, valid_id};
+use wordcraft_remote::{MAX_BYTES, MAX_PLUGIN_BYTES, Metadata, Snapshot, TagCategory, WriteRequest, valid_id};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -39,6 +39,10 @@ impl Store {
              CREATE TABLE IF NOT EXISTS documents (
                id TEXT PRIMARY KEY, title TEXT NOT NULL, revision INTEGER NOT NULL,
                updated_at INTEGER NOT NULL, content BLOB NOT NULL
+             );
+             CREATE TABLE IF NOT EXISTS plugin_tags (
+               id TEXT PRIMARY KEY, revision INTEGER NOT NULL,
+               updated_at INTEGER NOT NULL, categories BLOB NOT NULL
              );",
         )?;
         Ok(Self(Mutex::new(connection)))
@@ -103,5 +107,41 @@ impl Store {
         )?;
         transaction.commit()?;
         Ok(Metadata { id: id.into(), title: title.into(), revision, updated_at })
+    }
+
+    /// Users' version of an editable plugin's tags: `(revision, categories)`, or `None` while
+    /// nobody has changed the file's tags.
+    pub fn plugin_tags(&self, id: &str) -> Result<Option<(u64, Vec<TagCategory>)>, Error> {
+        let connection = self.0.lock().map_err(|_| Error::Storage)?;
+        let row = connection
+            .query_row("SELECT revision,categories FROM plugin_tags WHERE id=?1", [id], |row| {
+                Ok((row.get::<_, i64>(0)? as u64, row.get::<_, Vec<u8>>(1)?))
+            })
+            .optional()?;
+        row.map(|(revision, bytes)| serde_json::from_slice(&bytes).map(|c| (revision, c)).map_err(|_| Error::Storage)).transpose()
+    }
+
+    /// Compare-and-swap an editable plugin's tags (the caller validates them). `revision` is the
+    /// version the edit started from (0 = the file's tags). Returns the new revision.
+    pub fn put_plugin_tags(&self, id: &str, revision: u64, categories: &[TagCategory]) -> Result<u64, Error> {
+        let next = revision.checked_add(1).filter(|r| *r <= i64::MAX as u64).ok_or(Error::Invalid)?;
+        let content = serde_json::to_vec(categories).map_err(|_| Error::Invalid)?;
+        if content.len() > MAX_PLUGIN_BYTES {
+            return Err(Error::TooLarge);
+        }
+        let updated_at = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_| Error::Storage)?.as_millis().min(i64::MAX as u128) as u64;
+        let mut connection = self.0.lock().map_err(|_| Error::Storage)?;
+        let transaction = connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let current: Option<i64> = transaction.query_row("SELECT revision FROM plugin_tags WHERE id=?1", [id], |row| row.get(0)).optional()?;
+        if current.unwrap_or(0) as u64 != revision {
+            return Err(Error::Conflict);
+        }
+        transaction.execute(
+            "INSERT INTO plugin_tags(id,revision,updated_at,categories) VALUES (?1,?2,?3,?4)
+             ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,updated_at=excluded.updated_at,categories=excluded.categories",
+            params![id, next as i64, updated_at as i64, content],
+        )?;
+        transaction.commit()?;
+        Ok(next)
     }
 }

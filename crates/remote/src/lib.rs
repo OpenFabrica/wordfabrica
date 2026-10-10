@@ -62,8 +62,26 @@ pub const MAX_TAG_TEXT: usize = 2000;
 pub struct Plugin {
     pub id: String,
     pub name: String,
+    /// Users may change the tags in the pane; the server stores their version (shared by all).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub editable: bool,
+    /// Version of the users' tags, set by the server: 0 while the file's tags are in use.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub revision: u64,
     #[serde(flatten)]
     pub kind: PluginKind,
+}
+
+fn is_zero(n: &u64) -> bool {
+    *n == 0
+}
+
+/// `PUT /api/plugins/{id}/tags`: replace an editable plugin's tags. `revision` is the version the
+/// edit started from; the server refuses the write when someone saved a newer one.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct TagsWrite {
+    pub revision: u64,
+    pub categories: Vec<TagCategory>,
 }
 
 /// What a plugin adds. The `kind` field in the JSON picks the variant.
@@ -111,8 +129,9 @@ impl Plugin {
         short_text(&self.name, 100).map_err(|e| format!("{}: name {e}", self.id))?;
         match &self.kind {
             PluginKind::Tags { categories } => {
-                if categories.is_empty() || categories.len() > 500 {
-                    return Err(format!("{}: needs 1–500 categories", self.id));
+                // Users may delete every category, so an empty list is valid.
+                if categories.len() > 500 {
+                    return Err(format!("{}: more than 500 categories", self.id));
                 }
                 let mut count = 0usize;
                 for category in categories {
@@ -180,10 +199,13 @@ mod tests {
             ok.replace(r#""name":"C""#, r#""name":"C\nD""#),
             ok.replace(r#""text":"T""#, r#""text":"line\nbreak""#),
             ok.replace(r#""text":"T""#, &format!(r#""text":"{}""#, "x".repeat(MAX_TAG_TEXT + 1))),
-            ok.replace(r#"[{"name":"C","tags":[{"label":"L","text":"T"}]}]"#, "[]"),
+            ok.replace(r#"[{"name":"C","tags":[{"label":"L","text":"T"}]}]"#, &format!("[{}]", vec![r#"{"name":"C","tags":[]}"#; 501].join(","))),
         ] {
             assert!(tags(&bad).validate().is_err(), "{bad}");
         }
         assert!(serde_json::from_str::<Plugin>(&ok.replace(r#""kind":"tags""#, r#""kind":"script""#)).is_err(), "unknown kinds don't parse");
+        let empty = ok.replace(r#"[{"name":"C","tags":[{"label":"L","text":"T"}]}]"#, "[]");
+        assert_eq!(tags(&empty).validate(), Ok(()), "users may delete every category");
+        assert!(!tags(ok).editable && tags(ok).revision == 0, "files are read-only unless they say otherwise");
     }
 }

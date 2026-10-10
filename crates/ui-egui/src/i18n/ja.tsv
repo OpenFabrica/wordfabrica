@@ -808,3 +808,25 @@
 	Search tags	タグを検索
 	No matching tags	一致するタグはありません
 	Insert {text}	{text} を挿入
+	Edit	編集
+	Done	完了
+	Category	分類
+	Name	名前
+	Text to insert	挿入する文字列
+	Leave empty to insert the name	空欄なら名前を挿入
+	Note	説明
+	Optional	省略可
+	Pick or type a new category	選ぶか、新しい分類を入力
+	Edit tags	タグを編集
+	Enter a category	分類を入力してください
+	Enter a name	名前を入力してください
+	Plugin not found	プラグインが見つかりません
+	A name, text or note is too long or has line breaks	名前・文字列・説明が長すぎるか、改行を含んでいます
+	Rename category	分類の名前を変更
+	New name for category {name}	分類「{name}」の新しい名前
+	Delete category	分類を削除
+	Delete category {name} and its {count} tags?	分類「{name}」とその {count} 個のタグを削除しますか？
+	Delete tag {name}?	タグ「{name}」を削除しますか？
+	Someone else changed these tags. They have been reloaded; please make your change again.	ほかの人がタグを変更しました。再読み込みしたので、もう一度変更してください。
+	Tags not saved: {error}	タグを保存できませんでした：{error}
+	Saving…	保存中…

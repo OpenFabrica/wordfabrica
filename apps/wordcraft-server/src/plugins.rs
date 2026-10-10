@@ -1,12 +1,20 @@
 //! An immutable, bounded catalog of administrator-provided plugins (JSON data, never code).
 //! Files are read and validated once at startup; the browser only sees the parsed result.
-use axum::{Json, Router, extract::State, routing::get};
+//! Plugins marked `editable` let users replace their tags; that shared version lives in the
+//! store and wins over the file's tags.
+use axum::{
+    Json, Router,
+    extract::{Path as UrlPath, State},
+    routing::{get, put},
+};
 use std::{
     io::{self, Read},
     path::Path,
     sync::Arc,
 };
-use wordcraft_remote::{MAX_PLUGIN_BYTES, MAX_PLUGINS, Plugin};
+use wordcraft_remote::{MAX_PLUGIN_BYTES, MAX_PLUGINS, Plugin, PluginKind, TagsWrite};
+
+use crate::store::{Error, Store};
 
 #[derive(Default)]
 pub struct Catalog {
@@ -38,7 +46,9 @@ impl Catalog {
             if bytes.len() > MAX_PLUGIN_BYTES {
                 return Err(invalid(&format!("{}: plugin exceeds 1 MiB", path.display())));
             }
-            let plugin: Plugin = serde_json::from_slice(&bytes).map_err(|e| invalid(&format!("{}: {e}", path.display())))?;
+            let mut plugin: Plugin = serde_json::from_slice(&bytes).map_err(|e| invalid(&format!("{}: {e}", path.display())))?;
+            // Revisions belong to the store, never to the file.
+            plugin.revision = 0;
             plugin.validate().map_err(|e| invalid(&format!("{}: {e}", path.display())))?;
             if catalog.plugins.iter().any(|p| p.id == plugin.id) {
                 return Err(invalid(&format!("{}: duplicate plugin id {:?}", path.display(), plugin.id)));
@@ -60,11 +70,43 @@ fn invalid(message: &str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message)
 }
 
-pub(crate) fn routes(catalog: Arc<Catalog>) -> Router {
-    Router::new().route("/api/plugins", get(list)).with_state(catalog)
+type Shared = (Arc<Catalog>, Arc<Store>);
+
+pub(crate) fn routes(catalog: Arc<Catalog>, store: Arc<Store>) -> Router {
+    Router::new().route("/api/plugins", get(list)).route("/api/plugins/{id}/tags", put(save_tags)).with_state((catalog, store))
+}
+
+/// A plugin as users see it: an editable plugin carries the stored tags once someone saved some.
+fn current(store: &Store, plugin: &Plugin) -> Result<Plugin, Error> {
+    let mut plugin = plugin.clone();
+    if plugin.editable
+        && let Some((revision, categories)) = store.plugin_tags(&plugin.id)?
+    {
+        plugin.revision = revision;
+        plugin.kind = PluginKind::Tags { categories };
+    }
+    Ok(plugin)
 }
 
 /// Every plugin, in file name order.
-async fn list(State(catalog): State<Arc<Catalog>>) -> Json<Vec<Plugin>> {
-    Json(catalog.plugins.clone())
+async fn list(State((catalog, store)): State<Shared>) -> Result<Json<Vec<Plugin>>, Error> {
+    crate::blocking(move || catalog.plugins.iter().map(|p| current(&store, p)).collect()).await.map(Json)
+}
+
+/// Replace an editable plugin's tags. Read-only and unknown plugins are 404; invalid tags 400;
+/// a stale `revision` 409 (the client reloads). Returns the plugin as now stored.
+async fn save_tags(
+    State((catalog, store)): State<Shared>,
+    UrlPath(id): UrlPath<String>,
+    Json(write): Json<TagsWrite>,
+) -> Result<Json<Plugin>, Error> {
+    crate::blocking(move || {
+        let mut plugin = catalog.plugins.iter().find(|p| p.id == id && p.editable).cloned().ok_or(Error::NotFound)?;
+        plugin.kind = PluginKind::Tags { categories: write.categories };
+        plugin.validate().map_err(|_| Error::Invalid)?;
+        let PluginKind::Tags { categories } = &plugin.kind;
+        plugin.revision = store.put_plugin_tags(&plugin.id, write.revision, categories)?;
+        Ok(Json(plugin))
+    })
+    .await
 }

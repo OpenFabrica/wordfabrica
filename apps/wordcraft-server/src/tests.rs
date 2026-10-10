@@ -160,3 +160,49 @@ async fn http_lists_plugins() {
     let response = app.oneshot(Request::get("/api/plugins").body(Body::empty()).unwrap()).await.unwrap();
     assert_eq!(&to_bytes(response.into_body(), 1024).await.unwrap()[..], b"[]");
 }
+
+#[tokio::test]
+async fn http_saves_editable_tags_with_revisions() {
+    let dir = tempfile::tempdir().unwrap();
+    let plugins = dir.path().join("plugins");
+    std::fs::create_dir(&plugins).unwrap();
+    std::fs::write(plugins.join("a.json"), TAGS.replace(r#""id":"tags""#, r#""id":"tags","editable":true,"revision":7"#)).unwrap();
+    std::fs::write(plugins.join("b.json"), TAGS.replace(r#""id":"tags""#, r#""id":"fixed""#)).unwrap();
+    let db = dir.path().join("db");
+    let app = |store: Store| {
+        crate::router_with_catalogs(
+            Arc::new(store),
+            dir.path().into(),
+            Arc::new(crate::fonts::Catalog::default()),
+            Arc::new(crate::plugins::Catalog::load(Some(&plugins)).unwrap()),
+        )
+    };
+    let put = |id: &str, body: String| {
+        Request::put(format!("/api/plugins/{id}/tags")).header("content-type", "application/json").body(Body::from(body)).unwrap()
+    };
+    let list = |app: axum::Router| async move {
+        let response = app.oneshot(Request::get("/api/plugins").body(Body::empty()).unwrap()).await.unwrap();
+        serde_json::from_slice::<Vec<wordcraft_remote::Plugin>>(&to_bytes(response.into_body(), 1024 * 1024).await.unwrap()).unwrap()
+    };
+    let router = app(Store::open(&db).unwrap());
+    assert_eq!(list(router.clone()).await[0].revision, 0, "a revision in the file is ignored");
+    let edit = r#"{"revision":0,"categories":[{"name":"新分类","tags":[{"label":"新标签","text":"{{新}}"}]}]}"#;
+    let response = router.clone().oneshot(put("tags", edit.into())).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let saved: wordcraft_remote::Plugin = serde_json::from_slice(&to_bytes(response.into_body(), 1024 * 1024).await.unwrap()).unwrap();
+    assert_eq!(saved.revision, 1);
+    assert_eq!(router.clone().oneshot(put("tags", edit.into())).await.unwrap().status(), StatusCode::CONFLICT, "stale revision");
+    assert_eq!(router.clone().oneshot(put("fixed", edit.into())).await.unwrap().status(), StatusCode::NOT_FOUND, "read-only plugin");
+    assert_eq!(router.clone().oneshot(put("nope", edit.into())).await.unwrap().status(), StatusCode::NOT_FOUND);
+    let bad = edit.replace(r#""revision":0"#, r#""revision":1"#).replace("{{新}}", "a\\nb");
+    assert_eq!(router.clone().oneshot(put("tags", bad)).await.unwrap().status(), StatusCode::BAD_REQUEST, "invalid tags");
+    let cleared = r#"{"revision":1,"categories":[]}"#;
+    assert_eq!(router.clone().oneshot(put("tags", cleared.into())).await.unwrap().status(), StatusCode::OK);
+    drop(router);
+    // Saved tags survive a restart and win over the file; the read-only plugin keeps the file's.
+    let listed = list(app(Store::open(&db).unwrap())).await;
+    assert_eq!(listed[0].revision, 2);
+    assert_eq!(listed[0].kind, wordcraft_remote::PluginKind::Tags { categories: vec![] });
+    let wordcraft_remote::PluginKind::Tags { categories } = &listed[1].kind;
+    assert_eq!(categories[0].tags[0].label, "客户名称");
+}

@@ -13,6 +13,22 @@
    - 点分类按钮（“全部”、“客户信息”…）只看一个分类。
 4. 点一个标签，它的文字插入到文档光标处。有选中文字时，替换选中文字（和打字一样）。插入可以撤销。
 
+### 编辑标签
+
+插件文件写了 `"editable": true` 时，面板标题旁有“编辑”按钮。点它进入编辑模式：
+
+- **添加**：在表单里填“分类”“名称”“插入文字”“说明”，点“添加”（或按 Enter）。分类可以从列表选，也可以输入新名字，新分类自动建立。“插入文字”不填，就插入名称。
+- **修改**：点标签右边的 ✎，内容进入表单，改完点“保存”。改了分类，标签就移到那个分类。
+- **删除**：点标签右边的 ✕。点分类标题右边的 ✕ 删除整个分类和其中的标签。删除前会确认。
+- **改分类名**：点分类标题右边的 ✎。改成另一个已有分类的名字，两个分类合并。
+- 点“完成”退出编辑模式。
+
+每次修改马上存到服务端，所有用户共用同一套标签。进入编辑模式时会先读取最新的标签。
+
+两个人同时改：后保存的人会看到“其他人刚改过这些标签……”。面板已经换成最新的标签，表单里的内容还在，再点一次“添加”或“保存”即可。
+
+服务端没有账号，能打开编辑器的人都能改标签（和文档一样，见 [网页存储](web-storage.md)）。不想让用户改，就不要写 `editable`。
+
 ## 管理员怎么配置
 
 把插件文件放进插件目录，然后重启服务。
@@ -20,7 +36,8 @@
 - 插件目录：环境变量 `WORDCRAFT_PLUGINS_DIR`。没设置时用启动目录下的 `plugins/`；这个目录不存在就不加载插件。
 - 只读目录里直接放的 `*.json` 文件，按文件名排序。子目录、符号链接、其他文件都忽略。
 - 启动时检查每个文件。有一个文件不合格，服务就不启动，并打印哪个文件、什么问题。
-- 仓库里的 `plugins/template-tags.json` 是示例。
+- 仓库里的 `plugins/template-tags.json` 是示例（可编辑）。
+- 用户改过的标签存在数据目录的 SQLite（`plugin_tags` 表）里，优先于文件里的标签。之后再改文件里的标签不会生效；要恢复成文件内容，停服务后执行 `sqlite3 data/documents.sqlite3 "DELETE FROM plugin_tags WHERE id='template-tags'"`。
 
 ```sh
 WORDCRAFT_PLUGINS_DIR=/srv/wordcraft-plugins cargo run -p wordcraft-server
@@ -52,7 +69,8 @@ WORDCRAFT_PLUGINS_DIR=/srv/wordcraft-plugins cargo run -p wordcraft-server
 | `id` | 是 | 1–64 个字符，只能用 `a-z 0-9 - _ .`。所有插件里不能重复。 |
 | `name` | 是 | 按钮和窗格标题，一行，最多 100 字。 |
 | `kind` | 是 | 现在只有 `"tags"`。 |
-| `categories` | 是 | 1–500 个分类。分类 `name` 一行，最多 100 字。 |
+| `editable` | 否 | `true`：用户可以在面板里增、改、删标签。默认 `false`（只读）。 |
+| `categories` | 是 | 最多 500 个分类。分类 `name` 一行，最多 100 字。 |
 | `tags[].label` | 是 | 窗格里显示的名字，一行，最多 200 字。 |
 | `tags[].text` | 否 | 插入的文字，最多 2000 字。不能有换行等控制字符（可以有 Tab）。不写就插入 `label`。 |
 | `tags[].note` | 否 | 鼠标悬停时显示的说明，最多 500 字。 |
@@ -62,10 +80,16 @@ WORDCRAFT_PLUGINS_DIR=/srv/wordcraft-plugins cargo run -p wordcraft-server
 ## 代码位置
 
 - `crates/remote`：共享格式 `Plugin`、`PluginKind`、`Tag`，以及 `Plugin::validate`（服务端和浏览器都用它检查）。
-- `apps/wordcraft-server/src/plugins.rs`：启动时读目录、检查，提供 `GET /api/plugins`。
-- `apps/wordcraft-web/src/plugins.rs`：编辑器启动后读取插件（10 秒超时）。失败只记日志，编辑器照常用。
-- `crates/ui-web/src/plugins.rs`：分类和搜索的过滤逻辑（可本地测试）。
-- `crates/ui-web/src/view/plugins.rs`：插件按钮和标签窗格。
+- `apps/wordcraft-server/src/plugins.rs`：启动时读目录、检查，提供 `GET /api/plugins` 和 `PUT /api/plugins/{id}/tags`。
+- `apps/wordcraft-server/src/store.rs`：`plugin_tags` 表，按版本号比较后替换（和文档保存一样）。
+- `apps/wordcraft-web/src/plugins.rs`：读取插件、保存标签（10 秒超时）。读取失败只记日志；保存失败在面板里显示。
+- `crates/ui-web/src/plugins.rs`：过滤和编辑逻辑（添加、修改、删除、改名），可本地测试。
+- `crates/ui-web/src/view/plugins.rs`：插件按钮、标签窗格和编辑表单。
+
+## 接口
+
+- `GET /api/plugins`：全部插件。可编辑插件带 `revision`（0 表示还在用文件里的标签）。
+- `PUT /api/plugins/{id}/tags`，内容 `{"revision": 5, "categories": [...]}`：`revision` 是修改开始时的版本。成功返回保存后的插件（版本加 1）。只读或不存在的插件 404；标签不合格 400；版本过期 409。
 
 ## 以后加新类型
 

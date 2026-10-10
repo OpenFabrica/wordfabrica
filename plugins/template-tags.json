@@ -2,6 +2,7 @@
   "id": "template-tags",
   "name": "模版标签",
   "kind": "tags",
+  "editable": true,
   "categories": [
     {
       "name": "客户信息",

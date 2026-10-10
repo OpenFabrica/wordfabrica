@@ -42,6 +42,7 @@ pub fn router_with_fonts(store: Arc<Store>, web_dir: PathBuf, fonts: Arc<fonts::
 
 /// Serve administrator-provided font and plugin catalogs alongside the document API.
 pub fn router_with_catalogs(store: Arc<Store>, web_dir: PathBuf, fonts: Arc<fonts::Catalog>, plugins: Arc<plugins::Catalog>) -> Router {
+    let plugin_routes = plugins::routes(plugins, store.clone());
     Router::new()
         .route("/api/health", get(|| async { Json(serde_json::json!({"status":"ok"})) }))
         .route("/api/documents", get(list))
@@ -50,7 +51,7 @@ pub fn router_with_catalogs(store: Arc<Store>, web_dir: PathBuf, fonts: Arc<font
         .fallback_service(tower_http::services::ServeDir::new(web_dir))
         .with_state(store)
         .merge(fonts::routes(fonts))
-        .merge(plugins::routes(plugins))
+        .merge(plugin_routes)
         .layer(DefaultBodyLimit::max(MAX_BYTES))
         .layer(tower_http::limit::RequestBodyLimitLayer::new(MAX_BYTES))
         .layer(middleware::from_fn(same_origin))
@@ -75,7 +76,7 @@ async fn same_origin(request: Request, next: Next) -> Response {
     response
 }
 
-async fn blocking<T: Send + 'static>(work: impl FnOnce() -> Result<T, Error> + Send + 'static) -> Result<T, Error> {
+pub(crate) async fn blocking<T: Send + 'static>(work: impl FnOnce() -> Result<T, Error> + Send + 'static) -> Result<T, Error> {
     tokio::task::spawn_blocking(work).await.map_err(|_| Error::Storage)?
 }
 async fn list(State(store): State<Arc<Store>>) -> Result<Json<Vec<Metadata>>, Error> {

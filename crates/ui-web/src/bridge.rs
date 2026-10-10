@@ -12,7 +12,7 @@ use wordcraft_ui_egui::host::CommandInfo;
 use wordcraft_ui_egui::{Action, ChromeState, WordApp};
 
 use crate::model::Item;
-use crate::plugins::Plugin;
+use crate::plugins::{Plugin, TagCategory};
 
 /// A preview image the chrome wants (rendered by the engine, shown in an `<img>`).
 #[derive(Clone, Debug, PartialEq)]
@@ -76,6 +76,20 @@ pub struct Bridge {
     pub plugins: ArcRwSignal<Vec<Plugin>>,
     /// The plugin whose pane is open (pure chrome state: plugins hold no document data).
     pub plugin_pane: ArcRwSignal<Option<String>>,
+    /// A tag save is in flight (edits wait for it), and the last save's error.
+    pub plugin_saving: ArcRwSignal<bool>,
+    pub plugin_error: ArcRwSignal<Option<String>>,
+    plugin_host: Arc<Mutex<Option<PluginHost>>>,
+}
+
+/// What the page shell does for plugins over the network (the chrome has no HTTP client).
+#[derive(Clone)]
+struct PluginHost {
+    /// Save an editable plugin's tags: id, the revision the edit started from, the new tags. The
+    /// shell answers with [`Bridge::plugin_saved`] or [`Bridge::plugin_save_failed`].
+    save: Arc<dyn Fn(String, u64, Vec<TagCategory>) + Send + Sync>,
+    /// Fetch the plugin list again and pass it to [`Bridge::set_plugins`].
+    reload: Arc<dyn Fn() + Send + Sync>,
 }
 
 impl Bridge {
@@ -102,6 +116,9 @@ impl Bridge {
             mac,
             plugins: ArcRwSignal::new(Vec::new()),
             plugin_pane: ArcRwSignal::new(None),
+            plugin_saving: ArcRwSignal::new(false),
+            plugin_error: ArcRwSignal::new(None),
+            plugin_host: Arc::new(Mutex::new(None)),
         };
         crate::view::mount(&bridge, &document);
         Some(bridge)
@@ -118,6 +135,56 @@ impl Bridge {
             }
         }
         self.plugins.set(ok);
+    }
+
+    /// Let the shell save and reload plugins (see [`PluginHost`]). Without it, tags stay read-only.
+    pub fn set_plugin_host(&self, save: impl Fn(String, u64, Vec<TagCategory>) + Send + Sync + 'static, reload: impl Fn() + Send + Sync + 'static) {
+        *self.plugin_host.lock().unwrap_or_else(|e| e.into_inner()) = Some(PluginHost { save: Arc::new(save), reload: Arc::new(reload) });
+    }
+
+    /// Whether the shell can save tags.
+    pub fn can_edit_plugins(&self) -> bool {
+        self.plugin_host.lock().unwrap_or_else(|e| e.into_inner()).is_some()
+    }
+
+    fn host(&self) -> Option<PluginHost> {
+        self.plugin_host.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+
+    /// Save new tags for plugin `id`, unless a save is already in flight.
+    pub fn save_tags(&self, id: &str, revision: u64, categories: Vec<TagCategory>) {
+        let Some(host) = self.host() else { return };
+        if self.plugin_saving.get_untracked() {
+            return;
+        }
+        self.plugin_saving.set(true);
+        self.plugin_error.set(None);
+        (host.save)(id.to_string(), revision, categories);
+    }
+
+    /// Fetch the plugin list again (before editing, so edits start from the latest tags).
+    pub fn reload_plugins(&self) {
+        if let Some(host) = self.host() {
+            (host.reload)();
+        }
+    }
+
+    /// The server stored `plugin`: show it.
+    pub fn plugin_saved(&self, plugin: Plugin) {
+        if plugin.validate().is_ok() {
+            self.plugins.update(|ps| {
+                if let Some(p) = ps.iter_mut().find(|p| p.id == plugin.id) {
+                    *p = plugin;
+                }
+            });
+        }
+        self.plugin_saving.set(false);
+    }
+
+    /// A save failed; `message` is shown in the pane.
+    pub fn plugin_save_failed(&self, message: String) {
+        self.plugin_error.set(Some(message));
+        self.plugin_saving.set(false);
     }
 
     /// Queue an action for the app and ask for a frame to apply it.

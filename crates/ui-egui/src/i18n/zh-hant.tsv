@@ -809,3 +809,25 @@
 	Search tags	搜尋標籤
 	No matching tags	沒有相符的標籤
 	Insert {text}	插入 {text}
+	Edit	編輯
+	Done	完成
+	Category	分類
+	Name	名稱
+	Text to insert	插入文字
+	Leave empty to insert the name	留空則插入名稱
+	Note	說明
+	Optional	可不填
+	Pick or type a new category	選擇，或輸入新分類
+	Edit tags	編輯標籤
+	Enter a category	請填寫分類
+	Enter a name	請填寫名稱
+	Plugin not found	找不到外掛程式
+	A name, text or note is too long or has line breaks	名稱、文字或說明太長，或含有換行
+	Rename category	重新命名分類
+	New name for category {name}	分類「{name}」的新名稱
+	Delete category	刪除分類
+	Delete category {name} and its {count} tags?	刪除分類「{name}」和其中的 {count} 個標籤？
+	Delete tag {name}?	刪除標籤「{name}」？
+	Someone else changed these tags. They have been reloaded; please make your change again.	其他人剛改過這些標籤。已重新載入，請再改一次。
+	Tags not saved: {error}	標籤沒有儲存：{error}
+	Saving…	儲存中…

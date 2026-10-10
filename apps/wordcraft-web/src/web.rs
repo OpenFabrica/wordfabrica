@@ -63,7 +63,7 @@ pub fn start() {
                     if let Some(bridge) = &bridge
                         && remote.is_some()
                     {
-                        crate::plugins::load(bridge.clone());
+                        crate::plugins::install(bridge.clone());
                     }
                     Ok(Box::new(WebShell { app, inbox, remote, locale, font_error, title: String::new(), bridge }))
                 }),
