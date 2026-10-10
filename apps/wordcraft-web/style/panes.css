@@ -1,5 +1,5 @@
-/* WordCraft web side panes: Navigation (left of the canvas), Styles and Comments (right of it,
-   stacked when both are open). Colours come from the --wc-* theme variables on <html>. */
+/* WordCraft web side panes: Navigation (left of the canvas), Styles, Comments and plugin panes (right of it,
+   stacked when several are open). Colours come from the --wc-* theme variables on <html>. */
 
 .wc-pane, .wc-pane button, .wc-pane input, .wc-pane textarea { font: 13px/1.35 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
 .wc-pane { display: flex; flex-direction: column; min-height: 0; box-sizing: border-box; padding: 10px;
@@ -73,3 +73,16 @@
 .wc-comment-text:focus { outline: none; border-color: var(--wc-accent); }
 .wc-comment-actions { display: flex; gap: 4px; margin-top: 6px; }
 .wc-comment-actions .wc-pane-button { padding: 2px 7px; font-size: 12px; }
+
+/* ---------- plugin panes (template tags) ---------- */
+.wc-chip.active { background: var(--wc-checked); border-color: var(--wc-accent); }
+.wc-tag-cats { display: flex; flex-wrap: wrap; gap: 4px; flex: none; max-height: 84px; overflow-y: auto; margin: 6px 0 4px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--wc-border); }
+.wc-tag-cat { padding: 2px 8px; border: 1px solid var(--wc-border-strong); border-radius: 11px; background: var(--wc-input); color: var(--wc-text); font-size: 12px; }
+.wc-tag-cat:hover { background: var(--wc-hover); }
+.wc-tag-cat.active { background: var(--wc-accent); border-color: var(--wc-accent); color: #fff; }
+.wc-tag-group { margin: 8px 2px 2px; font-size: 11.5px; font-weight: 600; color: var(--wc-text-dim); }
+.wc-tag-group:first-child { margin-top: 2px; }
+.wc-tag { display: flex; flex-direction: column; gap: 1px; }
+.wc-tag-label { font-weight: 500; }
+.wc-tag-text { font: 11.5px/1.3 ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: var(--wc-text-dim); }

@@ -8,12 +8,15 @@
 //! browser file picker (bytes arrive through `Services::inbox`); hosted Save persists via HTTP.
 //! Save As/Export download. `?local` keeps the standalone, download-only mode.
 //! URL flags: `?webgl` forces WebGL2; `?sample` opens the sample document.
+//! With a server, plugins from `/api/plugins` add panes to the HTML chrome (`docs/plugins.md`).
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 #[cfg(target_arch = "wasm32")]
 mod fonts;
 #[cfg(target_arch = "wasm32")]
 mod locale;
+#[cfg(target_arch = "wasm32")]
+mod plugins;
 #[cfg(target_arch = "wasm32")]
 mod remote;
 #[cfg(target_arch = "wasm32")]

@@ -21,9 +21,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let font_dir = PathBuf::from(std::env::var_os("WORDCRAFT_FONTS_DIR").unwrap_or_else(|| "resources/fonts/server".into()));
     let fonts = Arc::new(wordcraft_server::fonts::Catalog::load(Some(&font_dir))?);
     println!("Server font files: {}", fonts.len());
+    // Plugins are optional: without WORDCRAFT_PLUGINS_DIR, a missing `plugins` directory means none.
+    let plugin_dir = match std::env::var_os("WORDCRAFT_PLUGINS_DIR") {
+        Some(dir) => Some(PathBuf::from(dir)),
+        None => Some(PathBuf::from("plugins")).filter(|dir| dir.is_dir()),
+    };
+    let plugins = Arc::new(wordcraft_server::plugins::Catalog::load(plugin_dir.as_deref())?);
+    println!("Plugins: {}", plugins.len());
     let listener = tokio::net::TcpListener::bind(&address).await?;
     println!("WordCraft: http://{} (data: {})", listener.local_addr()?, data.canonicalize()?.display());
-    axum::serve(listener, wordcraft_server::router_with_fonts(store, web, fonts))
+    axum::serve(listener, wordcraft_server::router_with_catalogs(store, web, fonts, plugins))
         .with_graceful_shutdown(async {
             if let Err(error) = tokio::signal::ctrl_c().await {
                 eprintln!("shutdown signal: {error}");

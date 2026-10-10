@@ -59,6 +59,12 @@ pub fn start() {
                         app.services.request_save = Some(Box::new(move || requested.set(true)));
                     }
                     let bridge = if egui_chrome { None } else { mount_chrome(&mut app, &cc.egui_ctx) };
+                    // Plugins come from the server and only the HTML chrome shows them.
+                    if let Some(bridge) = &bridge
+                        && remote.is_some()
+                    {
+                        crate::plugins::load(bridge.clone());
+                    }
                     Ok(Box::new(WebShell { app, inbox, remote, locale, font_error, title: String::new(), bridge }))
                 }),
             )

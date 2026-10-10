@@ -113,3 +113,50 @@ async fn http_create_load_list_conflict_and_input_boundaries() {
     let response = app.oneshot(Request::get("/api/documents").header("sec-fetch-site", "cross-site").body(Body::empty()).unwrap()).await.unwrap();
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
 }
+
+const TAGS: &str =
+    r#"{"id":"tags","name":"模版标签","kind":"tags","categories":[{"name":"客户","tags":[{"label":"客户名称","text":"{{客户名称}}"}]}]}"#;
+
+#[test]
+fn plugin_catalog_rejects_bad_files_at_startup() {
+    use crate::plugins::Catalog;
+    assert!(Catalog::load(None).unwrap().is_empty());
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("b.json"), TAGS).unwrap();
+    std::fs::write(dir.path().join("readme.txt"), "not a plugin").unwrap();
+    std::fs::create_dir(dir.path().join("nested")).unwrap();
+    std::fs::write(dir.path().join("nested/ignored.json"), "{bad").unwrap();
+    assert_eq!(Catalog::load(Some(dir.path())).unwrap().len(), 1);
+    std::fs::write(dir.path().join("a.json"), TAGS).unwrap();
+    assert!(Catalog::load(Some(dir.path())).is_err(), "duplicate ids");
+    std::fs::write(dir.path().join("a.json"), TAGS.replace(r#""id":"tags""#, r#""id":"../x""#)).unwrap();
+    assert!(Catalog::load(Some(dir.path())).is_err(), "invalid id");
+    std::fs::write(dir.path().join("a.json"), "{bad").unwrap();
+    assert!(Catalog::load(Some(dir.path())).is_err(), "malformed JSON");
+    std::fs::write(dir.path().join("a.json"), vec![b' '; wordcraft_remote::MAX_PLUGIN_BYTES + 1]).unwrap();
+    assert!(Catalog::load(Some(dir.path())).is_err(), "oversized");
+    assert!(Catalog::load(Some(&dir.path().join("missing"))).is_err(), "a configured directory must exist");
+}
+
+#[tokio::test]
+async fn http_lists_plugins() {
+    let dir = tempfile::tempdir().unwrap();
+    let plugins = dir.path().join("plugins");
+    std::fs::create_dir(&plugins).unwrap();
+    std::fs::write(plugins.join("tags.json"), TAGS).unwrap();
+    let app = crate::router_with_catalogs(
+        Arc::new(Store::open(&dir.path().join("db")).unwrap()),
+        dir.path().into(),
+        Arc::new(crate::fonts::Catalog::default()),
+        Arc::new(crate::plugins::Catalog::load(Some(&plugins)).unwrap()),
+    );
+    let response = app.clone().oneshot(Request::get("/api/plugins").body(Body::empty()).unwrap()).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let list: Vec<wordcraft_remote::Plugin> = serde_json::from_slice(&to_bytes(response.into_body(), 1024 * 1024).await.unwrap()).unwrap();
+    assert_eq!(list.len(), 1);
+    assert_eq!(list[0].name, "模版标签");
+    // The default router publishes none.
+    let app = router(Arc::new(Store::open(&dir.path().join("db2")).unwrap()), dir.path().into());
+    let response = app.oneshot(Request::get("/api/plugins").body(Body::empty()).unwrap()).await.unwrap();
+    assert_eq!(&to_bytes(response.into_body(), 1024).await.unwrap()[..], b"[]");
+}

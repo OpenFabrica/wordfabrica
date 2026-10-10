@@ -31,6 +31,7 @@ cargo run -p wordcraft-server
 | `WORDCRAFT_WEB_DIR` | `dist/web` | 静态网页目录 |
 | `WORDCRAFT_DATA_DIR` | `data` | SQLite 数据目录，不能放进静态网页目录 |
 | `WORDCRAFT_FONTS_DIR` | `resources/fonts/server` | 可选的服务端字体目录；见 [字体扩展](web-fonts.md) |
+| `WORDCRAFT_PLUGINS_DIR` | `plugins`（不存在时不加载） | 可选的插件目录；见 [插件](plugins.md) |
 
 路径相对启动目录。备份时停止服务再复制数据目录，或使用 SQLite backup API 在线备份；运行中不要只复制主数据库而忽略 WAL。
 静态部署可用 `?local` 保留下载模式；`?sample` 创建演示内容；`?doc=<uuid>` 重新打开服务端文档。

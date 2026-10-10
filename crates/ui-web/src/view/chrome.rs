@@ -80,8 +80,8 @@ pub fn title_bar(b: Bridge) -> impl IntoView {
     }
 }
 
-/// Ribbon tabs (with the table tabs while the caret is in a table), then Comments, the
-/// Editing/Reviewing mode and Share.
+/// Ribbon tabs (with the table tabs while the caret is in a table), then one button per plugin,
+/// Comments, the Editing/Reviewing mode and Share.
 pub fn tab_strip(b: Bridge) -> impl IntoView {
     let tab = b.select(|s| s.tab.clone());
     let backstage = b.select(|s| s.backstage);
@@ -112,6 +112,7 @@ pub fn tab_strip(b: Bridge) -> impl IntoView {
     view! {
         <div class="wc-tabs" role="tablist">{tabs}</div>
         <div class="wc-tabs-right">
+            {super::plugins::chips(b.clone())}
             <button class="wc-chip" on:mousedown=keep_focus on:click=move |_| b2.run("view.commentsPane", json!({}))>
                 <span class="wc-icon14" inner_html=move || icon_svg("newComment", 14.0, dark.get(), true)></span>
                 {t("Comments")}

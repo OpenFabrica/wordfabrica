@@ -6276,6 +6276,7 @@ name = "wordcraft-remote"
 version = "0.3.0"
 dependencies = [
  "serde",
+ "serde_json",
  "wordcraft-doc",
 ]
 
@@ -6345,6 +6346,7 @@ dependencies = [
  "wordcraft-doc",
  "wordcraft-engine",
  "wordcraft-geom",
+ "wordcraft-remote",
  "wordcraft-ui-egui",
 ]
 

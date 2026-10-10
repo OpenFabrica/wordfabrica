@@ -63,6 +63,10 @@ HTML 事件 ──Action──▶ 队列 ──(下一帧前)──▶ WordApp::
 - F6：在文档和功能区之间切换。Esc：关闭菜单，或回到文档。
 - 中文输入法规则不变，见 [中文编辑](chinese-editing.md)。
 
+## 插件
+
+服务端 `/api/plugins` 提供的插件在选项卡右侧各有一个按钮，点击打开右侧窗格。插件只是数据，不含代码；打开哪个窗格是纯界面状态（`Bridge::plugin_pane`）。插入标签走 `text.insert`，和打字一样可撤销。详见 [插件](plugins.md)。
+
 ## 回退
 
 在地址后加 `?egui-chrome`，页面隐藏 HTML 外围，egui 画全部界面（和 WEB.1 相同）。例如 `http://127.0.0.1:8771/?egui-chrome`。

@@ -1,5 +1,6 @@
-//! Side panes: Navigation (headings, pages, search results) left of the canvas; Styles and
-//! Comments right of it (stacked when both are open). Same content and commands as the egui panes.
+//! Side panes: Navigation (headings, pages, search results) left of the canvas; Styles,
+//! Comments and plugin panes right of it (stacked when several are open). Styles, Comments and
+//! Navigation have the same content and commands as the egui panes.
 
 use leptos::prelude::*;
 use serde_json::json;
@@ -19,16 +20,26 @@ pub fn left(b: Bridge) -> impl IntoView {
     move || open.get().then(|| nav_pane(b.clone()))
 }
 
-/// The panes right of the canvas: Styles and/or Comments, stacked when both are open.
+/// The panes right of the canvas: Styles, Comments and the open plugin's pane, stacked when
+/// more than one is open.
 pub fn right(b: Bridge) -> impl IntoView {
     let open = b.select(|s| (s.styles_pane.is_some(), s.comments.is_some()));
+    let plugin = {
+        let (pane, plugins) = (b.plugin_pane.clone(), b.plugins.clone());
+        Memo::new(move |_| {
+            let id = pane.get()?;
+            plugins.with(|ps| ps.iter().find(|p| p.id == id).cloned())
+        })
+    };
     move || {
         let (styles, comments) = open.get();
-        (styles || comments).then(|| {
+        let plugin = plugin.get();
+        (styles || comments || plugin.is_some()).then(|| {
             view! {
                 <div class="wc-panes-right">
                     {styles.then(|| styles_pane(b.clone()))}
                     {comments.then(|| comments_pane(b.clone()))}
+                    {plugin.map(|p| super::plugins::pane(b.clone(), p))}
                 </div>
             }
         })

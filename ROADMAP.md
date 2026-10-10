@@ -120,6 +120,7 @@ the icon art).
 - Focus: toolbar clicks keep the selection, text fields don't trigger document shortcuts, F6/Escape move between ribbon and document. `?egui-chrome` keeps the all-egui interface.
 - Web Layout: its one long page renders in texture bands at full resolution (no blurry text), and the status bar and Word Count report printed pages.
 - Design and rules: [web UI](docs/web-ui.md).
+- Plugins (WEB.3): administrators drop JSON files in `plugins/`; a template-tag plugin adds a tab-strip button and a pane with category filter and search; clicking a tag inserts its text at the caret (`text.insert`). Data only, no plugin code. [Plugins](docs/plugins.md).
 
 ## Recently landed
 - Text wraps around floating pictures and shapes; text boxes lay out their own text.

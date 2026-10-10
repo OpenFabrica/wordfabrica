@@ -12,6 +12,7 @@ use wordcraft_ui_egui::host::CommandInfo;
 use wordcraft_ui_egui::{Action, ChromeState, WordApp};
 
 use crate::model::Item;
+use crate::plugins::Plugin;
 
 /// A preview image the chrome wants (rendered by the engine, shown in an `<img>`).
 #[derive(Clone, Debug, PartialEq)]
@@ -71,6 +72,10 @@ pub struct Bridge {
     ids: Arc<Vec<&'static str>>,
     /// macOS shortcut notation (⌘) rather than Ctrl.
     pub mac: bool,
+    /// Plugins the server published (none until they load, or without a server).
+    pub plugins: ArcRwSignal<Vec<Plugin>>,
+    /// The plugin whose pane is open (pure chrome state: plugins hold no document data).
+    pub plugin_pane: ArcRwSignal<Option<String>>,
 }
 
 impl Bridge {
@@ -95,9 +100,24 @@ impl Bridge {
             registry: app.session.registry.clone(),
             ids: Arc::new(ids),
             mac,
+            plugins: ArcRwSignal::new(Vec::new()),
+            plugin_pane: ArcRwSignal::new(None),
         };
         crate::view::mount(&bridge, &document);
         Some(bridge)
+    }
+
+    /// Show the plugins the host loaded; invalid ones (and any past the limit) are dropped.
+    pub fn set_plugins(&self, plugins: Vec<Plugin>) {
+        let mut ok: Vec<Plugin> = Vec::new();
+        for p in plugins {
+            match p.validate() {
+                Ok(()) if ok.len() < wordcraft_remote::MAX_PLUGINS && !ok.iter().any(|o| o.id == p.id) => ok.push(p),
+                Ok(()) => log::warn!("plugin {:?} skipped: duplicate or over the limit", p.id),
+                Err(e) => log::warn!("plugin skipped: {e}"),
+            }
+        }
+        self.plugins.set(ok);
     }
 
     /// Queue an action for the app and ask for a frame to apply it.

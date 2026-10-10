@@ -6,6 +6,7 @@ mod dialogs;
 mod file;
 mod menus;
 mod panes;
+mod plugins;
 mod ribbon;
 
 use leptos::prelude::*;

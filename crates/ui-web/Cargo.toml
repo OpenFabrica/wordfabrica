@@ -13,6 +13,7 @@ wordcraft-ui-egui = { workspace = true }
 wordcraft-engine = { workspace = true }
 wordcraft-doc = { workspace = true }
 wordcraft-geom = { workspace = true }
+wordcraft-remote = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }
 

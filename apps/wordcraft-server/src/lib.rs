@@ -2,6 +2,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 pub mod fonts;
+pub mod plugins;
 pub mod store;
 
 use axum::{
@@ -36,6 +37,11 @@ pub fn router(store: Arc<Store>, web_dir: PathBuf) -> Router {
 
 /// Serve an administrator-provided immutable font catalog alongside the document API.
 pub fn router_with_fonts(store: Arc<Store>, web_dir: PathBuf, fonts: Arc<fonts::Catalog>) -> Router {
+    router_with_catalogs(store, web_dir, fonts, Arc::new(plugins::Catalog::default()))
+}
+
+/// Serve administrator-provided font and plugin catalogs alongside the document API.
+pub fn router_with_catalogs(store: Arc<Store>, web_dir: PathBuf, fonts: Arc<fonts::Catalog>, plugins: Arc<plugins::Catalog>) -> Router {
     Router::new()
         .route("/api/health", get(|| async { Json(serde_json::json!({"status":"ok"})) }))
         .route("/api/documents", get(list))
@@ -44,6 +50,7 @@ pub fn router_with_fonts(store: Arc<Store>, web_dir: PathBuf, fonts: Arc<fonts::
         .fallback_service(tower_http::services::ServeDir::new(web_dir))
         .with_state(store)
         .merge(fonts::routes(fonts))
+        .merge(plugins::routes(plugins))
         .layer(DefaultBodyLimit::max(MAX_BYTES))
         .layer(tower_http::limit::RequestBodyLimitLayer::new(MAX_BYTES))
         .layer(middleware::from_fn(same_origin))
