@@ -406,6 +406,13 @@ impl WordApp {
         }
     }
 
+    /// The window (or browser tab) title: the document's name, an unsaved-changes dot, the app name.
+    /// Hosted storage saves on its own and shows status in the status bar, so it gets no dot.
+    pub fn window_title(&self) -> String {
+        let dot = self.session.dirty && self.services.request_save.is_none();
+        format!("{}{} - WordCraft", self.title_stem(), if dot { " •" } else { "" })
+    }
+
     /// Per-frame logic before layout: control requests, screenshots, shortcuts, file drops.
     pub fn logic(&mut self, ctx: &egui::Context) {
         let lang = i18n::Lang::from_pref(&self.ui.language);
@@ -504,8 +511,7 @@ impl WordApp {
         if let Some(url) = self.canvas.open_url.take() {
             ctx.open_url(egui::OpenUrl::new_tab(url));
         }
-        let title = format!("{}{} - WordCraft", self.title_stem(), if self.session.dirty { " •" } else { "" });
-        ctx.send_viewport_cmd(egui::ViewportCommand::Title(title));
+        ctx.send_viewport_cmd(egui::ViewportCommand::Title(self.window_title()));
         self.frame_ms = now_ms() - t0;
     }
 

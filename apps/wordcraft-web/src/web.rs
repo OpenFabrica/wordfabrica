@@ -50,7 +50,7 @@ pub fn start() {
                         let requested = remote.requested.clone();
                         app.services.request_save = Some(Box::new(move || requested.set(true)));
                     }
-                    Ok(Box::new(WebShell { app, inbox, remote, locale, font_error }))
+                    Ok(Box::new(WebShell { app, inbox, remote, locale, font_error, title: String::new() }))
                 }),
             )
             .await;
@@ -79,6 +79,8 @@ struct WebShell {
     remote: Option<crate::remote::Remote>,
     locale: crate::locale::Locale,
     font_error: bool,
+    /// The browser tab title last written, so `document.title` only changes when it must.
+    title: String,
 }
 
 impl eframe::App for WebShell {
@@ -134,6 +136,25 @@ impl eframe::App for WebShell {
         if let Some(remote) = &self.remote {
             remote.after_ui(&self.app, ui.ctx());
         }
+        self.sync_title();
+    }
+}
+
+impl WebShell {
+    /// Show the open document's title in the browser tab (eframe ignores title commands on the web).
+    /// While a saved document is still loading the tab keeps its current title.
+    fn sync_title(&mut self) {
+        if self.remote.as_ref().is_some_and(|r| r.busy_loading()) {
+            return;
+        }
+        let title = self.app.window_title();
+        if title == self.title {
+            return;
+        }
+        if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
+            doc.set_title(&title);
+        }
+        self.title = title;
     }
 }
 
