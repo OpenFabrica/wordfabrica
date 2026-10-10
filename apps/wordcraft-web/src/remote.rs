@@ -5,8 +5,8 @@ use std::{
     rc::Rc,
 };
 use wordcraft_remote::{MAX_BYTES, Metadata, Snapshot, WriteRequest};
-use wordcraft_ui_egui::{WordApp, i18n, tl};
-use wordcraft_web::sync::{Flight, acknowledges_current};
+use wordcraft_ui_egui::{HostedDocument, WordApp, i18n, tl};
+use wordcraft_web::sync::{Flight, acknowledges_current, status};
 
 #[derive(Debug)]
 struct Failure {
@@ -33,10 +33,8 @@ pub struct Remote {
     loading: bool,
     load_id: Option<String>,
     error: Option<Failure>,
-    list: Vec<Metadata>,
-    show_list: bool,
-    listing: bool,
-    list_error: Option<String>,
+    /// The File tab was open last frame; opening it again refreshes the server list.
+    browsing: bool,
     replies: Replies,
     unsaved: Rc<Cell<bool>>,
     _unload: gloo_events::EventListener,
@@ -79,10 +77,7 @@ impl Remote {
             loading: false,
             load_id: load_id.clone(),
             error: None,
-            list: Vec::new(),
-            show_list: false,
-            listing: false,
-            list_error: None,
+            browsing: false,
             replies: Rc::default(),
             unsaved,
             _unload: unload,
@@ -98,7 +93,21 @@ impl Remote {
         self.loading || self.load_id.is_some()
     }
 
+    /// Per-frame lifecycle: take UI requests, apply replies, autosave, then publish state to the UI.
     pub fn logic(&mut self, app: &mut WordApp, ctx: &egui::Context) {
+        // Requests File ▸ Open left in the shared state during the previous frame.
+        let (refresh, open) = app.hosted.as_mut().map(|h| (std::mem::take(&mut h.refresh), h.open.take())).unwrap_or_default();
+        if refresh || (app.ui.backstage && !self.browsing) {
+            self.refresh(app, ctx);
+        }
+        self.browsing = app.ui.backstage;
+        if let Some(id) = open
+            && !app.session.dirty
+            && !self.saving
+            && !self.busy_loading()
+        {
+            self.load(&id, ctx);
+        }
         if self.epoch != app.document_epoch {
             self.epoch = app.document_epoch;
             self.id = uuid::Uuid::new_v4().to_string();
@@ -116,13 +125,16 @@ impl Remote {
         for reply in replies {
             match reply {
                 Reply::List(result) => {
-                    self.listing = false;
-                    match result {
-                        Ok(list) => {
-                            self.list = list;
-                            self.list_error = None;
+                    if let Some(hosted) = &mut app.hosted {
+                        hosted.listing = false;
+                        match result {
+                            Ok(list) => {
+                                hosted.documents =
+                                    list.into_iter().map(|m: Metadata| HostedDocument { id: m.id, title: m.title, revision: m.revision }).collect();
+                                hosted.list_error = None;
+                            }
+                            Err(e) => hosted.list_error = Some(e.message),
                         }
-                        Err(e) => self.list_error = Some(e.message),
                     }
                 }
                 Reply::Load(result) => {
@@ -137,7 +149,6 @@ impl Remote {
                             self.observed = app.session.rev();
                             self.load_id = None;
                             self.error = None;
-                            self.show_list = false;
                             self.set_url(Some(&self.id));
                         }
                         Err(e) => self.error = Some(e),
@@ -178,6 +189,19 @@ impl Remote {
         self.unsaved.set(app.session.dirty || self.saving);
         if app.session.dirty || self.saving {
             ctx.request_repaint_after(std::time::Duration::from_millis(250));
+        }
+        self.publish(app);
+    }
+
+    /// Copy the save state into `app.hosted` for the status bar and File ▸ Open.
+    fn publish(&self, app: &mut WordApp) {
+        let dirty = app.session.dirty;
+        let failed = self.error.is_some();
+        if let Some(hosted) = &mut app.hosted {
+            hosted.status = status(self.busy_loading(), self.saving, failed, dirty, self.revision);
+            hosted.failed = failed;
+            hosted.revision = self.revision;
+            hosted.busy = self.saving || self.busy_loading();
         }
     }
 
@@ -236,11 +260,13 @@ impl Remote {
         });
     }
 
-    fn refresh(&mut self, ctx: &egui::Context) {
-        if self.listing {
+    /// Fetch the server document list into `app.hosted`; one request at a time.
+    fn refresh(&self, app: &mut WordApp, ctx: &egui::Context) {
+        let Some(hosted) = &mut app.hosted else { return };
+        if hosted.listing {
             return;
         }
-        self.listing = true;
+        hosted.listing = true;
         let replies = self.replies.clone();
         let ctx = ctx.clone();
         wasm_bindgen_futures::spawn_local(async move {
@@ -250,120 +276,41 @@ impl Remote {
         });
     }
 
-    pub fn toolbar(&mut self, app: &mut WordApp, ui: &mut egui::Ui) {
+    /// Message bar shown only when a load or save needs the user: error text and recovery actions.
+    pub fn message_bar(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
-        egui::Panel::top("server_documents").show(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                crate::locale::selector(app, ui);
-                ui.separator();
-                if ui.add_enabled(!self.busy_loading(), egui::Button::new(tl!("Documents"))).clicked() {
-                    self.show_list = true;
-                    self.refresh(&ctx);
+        let load_failed = self.load_id.is_some() && !self.loading;
+        if self.error.is_some() || load_failed {
+            egui::Panel::top("server_message").show(ui, |ui| {
+                if self.load_id.is_some() && !self.loading && ui.button(tl!("Back to editor")).clicked() {
+                    self.load_id = None;
+                    self.error = None;
                 }
-                let can_switch = !app.session.dirty && !self.saving && !self.busy_loading();
-                if ui.add_enabled(can_switch, egui::Button::new(tl!("New document"))).on_disabled_hover_text(tl!("Save your changes first")).clicked()
-                {
-                    let _ = app.run("file.new", serde_json::json!({}));
-                }
-                if ui.add_enabled(!self.saving && !self.busy_loading(), egui::Button::new(tl!("Save to server"))).clicked() {
-                    self.requested.set(true);
-                }
-                if ui.add_enabled(!self.busy_loading(), egui::Button::new(tl!("Download DOCX"))).clicked() {
-                    let _ = app.run("file.saveAs", serde_json::json!({"path": format!("{}.docx", app.title_stem())}));
-                }
-                ui.separator();
-                let mut title = app.title_stem();
-                let response = ui.add_enabled(
-                    !self.busy_loading(),
-                    egui::TextEdit::singleline(&mut title).desired_width(160.0).char_limit(200).hint_text(tl!("Document title")),
-                );
-                if response.changed() && !title.trim().is_empty() {
-                    let _ = app.run("file.properties", serde_json::json!({"title": title}));
-                }
-                let status = if self.busy_loading() {
-                    "Opening document…"
-                } else if self.saving {
-                    "Saving…"
-                } else if self.error.is_some() {
-                    "Not saved"
-                } else if app.session.dirty {
-                    "Unsaved changes"
-                } else if self.revision == 0 {
-                    "New document · save to keep"
-                } else {
-                    "Saved to server"
-                };
-                ui.label(tl!(status));
-                if self.revision > 0 {
-                    ui.small(format!("v{}", self.revision));
+                if let Some(error) = &self.error {
+                    let message = error.message.clone();
+                    let conflict = error.conflict;
+                    ui.horizontal_wrapped(|ui| {
+                        ui.colored_label(wordcraft_ui_egui::theme::Tokens::get(&ctx).red, i18n::t(&message));
+                        if conflict {
+                            if ui.button(tl!("Save as new copy")).clicked() {
+                                self.id = uuid::Uuid::new_v4().to_string();
+                                self.revision = 0;
+                                self.error = None;
+                                self.requested.set(true);
+                            }
+                            if ui.button(tl!("Reload server version…")).clicked() {
+                                self.confirm_reload = true;
+                            }
+                        } else if !self.loading && ui.button(tl!("Retry")).clicked() {
+                            if let Some(id) = self.load_id.clone() {
+                                self.load(&id, &ctx);
+                            } else {
+                                self.requested.set(true);
+                            }
+                        }
+                    });
                 }
             });
-            if self.load_id.is_some() && !self.loading && ui.button(tl!("Back to editor")).clicked() {
-                self.load_id = None;
-                self.error = None;
-            }
-            if let Some(error) = &self.error {
-                let message = error.message.clone();
-                let conflict = error.conflict;
-                ui.horizontal_wrapped(|ui| {
-                    ui.colored_label(wordcraft_ui_egui::theme::Tokens::get(&ctx).red, i18n::t(&message));
-                    if conflict {
-                        if ui.button(tl!("Save as new copy")).clicked() {
-                            self.id = uuid::Uuid::new_v4().to_string();
-                            self.revision = 0;
-                            self.error = None;
-                            self.requested.set(true);
-                        }
-                        if ui.button(tl!("Reload server version…")).clicked() {
-                            self.confirm_reload = true;
-                        }
-                    } else if !self.loading && ui.button(tl!("Retry")).clicked() {
-                        if let Some(id) = self.load_id.clone() {
-                            self.load(&id, &ctx);
-                        } else {
-                            self.requested.set(true);
-                        }
-                    }
-                });
-            }
-        });
-        if self.show_list {
-            let mut open = true;
-            let mut selected = None;
-            egui::Window::new(tl!("Server documents")).open(&mut open).default_width(460.0).show(&ctx, |ui| {
-                if self.listing {
-                    ui.label(tl!("Loading…"));
-                }
-                if let Some(error) = &self.list_error {
-                    ui.label(i18n::t(error));
-                }
-                if app.session.dirty {
-                    ui.label(tl!("Save your current changes before opening another document."));
-                }
-                if ui.button(tl!("Refresh")).clicked() {
-                    self.refresh(&ctx);
-                }
-                if self.list.is_empty() && !self.listing {
-                    ui.label(tl!("No saved documents yet."));
-                }
-                egui::ScrollArea::vertical().max_height(420.0).show(ui, |ui| {
-                    for item in &self.list {
-                        if ui
-                            .add_enabled(
-                                !app.session.dirty && !self.saving && !self.loading,
-                                egui::Button::new(format!("{}  ·  v{}", item.title, item.revision)),
-                            )
-                            .clicked()
-                        {
-                            selected = Some(item.id.clone());
-                        }
-                    }
-                });
-            });
-            self.show_list = open;
-            if let Some(id) = selected {
-                self.load(&id, &ctx);
-            }
         }
         if self.confirm_reload {
             egui::Window::new(tl!("Discard local changes?")).collapsible(false).show(&ctx, |ui| {

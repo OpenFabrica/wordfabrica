@@ -46,6 +46,7 @@ pub fn start() {
                     let locale = crate::locale::Locale::new(&mut app);
                     app.autosave = remote.is_some();
                     if let Some(remote) = &remote {
+                        app.hosted = Some(wordcraft_ui_egui::Hosted::default());
                         let requested = remote.requested.clone();
                         app.services.request_save = Some(Box::new(move || requested.set(true)));
                     }
@@ -118,12 +119,9 @@ impl eframe::App for WebShell {
                 ui.label(wordcraft_ui_egui::tl!("Some server fonts could not load. Using available fonts; save your work and refresh to retry."));
             });
         }
+        // Language lives in File ▸ Options and save state in the status bar; only problems get a bar.
         if let Some(remote) = &mut self.remote {
-            remote.toolbar(&mut self.app, ui);
-        } else {
-            egui::Panel::top("local_language").show(ui, |ui| {
-                ui.horizontal(|ui| crate::locale::selector(&mut self.app, ui));
-            });
+            remote.message_bar(ui);
         }
         if self.remote.as_ref().is_some_and(|r| r.busy_loading()) {
             egui::CentralPanel::default().show(ui, |ui| {

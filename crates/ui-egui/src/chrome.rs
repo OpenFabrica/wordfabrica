@@ -192,6 +192,12 @@ pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
                 if app.session.doc.settings.track_changes {
                     st(ui, tl!("Track Changes: On"));
                 }
+                // Hosted web: the server save state lives here, so the page needs no extra toolbar.
+                if let Some(hosted) = &app.hosted {
+                    let status = tl!(hosted.status);
+                    let text = if hosted.revision > 0 { format!("{status} · v{}", hosted.revision) } else { status.to_string() };
+                    ui.label(egui::RichText::new(text).font(regular(11.5)).color(if hosted.failed { t.red } else { t.text_dim }));
+                }
                 if let Some((msg, at)) = &app.status_msg
                     && crate::now_ms() - at < 6000.0
                 {

@@ -42,22 +42,6 @@ impl Locale {
     }
 }
 
-pub fn selector(app: &mut WordApp, ui: &mut egui::Ui) {
-    ui.label(tl!("Language"));
-    egui::ComboBox::from_id_salt("web_language")
-        .selected_text(if app.ui.language == "zh-hans" { "简体中文" } else { "English" })
-        .width(94.0)
-        .show_ui(ui, |ui| {
-            for (code, label) in [("zh-hans", "简体中文"), ("en", "English")] {
-                if ui.selectable_label(app.ui.language == code, label).clicked() {
-                    let _ = app.run("ui.language", serde_json::json!({"value": code}));
-                    i18n::set_current(i18n::Lang::from_pref(code));
-                    ui.ctx().request_repaint();
-                }
-            }
-        });
-}
-
 fn browser_language() -> String {
     web_sys::window().and_then(|w| w.navigator().language()).unwrap_or_else(|| "en".into())
 }

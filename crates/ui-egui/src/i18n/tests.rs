@@ -168,7 +168,7 @@ fn switching_interface_language_keeps_document_and_save_state() {
         assert_eq!(app.document_epoch, epoch);
         assert!(app.session.dirty);
     }
-    assert_eq!(tr(lang("zh-hans"), "Save to server"), "保存到服务器");
+    assert_eq!(tr(lang("zh-hans"), "Server documents"), "服务器文档");
     assert_eq!(tr(lang("zh-hans"), "Saved to server"), "已保存到服务器");
     assert_eq!(tr(lang("zh-hans"), "Save as new copy"), "另存为新副本");
 }

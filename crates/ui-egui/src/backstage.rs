@@ -163,7 +163,12 @@ fn new_page(app: &mut WordApp, ui: &mut Ui) {
     open_list(app, ui);
 }
 
+/// Documents to reopen: server documents when hosted (browsers can't reopen local paths), else Recent.
 fn open_list(app: &mut WordApp, ui: &mut Ui) {
+    if app.hosted.is_some() {
+        server_list(app, ui);
+        return;
+    }
     let t = Tokens::get(ui.ctx());
     ui.label(egui::RichText::new(tl!("Recent")).font(semibold(16.0)));
     ui.add_space(6.0);
@@ -184,6 +189,51 @@ fn open_list(app: &mut WordApp, ui: &mut Ui) {
             app.ui.backstage = false;
             app.canvas.want_focus = true;
         }
+    }
+}
+
+/// Hosted web: the server document list. Clicks only leave a request; the host loads the document.
+fn server_list(app: &mut WordApp, ui: &mut Ui) {
+    let t = Tokens::get(ui.ctx());
+    let dirty = app.session.dirty;
+    let Some(hosted) = &mut app.hosted else { return };
+    ui.horizontal(|ui| {
+        ui.label(egui::RichText::new(tl!("Server documents")).font(semibold(16.0)));
+        if ui.add_enabled(!hosted.listing, egui::Button::new(tl!("Refresh"))).clicked() {
+            hosted.refresh = true;
+        }
+    });
+    ui.add_space(6.0);
+    if hosted.listing {
+        ui.label(egui::RichText::new(tl!("Loading…")).color(t.text_dim));
+    }
+    if let Some(error) = &hosted.list_error {
+        ui.label(egui::RichText::new(crate::i18n::t(error)).color(t.red));
+    }
+    if dirty {
+        ui.label(egui::RichText::new(tl!("Save your current changes before opening another document.")).color(t.text_dim));
+    }
+    if hosted.documents.is_empty() && !hosted.listing && hosted.list_error.is_none() {
+        ui.label(egui::RichText::new(tl!("No saved documents yet.")).color(t.text_dim));
+    }
+    let enabled = !dirty && !hosted.busy;
+    let mut picked = None;
+    for item in &hosted.documents {
+        let (r, resp) = ui.allocate_exact_size(vec2(ui.available_width().min(700.0), 40.0), if enabled { Sense::click() } else { Sense::hover() });
+        if enabled && resp.hovered() {
+            ui.painter().rect_filled(r, 4.0, t.hover);
+        }
+        let text = if enabled { t.text } else { t.text_dim };
+        icons::paint(ui.painter(), Rect::from_center_size(pos2(r.min.x + 18.0, r.center().y), vec2(22.0, 22.0)), "printLayout", t.icon, t.accent);
+        ui.painter().text(pos2(r.min.x + 40.0, r.min.y + 13.0), Align2::LEFT_CENTER, &item.title, medium(13.0), text);
+        ui.painter().text(pos2(r.min.x + 40.0, r.min.y + 29.0), Align2::LEFT_CENTER, format!("v{}", item.revision), regular(11.0), t.text_dim);
+        if resp.clicked() {
+            picked = Some(item.id.clone());
+        }
+    }
+    if let Some(id) = picked {
+        hosted.open = Some(id);
+        app.ui.backstage = false;
     }
 }
 
@@ -309,4 +359,87 @@ fn language_picker(app: &mut WordApp, ui: &mut Ui) {
         tl!("Automatic follows your system's language. Menus and commands change; your documents don't.")
     };
     ui.label(egui::RichText::new(help).small().weak());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Hosted, HostedDocument};
+    use wordcraft_doc::Document;
+    use wordcraft_engine::Session;
+
+    /// A hosted app on File ▸ Open with one server document listed.
+    fn hosted_app(dirty: bool) -> WordApp {
+        crate::i18n::set_current(crate::i18n::Lang::EN);
+        let mut app = WordApp::new(Session::new(Document::new()), Default::default());
+        app.ui.language = "en".into();
+        app.ui.backstage = true;
+        app.ui.backstage_page = "open".into();
+        app.ui.recent = vec!["/tmp/local.docx".into()];
+        app.session.dirty = dirty;
+        app.hosted = Some(Hosted {
+            documents: vec![HostedDocument { id: "doc-1".into(), title: "Quarterly notes".into(), revision: 4 }],
+            ..Default::default()
+        });
+        app
+    }
+
+    /// Text shapes the last frame painted, with their positions.
+    fn texts(h: &egui_kittest::Harness<'_, WordApp>) -> Vec<(String, egui::Pos2)> {
+        h.output()
+            .shapes
+            .iter()
+            .filter_map(|shape| match &shape.shape {
+                egui::Shape::Text(text) => Some((text.galley.job.text.clone(), text.pos)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Click the first painted text equal to `label`.
+    fn click_text(h: &mut egui_kittest::Harness<'_, WordApp>, label: &str) {
+        let at = texts(h).into_iter().find(|(t, _)| t == label).map(|(_, p)| p + vec2(4.0, 4.0));
+        let Some(at) = at else { panic!("{label:?} not painted") };
+        let input = h.input_mut();
+        input.events.push(egui::Event::PointerMoved(at));
+        for pressed in [true, false] {
+            input.events.push(egui::Event::PointerButton { pos: at, button: egui::PointerButton::Primary, pressed, modifiers: Default::default() });
+        }
+        h.run_steps(2);
+    }
+
+    #[test]
+    fn hosted_open_lists_server_documents_and_requests_the_pick() {
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(1200.0, 800.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                app.logic(ui.ctx());
+                app.ui(ui);
+            },
+            hosted_app(false),
+        );
+        h.run_steps(6);
+        let painted: Vec<_> = texts(&h).into_iter().map(|(t, _)| t).collect();
+        assert!(painted.iter().any(|t| t == "Server documents"), "{painted:?}");
+        assert!(painted.iter().any(|t| t == "v4"), "{painted:?}");
+        // Browsers can't reopen local paths, so Recent stays hidden when hosted.
+        assert!(!painted.iter().any(|t| t == "/tmp/local.docx"), "{painted:?}");
+        click_text(&mut h, "Quarterly notes");
+        assert_eq!(h.state().hosted.as_ref().and_then(|x| x.open.as_deref()), Some("doc-1"));
+        assert!(!h.state().ui.backstage);
+    }
+
+    #[test]
+    fn hosted_open_keeps_unsaved_changes_from_being_replaced() {
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(1200.0, 800.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                app.logic(ui.ctx());
+                app.ui(ui);
+            },
+            hosted_app(true),
+        );
+        h.run_steps(6);
+        click_text(&mut h, "Quarterly notes");
+        assert_eq!(h.state().hosted.as_ref().and_then(|x| x.open.clone()), None);
+        assert!(h.state().ui.backstage);
+    }
 }

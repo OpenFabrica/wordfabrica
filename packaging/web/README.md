@@ -16,7 +16,7 @@ see [the storage guide](../../docs/web-storage.md). Hosted mode expects same-ori
 
 ## Chinese and English
 
-The browser toolbar switches between Simplified Chinese and English and remembers the choice per origin.
+File ▸ Options ▸ Interface language switches between Simplified Chinese and English and remembers the choice per origin.
 Builds embed Noto Sans CJK SC from the project's `resources/fonts/` by default.
 No separate font checkout or download is needed. `CRAFT_FONTS_DIR` can override the resource root;
 see [font setup and resource tags](../../docs/web-fonts.md). Keep licences with redistributed fonts.

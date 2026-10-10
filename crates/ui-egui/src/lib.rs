@@ -53,6 +53,35 @@ pub struct Services {
     pub download: Option<Box<dyn Fn(&str, &[u8])>>,
 }
 
+/// Hosted web: server storage state the host publishes each frame; the status bar and
+/// File ▸ Open draw it, and the host drains the requests the UI leaves in it.
+#[derive(Default)]
+pub struct Hosted {
+    /// Save state as English source text (translated when drawn), e.g. `Saved to server`.
+    pub status: &'static str,
+    /// The last save or load failed; the status shows in the error colour.
+    pub failed: bool,
+    /// Server revision of the open document; 0 means it was never saved.
+    pub revision: u64,
+    /// A save or load is in flight, so another document can't be opened yet.
+    pub busy: bool,
+    pub documents: Vec<HostedDocument>,
+    pub listing: bool,
+    pub list_error: Option<String>,
+    /// UI → host: reload the document list.
+    pub refresh: bool,
+    /// UI → host: open this server document id.
+    pub open: Option<String>,
+}
+
+/// One row of the server document list.
+#[derive(Clone, Debug, Default)]
+pub struct HostedDocument {
+    pub id: String,
+    pub title: String,
+    pub revision: u64,
+}
+
 /// Files delivered asynchronously.
 pub type Inbox = std::sync::Arc<std::sync::Mutex<Vec<(String, Vec<u8>)>>>;
 
@@ -99,6 +128,8 @@ pub struct WordApp {
     pub session: Session,
     pub ui: UiState,
     pub services: Services,
+    /// Hosted web only: server storage state (see [`Hosted`]).
+    pub hosted: Option<Hosted>,
     pub canvas: canvas::CanvasState,
     pub dialog: Option<dialogs::Dialog>,
     pub status_msg: Option<(String, f64)>,
@@ -130,6 +161,7 @@ impl WordApp {
             session,
             ui: UiState::default(),
             services,
+            hosted: None,
             canvas: canvas::CanvasState::default(),
             dialog: None,
             status_msg: None,
@@ -598,6 +630,25 @@ mod tests {
         assert_eq!(app.document_epoch, 1);
         assert!(app.run("file.open", json!({"path":"missing.docx"})).is_err());
         assert_eq!(app.document_epoch, 1);
+    }
+
+    /// Hosted web has no extra toolbar: the status bar carries the server save state and revision.
+    #[test]
+    fn hosted_status_bar_shows_server_save_state() {
+        crate::i18n::set_current(crate::i18n::Lang::EN);
+        let mut app = WordApp::new(Session::new(wordcraft_doc::Document::new()), Services::default());
+        app.ui.language = "en".into();
+        app.hosted = Some(Hosted { status: "Saved to server", revision: 3, ..Default::default() });
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1200.0, 800.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                app.logic(ui.ctx());
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(6);
+        let painted = h.output().shapes.iter().any(|s| matches!(&s.shape, egui::Shape::Text(t) if t.galley.job.text == "Saved to server · v3"));
+        assert!(painted);
     }
 
     fn mod_key(key: egui::Key) -> egui::Event {

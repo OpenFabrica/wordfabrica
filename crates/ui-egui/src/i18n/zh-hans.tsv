@@ -784,12 +784,6 @@
 	{selected} of {words} words	{selected}/{words} 个字
 
 # Hosted browser editing and storage
-	Documents	文档列表
-	New document	新建文档
-	Save to server	保存到服务器
-	Download DOCX	下载 DOCX
-	Save your changes first	请先保存当前修改
-	Document title	文档名称
 	Opening document…	正在打开文档…
 	Saving…	正在保存…
 	Unsaved changes	有未保存的修改

@@ -11,9 +11,36 @@ pub fn acknowledges_current(flight: &Flight, id: &str, epoch: u64, local_revisio
     flight.id == id && flight.epoch == epoch && flight.local_revision == local_revision
 }
 
+/// Status bar text for the hosted document; only a server acknowledgement reads as saved.
+pub fn status(loading: bool, saving: bool, failed: bool, dirty: bool, revision: u64) -> &'static str {
+    if loading {
+        "Opening document…"
+    } else if saving {
+        "Saving…"
+    } else if failed {
+        "Not saved"
+    } else if dirty {
+        "Unsaved changes"
+    } else if revision == 0 {
+        "New document · save to keep"
+    } else {
+        "Saved to server"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn status_reports_saved_only_after_a_clean_acknowledged_revision() {
+        assert_eq!(status(true, true, true, true, 3), "Opening document…");
+        assert_eq!(status(false, true, true, true, 3), "Saving…");
+        assert_eq!(status(false, false, true, false, 3), "Not saved");
+        assert_eq!(status(false, false, false, true, 3), "Unsaved changes");
+        assert_eq!(status(false, false, false, false, 0), "New document · save to keep");
+        assert_eq!(status(false, false, false, false, 3), "Saved to server");
+    }
     #[test]
     fn delayed_save_does_not_clear_new_edits_or_another_document() {
         let flight = Flight { id: "a".into(), epoch: 1, local_revision: 5 };
