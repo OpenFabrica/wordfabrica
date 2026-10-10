@@ -6793,7 +6793,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 
 [[package]]
-name = "wordcraft"
+name = "wordfabrica"
 version = "0.3.0"
 dependencies = [
  "eframe",
@@ -6802,24 +6802,24 @@ dependencies = [
  "rfd",
  "serde_json",
  "winresource",
- "wordcraft-doc",
- "wordcraft-engine",
- "wordcraft-ui-egui",
+ "wordfabrica-doc",
+ "wordfabrica-engine",
+ "wordfabrica-ui-egui",
 ]
 
 [[package]]
-name = "wordcraft-cli"
+name = "wordfabrica-cli"
 version = "0.3.0"
 dependencies = [
  "serde_json",
- "wordcraft-doc",
- "wordcraft-engine",
- "wordcraft-mcp",
- "wordcraft-render",
+ "wordfabrica-doc",
+ "wordfabrica-engine",
+ "wordfabrica-mcp",
+ "wordfabrica-render",
 ]
 
 [[package]]
-name = "wordcraft-doc"
+name = "wordfabrica-doc"
 version = "0.3.0"
 dependencies = [
  "proptest",
@@ -6827,11 +6827,11 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.21",
  "unicode-segmentation",
- "wordcraft-geom",
+ "wordfabrica-geom",
 ]
 
 [[package]]
-name = "wordcraft-docx"
+name = "wordfabrica-docx"
 version = "0.3.0"
 dependencies = [
  "image",
@@ -6839,13 +6839,13 @@ dependencies = [
  "proptest",
  "quick-xml 0.38.4",
  "thiserror 2.0.21",
- "wordcraft-doc",
- "wordcraft-geom",
+ "wordfabrica-doc",
+ "wordfabrica-geom",
  "zip",
 ]
 
 [[package]]
-name = "wordcraft-engine"
+name = "wordfabrica-engine"
 version = "0.3.0"
 dependencies = [
  "image",
@@ -6855,19 +6855,19 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.21",
  "web-time",
- "wordcraft-doc",
- "wordcraft-docx",
- "wordcraft-fonts",
- "wordcraft-formats",
- "wordcraft-geom",
- "wordcraft-layout",
- "wordcraft-pdf",
- "wordcraft-proof",
- "wordcraft-render",
+ "wordfabrica-doc",
+ "wordfabrica-docx",
+ "wordfabrica-fonts",
+ "wordfabrica-formats",
+ "wordfabrica-geom",
+ "wordfabrica-layout",
+ "wordfabrica-pdf",
+ "wordfabrica-proof",
+ "wordfabrica-render",
 ]
 
 [[package]]
-name = "wordcraft-fonts"
+name = "wordfabrica-fonts"
 version = "0.3.0"
 dependencies = [
  "harfrust 0.13.3",
@@ -6878,27 +6878,27 @@ dependencies = [
 ]
 
 [[package]]
-name = "wordcraft-formats"
+name = "wordfabrica-formats"
 version = "0.3.0"
 dependencies = [
  "image",
  "log",
  "proptest",
  "quick-xml 0.38.4",
- "wordcraft-doc",
- "wordcraft-geom",
+ "wordfabrica-doc",
+ "wordfabrica-geom",
  "zip",
 ]
 
 [[package]]
-name = "wordcraft-geom"
+name = "wordfabrica-geom"
 version = "0.3.0"
 dependencies = [
  "serde",
 ]
 
 [[package]]
-name = "wordcraft-layout"
+name = "wordfabrica-layout"
 version = "0.3.0"
 dependencies = [
  "log",
@@ -6906,25 +6906,25 @@ dependencies = [
  "serde_json",
  "unicode-linebreak",
  "unicode-segmentation",
- "wordcraft-doc",
- "wordcraft-fonts",
- "wordcraft-geom",
- "wordcraft-proof",
+ "wordfabrica-doc",
+ "wordfabrica-fonts",
+ "wordfabrica-geom",
+ "wordfabrica-proof",
 ]
 
 [[package]]
-name = "wordcraft-mcp"
+name = "wordfabrica-mcp"
 version = "0.3.0"
 dependencies = [
  "log",
  "serde_json",
- "wordcraft-doc",
- "wordcraft-engine",
- "wordcraft-render",
+ "wordfabrica-doc",
+ "wordfabrica-engine",
+ "wordfabrica-render",
 ]
 
 [[package]]
-name = "wordcraft-pdf"
+name = "wordfabrica-pdf"
 version = "0.3.0"
 dependencies = [
  "hayro-cmap",
@@ -6935,14 +6935,14 @@ dependencies = [
  "kurbo",
  "log",
  "thiserror 2.0.21",
- "wordcraft-doc",
- "wordcraft-fonts",
- "wordcraft-geom",
- "wordcraft-layout",
+ "wordfabrica-doc",
+ "wordfabrica-fonts",
+ "wordfabrica-geom",
+ "wordfabrica-layout",
 ]
 
 [[package]]
-name = "wordcraft-proof"
+name = "wordfabrica-proof"
 version = "0.3.0"
 dependencies = [
  "log",
@@ -6951,29 +6951,29 @@ dependencies = [
 ]
 
 [[package]]
-name = "wordcraft-remote"
+name = "wordfabrica-remote"
 version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
- "wordcraft-doc",
+ "wordfabrica-doc",
 ]
 
 [[package]]
-name = "wordcraft-render"
+name = "wordfabrica-render"
 version = "0.3.0"
 dependencies = [
  "image",
  "log",
  "vello_cpu 0.2.0",
- "wordcraft-doc",
- "wordcraft-fonts",
- "wordcraft-geom",
- "wordcraft-layout",
+ "wordfabrica-doc",
+ "wordfabrica-fonts",
+ "wordfabrica-geom",
+ "wordfabrica-layout",
 ]
 
 [[package]]
-name = "wordcraft-server"
+name = "wordfabrica-server"
 version = "0.3.0"
 dependencies = [
  "axum",
@@ -6993,14 +6993,14 @@ dependencies = [
  "tower-http",
  "url",
  "uuid",
- "wordcraft-doc",
- "wordcraft-docx",
- "wordcraft-fonts",
- "wordcraft-remote",
+ "wordfabrica-doc",
+ "wordfabrica-docx",
+ "wordfabrica-fonts",
+ "wordfabrica-remote",
 ]
 
 [[package]]
-name = "wordcraft-ui-egui"
+name = "wordfabrica-ui-egui"
 version = "0.3.0"
 dependencies = [
  "egui",
@@ -7012,16 +7012,16 @@ dependencies = [
  "serde_json",
  "sys-locale",
  "toml",
- "wordcraft-doc",
- "wordcraft-engine",
- "wordcraft-fonts",
- "wordcraft-geom",
- "wordcraft-layout",
- "wordcraft-render",
+ "wordfabrica-doc",
+ "wordfabrica-engine",
+ "wordfabrica-fonts",
+ "wordfabrica-geom",
+ "wordfabrica-layout",
+ "wordfabrica-render",
 ]
 
 [[package]]
-name = "wordcraft-ui-web"
+name = "wordfabrica-ui-web"
 version = "0.3.0"
 dependencies = [
  "egui",
@@ -7031,15 +7031,15 @@ dependencies = [
  "serde_json",
  "wasm-bindgen",
  "web-sys",
- "wordcraft-doc",
- "wordcraft-engine",
- "wordcraft-geom",
- "wordcraft-remote",
- "wordcraft-ui-egui",
+ "wordfabrica-doc",
+ "wordfabrica-engine",
+ "wordfabrica-geom",
+ "wordfabrica-remote",
+ "wordfabrica-ui-egui",
 ]
 
 [[package]]
-name = "wordcraft-web"
+name = "wordfabrica-web"
 version = "0.3.0"
 dependencies = [
  "eframe",
@@ -7057,12 +7057,12 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
- "wordcraft-doc",
- "wordcraft-engine",
- "wordcraft-fonts",
- "wordcraft-remote",
- "wordcraft-ui-egui",
- "wordcraft-ui-web",
+ "wordfabrica-doc",
+ "wordfabrica-engine",
+ "wordfabrica-fonts",
+ "wordfabrica-remote",
+ "wordfabrica-ui-egui",
+ "wordfabrica-ui-web",
 ]
 
 [[package]]

@@ -1,7 +1,7 @@
 //! View tab and status bar: views, zoom, show/hide, panes.
 
 use serde_json::{Value, json};
-use wordcraft_layout::ViewMode;
+use wordfabrica_layout::ViewMode;
 
 use super::sel_result;
 use crate::{CmdError, CmdResult, CommandSpec, Session, p};

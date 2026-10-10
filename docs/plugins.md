@@ -33,14 +33,14 @@
 
 把插件文件放进插件目录，然后重启服务。
 
-- 插件目录：环境变量 `WORDCRAFT_PLUGINS_DIR`。没设置时用启动目录下的 `plugins/`；这个目录不存在就不加载插件。
+- 插件目录：环境变量 `WORDFABRICA_PLUGINS_DIR`。没设置时用启动目录下的 `plugins/`；这个目录不存在就不加载插件。
 - 只读目录里直接放的 `*.json` 文件，按文件名排序。子目录、符号链接、其他文件都忽略。
 - 启动时检查每个文件。有一个文件不合格，服务就不启动，并打印哪个文件、什么问题。
 - 仓库里的 `plugins/template-tags.json` 是示例（可编辑）。
 - 用户改过的标签存在数据目录的 SQLite（`plugin_tags` 表）里，优先于文件里的标签。之后再改文件里的标签不会生效；要恢复成文件内容，停服务后执行 `sqlite3 data/documents.sqlite3 "DELETE FROM plugin_tags WHERE id='template-tags'"`。
 
 ```sh
-WORDCRAFT_PLUGINS_DIR=/srv/wordcraft-plugins cargo run -p wordcraft-server
+WORDFABRICA_PLUGINS_DIR=/srv/wordfabrica-plugins cargo run -p wordfabrica-server
 ```
 
 只有连着服务端的网页版有插件。`?local` 模式、`?egui-chrome` 模式和桌面版没有插件。
@@ -80,9 +80,9 @@ WORDCRAFT_PLUGINS_DIR=/srv/wordcraft-plugins cargo run -p wordcraft-server
 ## 代码位置
 
 - `crates/remote`：共享格式 `Plugin`、`PluginKind`、`Tag`，以及 `Plugin::validate`（服务端和浏览器都用它检查）。
-- `apps/wordcraft-server/src/plugins.rs`：启动时读目录、检查，提供 `GET /api/plugins` 和 `PUT /api/plugins/{id}/tags`。
-- `apps/wordcraft-server/src/store.rs`：`plugin_tags` 表，按版本号比较后替换（和文档保存一样）。
-- `apps/wordcraft-web/src/plugins.rs`：读取插件、保存标签（10 秒超时）。读取失败只记日志；保存失败在面板里显示。
+- `apps/wordfabrica-server/src/plugins.rs`：启动时读目录、检查，提供 `GET /api/plugins` 和 `PUT /api/plugins/{id}/tags`。
+- `apps/wordfabrica-server/src/store.rs`：`plugin_tags` 表，按版本号比较后替换（和文档保存一样）。
+- `apps/wordfabrica-web/src/plugins.rs`：读取插件、保存标签（10 秒超时）。读取失败只记日志；保存失败在面板里显示。
 - `crates/ui-web/src/plugins.rs`：过滤和编辑逻辑（添加、修改、删除、改名），可本地测试。
 - `crates/ui-web/src/view/plugins.rs`：插件按钮、标签窗格和编辑表单。
 

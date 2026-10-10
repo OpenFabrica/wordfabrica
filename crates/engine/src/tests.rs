@@ -1,10 +1,10 @@
 use serde_json::json;
-use wordcraft_doc::{Pos, StoryRef};
+use wordfabrica_doc::{Pos, StoryRef};
 
 use crate::{Session, cmd};
 
 fn s() -> Session {
-    Session::new(wordcraft_doc::Document::new())
+    Session::new(wordfabrica_doc::Document::new())
 }
 
 fn run(s: &mut Session, id: &str, v: serde_json::Value) -> serde_json::Value {
@@ -394,7 +394,7 @@ fn document_language_updates_content_defaults_and_undo_without_changing_text() {
 
 #[test]
 fn selection_language_preserves_other_text_and_reports_mixed_language() {
-    let mut s = Session::new(wordcraft_doc::Document::from_text("中文 English"));
+    let mut s = Session::new(wordfabrica_doc::Document::from_text("中文 English"));
     run(&mut s, "select.text", json!({"text":"中文"}));
     run(&mut s, "review.language", json!({"lang":"zh-CN"}));
     assert_eq!(cmd::format::state(&s)["lang"], "zh-CN");

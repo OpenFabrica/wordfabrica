@@ -1,4 +1,4 @@
-//! WordCraft layout: turns a [`Document`] into pages.
+//! WordFabrica layout: turns a [`Document`] into pages.
 //!
 //! - [`para`]: one paragraph → lines (shaping, first-fit line breaking, tabs, list labels,
 //!   alignment). Results are memoised per paragraph revision in a [`LayoutCache`].
@@ -18,12 +18,12 @@ use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use wordcraft_doc::numbering::Counters;
-use wordcraft_doc::para::{InlineObject, Wrap};
-use wordcraft_doc::props::{Border, CharProps, Rgb};
-use wordcraft_doc::section::{SectionProps, SectionStart};
-use wordcraft_doc::{Block, Blocks, Document, Paragraph, Path, StoryRef};
-use wordcraft_geom::Rect;
+use wordfabrica_doc::numbering::Counters;
+use wordfabrica_doc::para::{InlineObject, Wrap};
+use wordfabrica_doc::props::{Border, CharProps, Rgb};
+use wordfabrica_doc::section::{SectionProps, SectionStart};
+use wordfabrica_doc::{Block, Blocks, Document, Paragraph, Path, StoryRef};
+use wordfabrica_geom::Rect;
 
 pub use fields::FieldCtx;
 pub use para::{LineEnd, ParaLayout};
@@ -84,7 +84,7 @@ pub enum Placed {
     },
     Shape {
         rect: Rect,
-        kind: wordcraft_doc::para::ShapeKind,
+        kind: wordfabrica_doc::para::ShapeKind,
         fill: Option<Rgb>,
         stroke: Option<Rgb>,
         stroke_width: f32,
@@ -195,7 +195,7 @@ fn hash_of<T: Hash>(t: &T) -> u64 {
 
 fn env_hash(doc: &Document, opts: &LayoutOptions) -> u64 {
     let s = serde_json::to_string(&(&doc.styles, &doc.numbering, doc.settings.default_tab, &doc.settings.footnote_format)).unwrap_or_default();
-    hash_of(&(s, opts.show_hidden, opts.proofing, wordcraft_proof::user_dictionary().len(), doc.settings.auto_hyphenation))
+    hash_of(&(s, opts.show_hidden, opts.proofing, wordfabrica_proof::user_dictionary().len(), doc.settings.auto_hyphenation))
 }
 
 fn has_page_fields(p: &Paragraph) -> bool {
@@ -226,7 +226,7 @@ impl Ctx<'_> {
         }
         let mut p = Paragraph::with_text(
             &n.to_string(),
-            CharProps { size: Some(10.0), color: Some(wordcraft_doc::TextColor::Rgb(Rgb(0x60, 0x60, 0x60))), ..Default::default() },
+            CharProps { size: Some(10.0), color: Some(wordfabrica_doc::TextColor::Rgb(Rgb(0x60, 0x60, 0x60))), ..Default::default() },
         );
         p.props.space_after = Some(0.0);
         p.props.space_before = Some(0.0);
@@ -295,11 +295,11 @@ fn note_numbers(doc: &Document) -> HashMap<u32, u32> {
             for o in &p.objects {
                 if let InlineObject::NoteRef { kind, id, .. } = o {
                     let n = match kind {
-                        wordcraft_doc::para::NoteKind::Footnote => {
+                        wordfabrica_doc::para::NoteKind::Footnote => {
                             f += 1;
                             f
                         }
-                        wordcraft_doc::para::NoteKind::Endnote => {
+                        wordfabrica_doc::para::NoteKind::Endnote => {
                             e += 1;
                             e
                         }
@@ -453,7 +453,7 @@ impl PageBuilder<'_> {
                 y0: y - NOTE_SEP / 2.0,
                 x1: x + 144.0,
                 y1: y - NOTE_SEP / 2.0,
-                border: Border { style: wordcraft_doc::props::BorderStyle::Single, width: 0.5, color: None, space: 0.0 },
+                border: Border { style: wordfabrica_doc::props::BorderStyle::Single, width: 0.5, color: None, space: 0.0 },
             });
             for (_, items, h) in notes {
                 for mut it in items {
@@ -467,9 +467,9 @@ impl PageBuilder<'_> {
     /// Section vertical alignment: move the page's body down (centre/bottom).
     fn apply_valign(&mut self) {
         let k = match self.sect.valign {
-            wordcraft_doc::props::VAlign::Top => return,
-            wordcraft_doc::props::VAlign::Center => 0.5,
-            wordcraft_doc::props::VAlign::Bottom => 1.0,
+            wordfabrica_doc::props::VAlign::Top => return,
+            wordfabrica_doc::props::VAlign::Center => 0.5,
+            wordfabrica_doc::props::VAlign::Bottom => 1.0,
         };
         if self.web {
             return;
@@ -486,7 +486,7 @@ impl PageBuilder<'_> {
         self.apply_valign();
         self.flush_notes();
         self.excl.clear();
-        if self.sect.line_numbers.as_ref().is_some_and(|l| l.restart == wordcraft_doc::section::LineNumberRestart::Page) {
+        if self.sect.line_numbers.as_ref().is_some_and(|l| l.restart == wordfabrica_doc::section::LineNumberRestart::Page) {
             self.line_no = 0;
         }
         let s = self.sect;
@@ -630,7 +630,7 @@ pub fn layout(doc: &Document, cache: &mut LayoutCache, opts: &LayoutOptions) -> 
         let body_top = if web { sect.margin_top } else { body_top_for(&mut ctx, sect, sect.headers.default) };
         let first_top = if web || !sect.title_page { body_top } else { body_top_for(&mut ctx, sect, sect.headers.first) };
         let restart = sect.page_num_start;
-        if sect.line_numbers.as_ref().is_some_and(|l| l.restart == wordcraft_doc::section::LineNumberRestart::Section) {
+        if sect.line_numbers.as_ref().is_some_and(|l| l.restart == wordfabrica_doc::section::LineNumberRestart::Section) {
             pb.line_no = 0;
         }
         let start = if si == 0 { SectionStart::NextPage } else { sect.start };
@@ -672,7 +672,7 @@ pub fn layout(doc: &Document, cache: &mut LayoutCache, opts: &LayoutOptions) -> 
             .fields
             .notes
             .iter()
-            .filter(|(id, _)| doc.parts.get(id).is_some_and(|p| p.kind == wordcraft_doc::PartKind::Endnote))
+            .filter(|(id, _)| doc.parts.get(id).is_some_and(|p| p.kind == wordfabrica_doc::PartKind::Endnote))
             .map(|(a, b)| (*b, *a))
             .collect();
         ids.sort();
@@ -687,7 +687,7 @@ pub fn layout(doc: &Document, cache: &mut LayoutCache, opts: &LayoutOptions) -> 
                 y0: ry,
                 x1: x + 144.0,
                 y1: ry,
-                border: Border { style: wordcraft_doc::props::BorderStyle::Single, width: 0.5, color: None, space: 0.0 },
+                border: Border { style: wordfabrica_doc::props::BorderStyle::Single, width: 0.5, color: None, space: 0.0 },
             });
         }
         pb.y += 8.0;
@@ -755,15 +755,15 @@ fn body_top_for(ctx: &mut Ctx, sect: &SectionProps, header: Option<u32>) -> f32 
 }
 
 /// Where a floating object goes: page coordinates for an anchor paragraph whose top is `y0`.
-fn float_rect(pb: &PageBuilder, col_x: f32, y0: f32, w: f32, h: f32, float: &wordcraft_doc::para::Float) -> Rect {
+fn float_rect(pb: &PageBuilder, col_x: f32, y0: f32, w: f32, h: f32, float: &wordfabrica_doc::para::Float) -> Rect {
     let fx = match float.h_rel {
-        wordcraft_doc::para::Anchor::Page => float.x,
-        wordcraft_doc::para::Anchor::Margin => pb.sect.margin_left + pb.sect.gutter + float.x,
+        wordfabrica_doc::para::Anchor::Page => float.x,
+        wordfabrica_doc::para::Anchor::Margin => pb.sect.margin_left + pb.sect.gutter + float.x,
         _ => col_x + float.x,
     };
     let fy = match float.v_rel {
-        wordcraft_doc::para::Anchor::Page => float.y,
-        wordcraft_doc::para::Anchor::Margin => pb.top + float.y,
+        wordfabrica_doc::para::Anchor::Page => float.y,
+        wordfabrica_doc::para::Anchor::Margin => pb.top + float.y,
         _ => y0 + float.y,
     };
     Rect::new(fx, fy, w.clamp(1.0, 4000.0), h.clamp(1.0, 4000.0))
@@ -844,7 +844,7 @@ fn place_para(ctx: &mut Ctx, pb: &mut PageBuilder, p: &Paragraph, block: usize, 
                     if *ci >= l.c0
                         && *ci < l.c1
                         && !pb.notes.iter().chain(new_notes.iter()).any(|x| x.0 == *id)
-                        && let Some(part) = ctx.doc.parts.get(id).filter(|p| p.kind == wordcraft_doc::PartKind::Footnote)
+                        && let Some(part) = ctx.doc.parts.get(id).filter(|p| p.kind == wordfabrica_doc::PartKind::Footnote)
                     {
                         let blocks = part.blocks.clone();
                         let (items, h) = layout_box(ctx, StoryRef::Part(*id), &blocks, &[], pb.sect.text_width(), None, 0);
@@ -1026,7 +1026,7 @@ fn next_first_line(ctx: &mut Ctx, block: usize, width: f32) -> f32 {
     }
 }
 
-fn place_table(ctx: &mut Ctx, pb: &mut PageBuilder, t: &wordcraft_doc::Table, block: usize, body_top: f32) {
+fn place_table(ctx: &mut Ctx, pb: &mut PageBuilder, t: &wordfabrica_doc::Table, block: usize, body_top: f32) {
     pb.prev = None;
     let width = pb.col_w();
     let tl = table::layout_table(ctx, StoryRef::Body, t, &[block as u32], width, 1);
@@ -1092,7 +1092,7 @@ fn headers_footers(ctx: &mut Ctx, pages: &mut [Page], sections: &[(usize, &Secti
     for (i, page) in pages.iter_mut().enumerate() {
         let Some((_, sect)) = sections.get(page.section) else { continue };
         // Inherit header/footer references from earlier sections (Word's "link to previous").
-        let pick = |get: &dyn Fn(&SectionProps) -> wordcraft_doc::section::HeaderSet| -> Option<u32> {
+        let pick = |get: &dyn Fn(&SectionProps) -> wordfabrica_doc::section::HeaderSet| -> Option<u32> {
             let mut set = get(sect);
             for k in (0..page.section).rev() {
                 if set.default.is_some() && set.first.is_some() && set.even.is_some() {

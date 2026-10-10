@@ -6,24 +6,24 @@
 现有 `FontDb` 负责字体解析和排版；HTTP 服务只分发管理员提供的文件，不增加字体数据库或独立服务。
 
 - **内置字体**：随 WASM 编译的基础字体，默认包含项目资源中的 Noto Sans CJK SC Regular。
-- **服务端字体**：默认来自 `resources/fonts/server/`，可用 `WORDCRAFT_FONTS_DIR` 覆盖的 TTF、OTF、TTC 文件；启动时校验并读取内存。
+- **服务端字体**：默认来自 `resources/fonts/server/`，可用 `WORDFABRICA_FONTS_DIR` 覆盖的 TTF、OTF、TTC 文件；启动时校验并读取内存。
 - **字体族/样式**：读取字体文件内部名称，文件名不参与文档格式。相同字体族和样式优先保留内置/先加载版本；新增粗体等样式可以补充已有字体族。
 - **字体 ID**：每次服务启动分配的 UUID，只用于下载；不是服务器路径，也不写入文档。服务重启后旧 ID 返回 404，避免混用新旧目录。
 
 ## 安装和扩展
 
-默认字体资源保存在项目的 `resources/fonts/`。额外字体可放在项目目录，也可使用管理员指定的目录，例如 `/srv/wordcraft-fonts`。仅放入有权分发的字体，并保留来源与许可证。
+默认字体资源保存在项目的 `resources/fonts/`。额外字体可放在项目目录，也可使用管理员指定的目录，例如 `/srv/wordfabrica-fonts`。仅放入有权分发的字体，并保留来源与许可证。
 推荐使用 Noto CJK 的开放字体；不要复制商业办公软件内附字体。
 
 ```sh
 # 目录可以按字体族分子目录，并保留 OFL.txt 等许可证。
-WORDCRAFT_FONTS_DIR=/srv/wordcraft-fonts cargo run -p wordcraft-server
+WORDFABRICA_FONTS_DIR=/srv/wordfabrica-fonts cargo run -p wordfabrica-server
 ```
 
 目录示例：
 
 ```text
-/srv/wordcraft-fonts/
+/srv/wordfabrica-fonts/
   noto-serif-cjk-sc/
     NotoSerifCJKsc-Regular.otf
     OFL.txt
@@ -37,7 +37,7 @@ Noto Serif CJK SC 来自 [Noto CJK 官方仓库](https://github.com/notofonts/no
 
 ### 项目资源和版本
 
-字体随 WordCraft 放在 `resources/fonts/`，没有独立 Git 仓库、Cargo 包或服务：
+字体随 WordFabrica 放在 `resources/fonts/`，没有独立 Git 仓库、Cargo 包或服务：
 
 ```text
 resources/fonts/
@@ -51,17 +51,17 @@ resources/fonts/
 字体模块的构建脚本读取清单并嵌入所需字体；HTTP 服务读取 `server/`。字体资源不依赖应用代码。
 默认构建无需环境变量或额外下载；`CRAFT_FONTS_DIR` 可覆盖资源根目录（其中需包含 `fonts/manifest.txt`），保留与旧构建配置的兼容性。
 
-资源使用 `fonts-v1.0.0` 起的独立 annotated tag 标记版本，tag 指向包含资源的 WordCraft 提交，资源与代码共享一个 Git 仓库。
+资源使用 `fonts-v1.0.0` 起的独立 annotated tag 标记版本，tag 指向包含资源的 WordFabrica 提交，资源与代码共享一个 Git 仓库。
 更新字体时同时更新清单、许可证、根目录 `ATTRIBUTION.md` 和校验值，再创建新的 `fonts-v*` tag；不移动已有 tag。
 可独立导出资源包，无需分出新项目：
 
 ```sh
-git archive --format=tar.gz --output=wordcraft-fonts-v1.0.0.tar.gz fonts-v1.0.0 resources/fonts
+git archive --format=tar.gz --output=wordfabrica-fonts-v1.0.0.tar.gz fonts-v1.0.0 resources/fonts
 (cd resources/fonts && shasum -a 256 -c SHA256SUMS)
 ```
 
 完整克隆会包含字体历史；tag 是版本标记，不减少仓库体积。
-部署单独的服务端二进制时，需同时安装 `resources/fonts/server/`，或用 `WORDCRAFT_FONTS_DIR` 指向自己的字体目录。
+部署单独的服务端二进制时，需同时安装 `resources/fonts/server/`，或用 `WORDFABRICA_FONTS_DIR` 指向自己的字体目录。
 
 ## 加载流程与规则
 
@@ -94,11 +94,11 @@ sequenceDiagram
 
 ## 实现与验证
 
-`crates/remote::FontFile` 是共享协议；`apps/wordcraft-server/src/fonts.rs` 封装目录读取、限制和分发；
-`apps/wordcraft-web/src/fonts.rs` 负责异步下载和启动前注册。底层字体模块不依赖 HTTP 或 UI。
+`crates/remote::FontFile` 是共享协议；`apps/wordfabrica-server/src/fonts.rs` 封装目录读取、限制和分发；
+`apps/wordfabrica-web/src/fonts.rs` 负责异步下载和启动前注册。底层字体模块不依赖 HTTP 或 UI。
 
 ```sh
-cargo test -p wordcraft-server -p wordcraft-fonts
+cargo test -p wordfabrica-server -p wordfabrica-fonts
 cargo xtask ci
 ```
 

@@ -1,8 +1,8 @@
 //! Table Design and Table Layout tabs.
 
 use serde_json::{Value, json};
-use wordcraft_doc::props::{Align, Border, BorderStyle, Borders, Rgb, VAlign};
-use wordcraft_doc::{Block, Paragraph, Path, Pos, StoryRef, Table, para_block};
+use wordfabrica_doc::props::{Align, Border, BorderStyle, Borders, Rgb, VAlign};
+use wordfabrica_doc::{Block, Paragraph, Path, Pos, StoryRef, Table, para_block};
 
 use super::sel_result;
 use crate::{CmdError, CmdResult, CommandSpec, Selection, Session, p};
@@ -145,7 +145,7 @@ pub fn specs() -> Vec<CommandSpec> {
             with_table(s, |t| {
                 if let Some(row) = t.rows.get_mut(r) {
                     row.props.height = Some(h);
-                    row.props.height_rule = wordcraft_doc::props::HeightRule::AtLeast;
+                    row.props.height_rule = wordfabrica_doc::props::HeightRule::AtLeast;
                 }
             })
         })
@@ -227,7 +227,7 @@ fn selected_cells(s: &Session) -> Vec<(usize, usize)> {
     v
 }
 
-fn with_cells(s: &mut Session, f: impl Fn(&mut wordcraft_doc::Cell)) -> CmdResult {
+fn with_cells(s: &mut Session, f: impl Fn(&mut wordfabrica_doc::Cell)) -> CmdResult {
     let (tp, _, _) = cell(s)?;
     let cells = selected_cells(s);
     let t = s.doc.table_mut(s.sel.focus.story, &tp)?;
@@ -394,7 +394,7 @@ fn borders(s: &mut Session, v: &Value) -> CmdResult {
     })
 }
 
-fn cell_text(c: &wordcraft_doc::Cell) -> String {
+fn cell_text(c: &wordfabrica_doc::Cell) -> String {
     c.blocks.iter().filter_map(|b| b.as_para().map(|p| p.plain_text())).collect::<Vec<_>>().join("\n")
 }
 
@@ -468,7 +468,7 @@ fn formula(s: &mut Session, v: &Value) -> CmdResult {
     let text = if val.fract() == 0.0 && val.abs() < 1e15 { format!("{}", val as i64) } else { format!("{val:.2}") };
     let props = s.typing_props();
     let at = s.sel.focus.clone();
-    let end = s.doc.insert_object(&at, wordcraft_doc::InlineObject::Field { instr: f.clone(), result: text.clone(), locked: false }, &props)?;
+    let end = s.doc.insert_object(&at, wordfabrica_doc::InlineObject::Field { instr: f.clone(), result: text.clone(), locked: false }, &props)?;
     s.sel = Selection::caret(end);
     Ok(json!({"result": text}))
 }

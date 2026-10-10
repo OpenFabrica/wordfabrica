@@ -114,7 +114,7 @@ fn bundled_catalogs_are_well_formed() {
 /// every language, so menus, tooltips and command search never fall back to English.
 #[test]
 fn every_tab_and_command_is_translated() {
-    let session = wordcraft_engine::Session::new(wordcraft_doc::Document::new());
+    let session = wordfabrica_engine::Session::new(wordfabrica_doc::Document::new());
     // Labels that read the same in every language.
     let universal = |s: &str| !s.chars().any(char::is_alphabetic);
     let mut missing = Vec::new();
@@ -134,7 +134,7 @@ fn every_tab_and_command_is_translated() {
 
 #[test]
 fn the_language_setting_is_a_ui_command_and_persists() {
-    let mut app = crate::WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Default::default());
+    let mut app = crate::WordApp::new(wordfabrica_engine::Session::new(wordfabrica_doc::Document::new()), Default::default());
     assert_eq!(app.ui.language, AUTO);
     let r = app.run("ui.language", serde_json::json!({"value": "ZH-HANT"})).unwrap();
     assert_eq!(app.ui.language, "zh-hant");
@@ -156,7 +156,7 @@ fn the_language_setting_is_a_ui_command_and_persists() {
 
 #[test]
 fn switching_interface_language_keeps_document_and_save_state() {
-    let mut app = crate::WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::from_text("中文 English")), Default::default());
+    let mut app = crate::WordApp::new(wordfabrica_engine::Session::new(wordfabrica_doc::Document::from_text("中文 English")), Default::default());
     app.run("text.insert", serde_json::json!({"text":"Keep this text. "})).unwrap();
     let document = app.session.doc.clone();
     let revision = app.session.rev();

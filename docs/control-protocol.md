@@ -1,6 +1,6 @@
 # Control protocol
 
-Start the app with a control port: `wordcraft --control 7981` (or `WORDCRAFT_CONTROL_PORT=7981`).
+Start the app with a control port: `wordfabrica --control 7981` (or `WORDFABRICA_CONTROL_PORT=7981`).
 It listens on `127.0.0.1` only. Send one JSON object per line; each gets one reply line:
 
 ```json

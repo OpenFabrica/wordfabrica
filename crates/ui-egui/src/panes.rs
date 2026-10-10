@@ -2,7 +2,7 @@
 
 use egui::{Stroke, Ui, vec2};
 use serde_json::{Value, json};
-use wordcraft_doc::{Pos, StoryRef};
+use wordfabrica_doc::{Pos, StoryRef};
 
 use crate::WordApp;
 use crate::theme::{Tokens, regular, semibold};
@@ -167,8 +167,8 @@ fn styles(app: &mut WordApp, ui: &mut Ui) {
         .styles
         .styles
         .iter()
-        .filter(|s| !s.hidden && s.kind != wordcraft_doc::StyleKind::Table)
-        .map(|s| (s.id.clone(), s.name.clone(), s.kind == wordcraft_doc::StyleKind::Character))
+        .filter(|s| !s.hidden && s.kind != wordfabrica_doc::StyleKind::Table)
+        .map(|s| (s.id.clone(), s.name.clone(), s.kind == wordfabrica_doc::StyleKind::Character))
         .collect();
     list.sort_by_key(|s| s.1.to_lowercase());
     egui::ScrollArea::vertical().show(ui, |ui| {

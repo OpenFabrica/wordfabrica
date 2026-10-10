@@ -3,8 +3,8 @@
 
 use leptos::prelude::*;
 use serde_json::json;
-use wordcraft_ui_egui::Action;
-use wordcraft_ui_egui::host::ColorSlot;
+use wordfabrica_ui_egui::Action;
+use wordfabrica_ui_egui::host::ColorSlot;
 
 use super::{keep_focus, t};
 use crate::bridge::{Bridge, MenuSource, OpenMenu, Preview};
@@ -102,24 +102,24 @@ fn items_view(b: Bridge, items: &'static [Item]) -> impl IntoView {
                 }
                 Item::TableGrid => table_grid(b.clone()).into_any(),
                 Item::Language => language_view(b.clone()).into_any(),
-                Item::Themes => wordcraft_engine::cmd::design::THEMES
+                Item::Themes => wordfabrica_engine::cmd::design::THEMES
                     .iter()
                     .map(|(name, ..)| entry(&b, t(name), "design.theme", json!({"name": name}), false))
                     .collect_view()
                     .into_any(),
-                Item::ThemeColors => wordcraft_engine::cmd::design::THEMES
+                Item::ThemeColors => wordfabrica_engine::cmd::design::THEMES
                     .iter()
                     .map(|(name, ..)| entry(&b, t(name), "design.themeColors", json!({"name": name}), false))
                     .collect_view()
                     .into_any(),
-                Item::ThemeFonts => wordcraft_engine::cmd::design::THEMES
+                Item::ThemeFonts => wordfabrica_engine::cmd::design::THEMES
                     .iter()
                     .map(|(name, h, body, _)| {
                         entry(&b, format!("{}: {h} / {body}", t(name)), "design.themeFonts", json!({"heading": h, "body": body}), false)
                     })
                     .collect_view()
                     .into_any(),
-                Item::PaperSizes => wordcraft_geom::PAPER_SIZES
+                Item::PaperSizes => wordfabrica_geom::PAPER_SIZES
                     .iter()
                     .map(|(n, w, h)| entry(&b, format!("{n}   {:.2}\" × {:.2}\"", w / 72.0, h / 72.0), "layout.size", json!({"name": n}), false))
                     .collect_view()
@@ -170,12 +170,12 @@ fn colors_view(b: Bridge, id: &'static str, slot: Option<Slot>) -> impl IntoView
 
 /// The highlighter colours.
 fn highlights_view(b: Bridge) -> impl IntoView {
-    let cells = wordcraft_doc::props::Highlight::ALL
+    let cells = wordfabrica_doc::props::Highlight::ALL
         .iter()
         .skip(1)
         .map(|h| {
             let b = b.clone();
-            let c = h.rgb().unwrap_or(wordcraft_doc::Rgb::WHITE);
+            let c = h.rgb().unwrap_or(wordfabrica_doc::Rgb::WHITE);
             let style = format!("background:#{}", c.hex());
             let name = h.name().to_string();
             let ooxml = h.ooxml().to_string();
@@ -225,7 +225,7 @@ fn language_view(b: Bridge) -> impl IntoView {
         .map(|code| {
             entry(
                 &b,
-                wordcraft_ui_egui::language::label(code).to_string(),
+                wordfabrica_ui_egui::language::label(code).to_string(),
                 "review.language",
                 json!({"lang": code, "scope": "document"}),
                 current == code,
@@ -281,7 +281,7 @@ fn fonts_view(b: Bridge) -> impl IntoView {
 /// Font sizes.
 fn sizes_view(b: Bridge) -> impl IntoView {
     let current = b.state.with_untracked(|s| s.format.size);
-    let rows = wordcraft_engine::cmd::format::SIZES
+    let rows = wordfabrica_engine::cmd::format::SIZES
         .iter()
         .map(|&s| {
             let b = b.clone();

@@ -1,8 +1,8 @@
 //! Review tab: comments, track changes, word count, spelling (via the proofing hook).
 
 use serde_json::{Value, json};
-use wordcraft_doc::para::InlineObject;
-use wordcraft_doc::{Comment, Paragraph, PartKind, Pos, StoryRef, para_block};
+use wordfabrica_doc::para::InlineObject;
+use wordfabrica_doc::{Comment, Paragraph, PartKind, Pos, StoryRef, para_block};
 
 use super::{now_iso, pos_json, sel_result};
 use crate::{CmdError, CmdResult, CommandSpec, Selection, Session, p};
@@ -53,7 +53,7 @@ pub fn specs() -> Vec<CommandSpec> {
             if w.is_empty() {
                 return Err(CmdError::Params("no word".into()));
             }
-            wordcraft_proof::add_word(&w);
+            wordfabrica_proof::add_word(&w);
             s.relayout();
             Ok(json!({"added": w}))
         })
@@ -66,7 +66,7 @@ pub fn specs() -> Vec<CommandSpec> {
                     .map(|(a, b, _)| s.doc.para_at(&a).and_then(|p| p.text.get(a.off..b.off).map(str::to_string)).unwrap_or_default())
                     .unwrap_or_default(),
             };
-            wordcraft_proof::add_word(&w);
+            wordfabrica_proof::add_word(&w);
             s.relayout();
             Ok(json!({"ignored": w}))
         })
@@ -181,7 +181,7 @@ fn remove_anchors(s: &mut Session, ids: &[u32]) -> Result<(), CmdError> {
             }
             let para = s.doc.para_mut(story, &path)?;
             for o in offs.into_iter().rev() {
-                para.delete(o, o + wordcraft_doc::para::OBJ.len_utf8())?;
+                para.delete(o, o + wordfabrica_doc::para::OBJ.len_utf8())?;
             }
         }
     }
@@ -254,7 +254,7 @@ fn nav_comment(s: &mut Session, dir: i32) -> CmdResult {
 }
 
 /// Accept or reject a revision range in one paragraph.
-fn resolve_para(s: &mut Session, story: StoryRef, path: &wordcraft_doc::Path, from: usize, to: usize, accept: bool) -> Result<(), CmdError> {
+fn resolve_para(s: &mut Session, story: StoryRef, path: &wordfabrica_doc::Path, from: usize, to: usize, accept: bool) -> Result<(), CmdError> {
     let para = s.doc.para_mut(story, path)?;
     let ranges: Vec<(usize, usize, bool, bool)> = para
         .run_ranges()
@@ -363,7 +363,7 @@ fn list_changes(s: &mut Session, _: &Value) -> CmdResult {
 
 fn word_count(s: &mut Session, _: &Value) -> CmdResult {
     let text = if s.sel.is_collapsed() { s.doc.plain_text(StoryRef::Body) } else { s.selected_text() };
-    let words = wordcraft_doc::count_words(&text);
+    let words = wordfabrica_doc::count_words(&text);
     let chars = text.chars().filter(|c| *c != '\n').count();
     let chars_no_spaces = text.chars().filter(|c| !c.is_whitespace()).count();
     let paragraphs = text.split('\n').filter(|l| !l.trim().is_empty()).count();
@@ -372,7 +372,7 @@ fn word_count(s: &mut Session, _: &Value) -> CmdResult {
         l.pages
             .iter()
             .flat_map(|p| p.items.iter())
-            .map(|it| if let wordcraft_layout::Placed::Lines { l0, l1, story: StoryRef::Body, .. } = it { l1 - l0 } else { 0 })
+            .map(|it| if let wordfabrica_layout::Placed::Lines { l0, l1, story: StoryRef::Body, .. } = it { l1 - l0 } else { 0 })
             .sum()
     };
     let (_, pages) = s.page_status();
@@ -382,11 +382,11 @@ fn word_count(s: &mut Session, _: &Value) -> CmdResult {
 }
 
 /// Issues (spelling + grammar) in one paragraph as positions.
-fn para_issues(s: &Session, story: StoryRef, path: &wordcraft_doc::Path) -> Vec<(Pos, Pos, wordcraft_proof::Issue)> {
+fn para_issues(s: &Session, story: StoryRef, path: &wordfabrica_doc::Path) -> Vec<(Pos, Pos, wordfabrica_proof::Issue)> {
     let Some(p) = s.doc.para(story, path) else { return Vec::new() };
-    let text = wordcraft_layout::para::proof_text(p);
-    let mut v: Vec<wordcraft_proof::Issue> = wordcraft_proof::check_spelling(&text);
-    v.extend(wordcraft_proof::check_grammar(&text));
+    let text = wordfabrica_layout::para::proof_text(p);
+    let mut v: Vec<wordfabrica_proof::Issue> = wordfabrica_proof::check_spelling(&text);
+    v.extend(wordfabrica_proof::check_grammar(&text));
     v.sort_by_key(|i| i.start);
     v.into_iter()
         .filter(|i| !p.run_ranges().any(|(r, c)| r.start < i.end && i.start < r.end && (c.no_proof == Some(true) || c.link.is_some())))
@@ -395,14 +395,14 @@ fn para_issues(s: &Session, story: StoryRef, path: &wordcraft_doc::Path) -> Vec<
 }
 
 /// The issue under a position.
-fn issue_at(s: &Session, at: &Pos) -> Option<(Pos, Pos, wordcraft_proof::Issue)> {
+fn issue_at(s: &Session, at: &Pos) -> Option<(Pos, Pos, wordfabrica_proof::Issue)> {
     para_issues(s, at.story, &at.path).into_iter().find(|(a, b, _)| a.off <= at.off && at.off <= b.off)
 }
 
-fn issue_json(s: &Session, a: &Pos, b: &Pos, i: &wordcraft_proof::Issue) -> Value {
+fn issue_json(s: &Session, a: &Pos, b: &Pos, i: &wordfabrica_proof::Issue) -> Value {
     let word = s.doc.para_at(a).and_then(|p| p.text.get(a.off..b.off)).unwrap_or("").to_string();
-    let sugg = if i.kind == wordcraft_proof::IssueKind::Spelling { wordcraft_proof::suggest(&word, 6) } else { i.suggestions.clone() };
-    json!({"start": pos_json(a), "end": pos_json(b), "text": word, "kind": if i.kind == wordcraft_proof::IssueKind::Spelling { "spelling" } else { "grammar" }, "message": i.message, "suggestions": sugg})
+    let sugg = if i.kind == wordfabrica_proof::IssueKind::Spelling { wordfabrica_proof::suggest(&word, 6) } else { i.suggestions.clone() };
+    json!({"start": pos_json(a), "end": pos_json(b), "text": word, "kind": if i.kind == wordfabrica_proof::IssueKind::Spelling { "spelling" } else { "grammar" }, "message": i.message, "suggestions": sugg})
 }
 
 /// F7: select the next issue after the caret and return it with suggestions.

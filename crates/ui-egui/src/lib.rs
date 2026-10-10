@@ -1,5 +1,5 @@
-//! WordCraft's egui front end: a Word-style window (title bar with Quick Access Toolbar, ribbon,
-//! rulers, page canvas, panes, status bar, Backstage, dialogs) over `wordcraft-engine`.
+//! WordFabrica's egui front end: a Word-style window (title bar with Quick Access Toolbar, ribbon,
+//! rulers, page canvas, panes, status bar, Backstage, dialogs) over `wordfabrica-engine`.
 //!
 //! The UI is thin: it reads `Session` state and acts through [`WordApp::run`] (command ids), so
 //! the menus, ribbon, shortcuts, control channel and MCP all reach the same behaviour.
@@ -33,7 +33,7 @@ pub mod window_geometry;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use wordcraft_engine::Session;
+use wordfabrica_engine::Session;
 
 pub use control::ControlRequest;
 pub use host::{Action, ChromeState, HostedChrome};
@@ -98,7 +98,7 @@ pub struct UiState {
     pub recent: Vec<String>,
     pub dark: bool,
     pub nav_tab: String,
-    pub show_discord: bool,
+    pub show_community: bool,
     /// User name (File › Options) for comments and tracked changes; empty keeps the default.
     pub author: String,
     /// Desktop: the main window's size and position, restored at the next launch.
@@ -117,7 +117,7 @@ impl Default for UiState {
             recent: Vec::new(),
             dark: false,
             nav_tab: "headings".into(),
-            show_discord: true,
+            show_community: true,
             author: String::new(),
             window: None,
             language: i18n::AUTO.into(),
@@ -244,7 +244,7 @@ impl WordApp {
         if self.services.download.is_some() && matches!(id, "file.save" | "file.saveAs" | "file.exportPdf" | "file.exportPng") {
             let name = params.get("path").and_then(Value::as_str).map(str::to_string).unwrap_or_else(|| format!("{}.docx", self.title_stem()));
             let name = if id == "file.exportPdf" && !name.ends_with(".pdf") { format!("{name}.pdf") } else { name };
-            let bytes = wordcraft_engine::io::save_bytes(&name, &self.session.doc)?;
+            let bytes = wordfabrica_engine::io::save_bytes(&name, &self.session.doc)?;
             if let Some(d) = &self.services.download {
                 d(&name, &bytes);
             }
@@ -384,8 +384,8 @@ impl WordApp {
                 self.open_dialog();
                 json!({})
             }
-            "ui.discord" => {
-                self.canvas.open_url = Some("https://discord.gg/artcraft".into());
+            "ui.community" => {
+                self.canvas.open_url = Some("https://github.com/OpenFabrica/wordfabrica/discussions".into());
                 json!({})
             }
             _ => return None,
@@ -446,7 +446,7 @@ impl WordApp {
     /// Hosted storage saves on its own and shows status in the status bar, so it gets no dot.
     pub fn window_title(&self) -> String {
         let dot = self.session.dirty && self.services.request_save.is_none();
-        format!("{}{} - WordCraft", self.title_stem(), if dot { " •" } else { "" })
+        format!("{}{} - WordFabrica", self.title_stem(), if dot { " •" } else { "" })
     }
 
     /// Per-frame logic before layout: control requests, screenshots, shortcuts, file drops.
@@ -587,7 +587,7 @@ impl WordApp {
         let files = std::mem::take(&mut *inbox.lock().unwrap_or_else(|e| e.into_inner()));
         for (name, bytes) in files {
             let lower = name.to_ascii_lowercase();
-            let data = wordcraft_engine::cmd::insert::base64_encode(&bytes);
+            let data = wordfabrica_engine::cmd::insert::base64_encode(&bytes);
             let img = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"].iter().any(|e| lower.ends_with(e));
             let r = if img { self.run("insert.picture", json!({"data": data})) } else { self.run("file.open", json!({"path": name, "data": data})) };
             if r.is_ok() {
@@ -686,7 +686,7 @@ mod tests {
         let requested = std::rc::Rc::new(std::cell::Cell::new(false));
         let flag = requested.clone();
         let mut app = WordApp::new(
-            Session::new(wordcraft_doc::Document::new()),
+            Session::new(wordfabrica_doc::Document::new()),
             Services { request_save: Some(Box::new(move || flag.set(true))), download: Some(Box::new(|_, _| {})), ..Default::default() },
         );
         app.run("text.insert", json!({"text":"unsaved content"})).unwrap();
@@ -696,7 +696,7 @@ mod tests {
         app.run("file.saveAs", json!({"path":"copy.json"})).unwrap();
         assert!(app.session.dirty);
         assert!(app.run("file.new", json!({})).is_err());
-        assert_eq!(app.session.doc.plain_text(wordcraft_doc::StoryRef::Body), "unsaved content");
+        assert_eq!(app.session.doc.plain_text(wordfabrica_doc::StoryRef::Body), "unsaved content");
         app.session.dirty = false;
         app.run("file.new", json!({})).unwrap();
         assert_eq!(app.document_epoch, 1);
@@ -708,7 +708,7 @@ mod tests {
     #[test]
     fn hosted_status_bar_shows_server_save_state() {
         crate::i18n::set_current(crate::i18n::Lang::EN);
-        let mut app = WordApp::new(Session::new(wordcraft_doc::Document::new()), Services::default());
+        let mut app = WordApp::new(Session::new(wordfabrica_doc::Document::new()), Services::default());
         app.ui.language = "en".into();
         app.hosted = Some(Hosted { status: "Saved to server", revision: 3, ..Default::default() });
         let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1200.0, 800.0)).build_ui_state(
@@ -727,7 +727,7 @@ mod tests {
     #[test]
     fn file_menu_sits_before_autosave_and_opens_backstage() {
         crate::i18n::set_current(crate::i18n::Lang::EN);
-        let mut app = WordApp::new(Session::new(wordcraft_doc::Document::new()), Services::default());
+        let mut app = WordApp::new(Session::new(wordfabrica_doc::Document::new()), Services::default());
         app.ui.language = "en".into();
         let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1200.0, 800.0)).build_ui_state(
             |ui, app: &mut WordApp| {
@@ -773,7 +773,7 @@ mod tests {
     #[test]
     fn word_shortcuts_do_not_zoom_the_window() {
         let ctx = egui::Context::default();
-        let mut app = WordApp::new(Session::new(wordcraft_doc::Document::new()), Services::default());
+        let mut app = WordApp::new(Session::new(wordfabrica_doc::Document::new()), Services::default());
         let mut frame = |events: Vec<egui::Event>| {
             let input = egui::RawInput { events, ..Default::default() };
             // No painter here: dropping the font atlas delta unapplied trips an epaint debug assertion.
@@ -787,7 +787,7 @@ mod tests {
     }
 
     fn app() -> WordApp {
-        WordApp::new(Session::new(wordcraft_doc::Document::new()), Services::default())
+        WordApp::new(Session::new(wordfabrica_doc::Document::new()), Services::default())
     }
 
     #[test]

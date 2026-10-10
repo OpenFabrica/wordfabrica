@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use wordcraft_doc::section::NumFormat;
+use wordfabrica_doc::section::NumFormat;
 
 /// Context for fields that depend on where text lands.
 #[derive(Clone, Debug, Default)]

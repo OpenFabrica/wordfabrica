@@ -1,4 +1,4 @@
-//! WordCraft engine: the editing session and its commands.
+//! WordFabrica engine: the editing session and its commands.
 //!
 //! **Everything is a command.** Each user-visible action is a [`CommandSpec`] with a stable id
 //! (`format.bold`, `insert.table`), a label, the ribbon/menu location, a default shortcut, a
@@ -18,9 +18,9 @@ use std::collections::HashMap;
 use serde_json::Value;
 
 pub use session::{FindState, Selection, Session, ViewState};
-pub use wordcraft_doc as doc;
-pub use wordcraft_layout as layout;
-pub use wordcraft_render as render;
+pub use wordfabrica_doc as doc;
+pub use wordfabrica_layout as layout;
+pub use wordfabrica_render as render;
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq)]
 pub enum CmdError {
@@ -34,8 +34,8 @@ pub enum CmdError {
     Failed(String),
 }
 
-impl From<wordcraft_doc::DocError> for CmdError {
-    fn from(e: wordcraft_doc::DocError) -> Self {
+impl From<wordfabrica_doc::DocError> for CmdError {
+    fn from(e: wordfabrica_doc::DocError) -> Self {
         CmdError::Failed(e.to_string())
     }
 }

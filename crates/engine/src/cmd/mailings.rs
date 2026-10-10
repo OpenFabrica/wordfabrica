@@ -2,10 +2,10 @@
 //! and labels.
 
 use serde_json::{Value, json};
-use wordcraft_doc::para::InlineObject;
-use wordcraft_doc::props::{Align, CharProps};
-use wordcraft_doc::section::SectionProps;
-use wordcraft_doc::{Block, Document, Paragraph, Pos, StoryRef, Table, para_block};
+use wordfabrica_doc::para::InlineObject;
+use wordfabrica_doc::props::{Align, CharProps};
+use wordfabrica_doc::section::SectionProps;
+use wordfabrica_doc::{Block, Document, Paragraph, Pos, StoryRef, Table, para_block};
 
 use super::{delete_selection, sel_result};
 use crate::{CmdError, CmdResult, CommandSpec, Selection, Session, p};
@@ -429,7 +429,7 @@ fn merge_block(s: &Session, b: &mut Block, row: usize) {
                 let Some(InlineObject::Field { instr, .. }) = p.object_at(off).cloned() else { continue };
                 if let Some(val) = eval(s, &instr, row) {
                     let props = p.props_of_char(off).clone();
-                    let _ = p.delete(off, off + wordcraft_doc::para::OBJ.len_utf8());
+                    let _ = p.delete(off, off + wordfabrica_doc::para::OBJ.len_utf8());
                     let _ = p.insert_text(off, &val, &props);
                 }
             }
@@ -498,12 +498,12 @@ fn labels(s: &mut Session, v: &Value) -> CmdResult {
     d.last_section.margin_right = 13.5;
     let mut t = Table::new(rows, cols, 189.0 * cols as f32);
     t.props.style = None;
-    t.props.borders = Some(wordcraft_doc::props::Borders::default());
+    t.props.borders = Some(wordfabrica_doc::props::Borders::default());
     t.props.fixed = true;
     let mut k = 0usize;
     for r in &mut t.rows {
         r.props.height = Some(72.0);
-        r.props.height_rule = wordcraft_doc::props::HeightRule::Exact;
+        r.props.height_rule = wordfabrica_doc::props::HeightRule::Exact;
         for c in &mut r.cells {
             let content = if from_rec {
                 let rec = address_block(s, k);
@@ -512,7 +512,7 @@ fn labels(s: &mut Session, v: &Value) -> CmdResult {
             } else {
                 text.clone()
             };
-            c.props.valign = wordcraft_doc::props::VAlign::Center;
+            c.props.valign = wordfabrica_doc::props::VAlign::Center;
             c.blocks = content
                 .split('\n')
                 .map(|l| {

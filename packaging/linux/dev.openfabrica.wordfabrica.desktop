@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=WordFabrica
+GenericName=Word Processor
+Comment=Write and design documents; open and save Word files
+Exec=wordfabrica %F
+TryExec=wordfabrica
+Icon=dev.openfabrica.wordfabrica
+Terminal=false
+StartupNotify=true
+StartupWMClass=dev.openfabrica.wordfabrica
+Categories=Office;WordProcessor;
+Keywords=word;processor;document;docx;writer;text;letter;report;
+MimeType=application/vnd.openxmlformats-officedocument.wordprocessingml.document;application/vnd.oasis.opendocument.text;application/rtf;text/markdown;text/html;text/plain;

@@ -150,7 +150,7 @@ impl Dialog {
                 let rp = app.session.doc.para_at(&app.session.sel.focus).map(|p| app.session.doc.styles.resolve_para(&p.props));
                 let rp = rp?;
                 let line = match rp.line_spacing {
-                    wordcraft_doc::props::LineSpacing::Multiple(m) => m,
+                    wordfabrica_doc::props::LineSpacing::Multiple(m) => m,
                     _ => 1.0,
                 };
                 Dialog::Paragraph {
@@ -179,7 +179,7 @@ impl Dialog {
             "goto" => Dialog::Goto { page: String::new() },
             "insertTable" => Dialog::InsertTable { rows: 2, cols: 5 },
             "pageSetup" => {
-                let sp = wordcraft_engine::cmd::page::sect(&app.session);
+                let sp = wordfabrica_engine::cmd::page::sect(&app.session);
                 Dialog::PageSetup {
                     top: sp.margin_top / 72.0,
                     bottom: sp.margin_bottom / 72.0,
@@ -205,13 +205,13 @@ impl Dialog {
     pub fn modify_style(app: &WordApp, id: &str) -> Option<Dialog> {
         let st = app.session.doc.styles.get(id)?;
         let rc = app.session.doc.styles.resolve_char(
-            if st.kind == wordcraft_doc::StyleKind::Paragraph { Some(id) } else { None },
-            &wordcraft_doc::CharProps {
-                style: if st.kind == wordcraft_doc::StyleKind::Character { Some(id.into()) } else { None },
+            if st.kind == wordfabrica_doc::StyleKind::Paragraph { Some(id) } else { None },
+            &wordfabrica_doc::CharProps {
+                style: if st.kind == wordfabrica_doc::StyleKind::Character { Some(id.into()) } else { None },
                 ..Default::default()
             },
         );
-        let rp = app.session.doc.styles.resolve_para(&wordcraft_doc::ParaProps { style: Some(id.into()), ..Default::default() });
+        let rp = app.session.doc.styles.resolve_para(&wordfabrica_doc::ParaProps { style: Some(id.into()), ..Default::default() });
         Some(Dialog::ModifyStyle {
             id: id.into(),
             name: st.name.clone(),
@@ -220,8 +220,8 @@ impl Dialog {
             bold: rc.bold,
             italic: rc.italic,
             color: match rc.color {
-                wordcraft_doc::TextColor::Rgb(c) => c.hex(),
-                wordcraft_doc::TextColor::Auto => "auto".into(),
+                wordfabrica_doc::TextColor::Rgb(c) => c.hex(),
+                wordfabrica_doc::TextColor::Auto => "auto".into(),
             },
             before: rp.space_before,
             after: rp.space_after,
@@ -271,7 +271,7 @@ pub fn press(app: &mut WordApp, d: &mut Dialog, button: &DialogButton) -> bool {
             if let Ok(s) = size.trim().parse::<f64>() {
                 props["size"] = json!(s);
             }
-            if let Some(c) = wordcraft_doc::Rgb::parse(color) {
+            if let Some(c) = wordfabrica_doc::Rgb::parse(color) {
                 props["color"] = json!({"Rgb": [c.0, c.1, c.2]});
             }
             let _ = app.run("format.set", json!({"props": props}));
@@ -386,7 +386,7 @@ pub fn press(app: &mut WordApp, d: &mut Dialog, button: &DialogButton) -> bool {
                 return false;
             }
             let mut chr = json!({"font": font, "size": *size, "bold": *bold, "italic": *italic});
-            if let Some(c) = wordcraft_doc::Rgb::parse(color) {
+            if let Some(c) = wordfabrica_doc::Rgb::parse(color) {
                 chr["color"] = json!({"Rgb": [c.0, c.1, c.2]});
             }
             let _ = app.run("styles.modify", json!({"style": id, "name": name, "chr": chr, "para": {"spaceBefore": *before, "spaceAfter": *after}}));
@@ -404,9 +404,9 @@ pub fn press(app: &mut WordApp, d: &mut Dialog, button: &DialogButton) -> bool {
 
 /// Commands matching a search query (label, translated label, id or ribbon location), as the
 /// command search dialog lists them.
-pub fn command_hits<'a>(reg: &'a wordcraft_engine::Registry, query: &str, max: usize) -> Vec<&'a wordcraft_engine::CommandSpec> {
+pub fn command_hits<'a>(reg: &'a wordfabrica_engine::Registry, query: &str, max: usize) -> Vec<&'a wordfabrica_engine::CommandSpec> {
     let q = query.to_lowercase();
-    let mut hits: Vec<&wordcraft_engine::CommandSpec> = reg
+    let mut hits: Vec<&wordfabrica_engine::CommandSpec> = reg
         .all()
         .iter()
         .filter(|c| {
@@ -441,7 +441,7 @@ pub fn title(d: &Dialog) -> &'static str {
         Dialog::NewStyle { .. } => "Create New Style",
         Dialog::ModifyStyle { .. } => "Modify Style",
         Dialog::Commands { .. } => "Search Commands",
-        Dialog::About { .. } => "About WordCraft",
+        Dialog::About { .. } => "About WordFabrica",
     }
 }
 
@@ -842,19 +842,19 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> Option<DialogButton> 
                 1 => crate::credits::contributors_ui(ui),
                 2 => crate::credits::models_ui(ui),
                 _ => {
-                    ui.label(egui::RichText::new(tl!("WordCraft")).font(semibold(22.0)));
-                    let build = option_env!("WORDCRAFT_BUILD_SHA").map(|s| s.get(..8).unwrap_or(s)).unwrap_or(tl!("development build"));
+                    ui.label(egui::RichText::new(tl!("WordFabrica")).font(semibold(22.0)));
+                    let build = option_env!("WORDFABRICA_BUILD_SHA").map(|s| s.get(..8).unwrap_or(s)).unwrap_or(tl!("development build"));
                     ui.label(crate::i18n::fmt(tl!("Version {version} ({build})"), &[("version", env!("CARGO_PKG_VERSION")), ("build", build)]));
                     ui.label(tl!(
-                        "A free, open-source word processor written from scratch in Rust.\nPart of the Crafting Apps from the ArtCraft team."
+                        "A free, open-source word processor written from scratch in Rust.\nPart of OpenFabrica: open source tools for makers, builders, and creatives."
                     ));
                     ui.add_space(6.0);
-                    ui.hyperlink_to(tl!("getartcraft.com/apps/wordcraft"), "https://getartcraft.com/apps/wordcraft");
-                    ui.hyperlink_to(tl!("Join us on Discord: discord.gg/artcraft"), "https://discord.gg/artcraft");
-                    ui.hyperlink_to(tl!("Source code: github.com/storytold/wordcraft"), "https://github.com/storytold/wordcraft");
+                    ui.hyperlink_to(tl!("openfabrica.dev"), "https://openfabrica.dev");
+                    ui.hyperlink_to(tl!("Join the community: GitHub Discussions"), "https://github.com/OpenFabrica/wordfabrica/discussions");
+                    ui.hyperlink_to(tl!("Source code: github.com/OpenFabrica/wordfabrica"), "https://github.com/OpenFabrica/wordfabrica");
                     ui.add_space(6.0);
                     ui.label(
-                        egui::RichText::new(tl!("MIT OR Apache-2.0. Copyright (c) 2026 ArtCraft Team and the WordCraft contributors."))
+                        egui::RichText::new(tl!("MIT OR Apache-2.0. Copyright (c) 2026 the OpenFabrica contributors. Based on WordCraft by the ArtCraft Team and the WordCraft contributors."))
                             .small()
                             .weak(),
                     );

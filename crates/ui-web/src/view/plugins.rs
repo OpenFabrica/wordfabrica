@@ -5,7 +5,7 @@
 
 use leptos::prelude::*;
 use serde_json::json;
-use wordcraft_ui_egui::i18n::fmt;
+use wordfabrica_ui_egui::i18n::fmt;
 
 use super::{icon_svg, input_value, keep_focus, t};
 use crate::bridge::Bridge;

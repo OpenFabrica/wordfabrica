@@ -1,10 +1,10 @@
 //! Page → draw items, shared by the raster renderer, the PDF exporter and thumbnails.
 
-use wordcraft_doc::para::{InlineObject, ShapeKind};
-use wordcraft_doc::props::{BorderStyle, Rgb, TextColor, Underline};
-use wordcraft_doc::{Document, Path, StoryRef};
-use wordcraft_fonts::FaceRef;
-use wordcraft_geom::Rect;
+use wordfabrica_doc::para::{InlineObject, ShapeKind};
+use wordfabrica_doc::props::{BorderStyle, Rgb, TextColor, Underline};
+use wordfabrica_doc::{Document, Path, StoryRef};
+use wordfabrica_fonts::FaceRef;
+use wordfabrica_geom::Rect;
 
 use crate::para::{ClKind, LineEnd, ParaLayout};
 use crate::{Page, Placed};

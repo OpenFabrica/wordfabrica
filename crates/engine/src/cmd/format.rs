@@ -1,9 +1,9 @@
 //! Character formatting (Home › Font).
 
 use serde_json::{Value, json};
-use wordcraft_doc::Pos;
-use wordcraft_doc::props::{CharProps, Highlight, Rgb, TextColor, Underline, VertAlign};
-use wordcraft_doc::resolve::ResolvedChar;
+use wordfabrica_doc::Pos;
+use wordfabrica_doc::props::{CharProps, Highlight, Rgb, TextColor, Underline, VertAlign};
+use wordfabrica_doc::resolve::ResolvedChar;
 
 use super::sel_result;
 use crate::{CmdError, CmdResult, CommandSpec, Session, p};

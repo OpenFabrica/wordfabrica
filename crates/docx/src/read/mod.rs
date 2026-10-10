@@ -6,11 +6,11 @@ mod story;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
-use wordcraft_doc::numbering::{AbstractNum, Level, LevelSuffix, Num};
-use wordcraft_doc::props::Rgb;
-use wordcraft_doc::section::NumFormat;
-use wordcraft_doc::styles::{Style, StyleKind, StyleSheet, TableStyleParts};
-use wordcraft_doc::{Blocks, Comment, Document, PartKind, Revision, RevisionKind};
+use wordfabrica_doc::numbering::{AbstractNum, Level, LevelSuffix, Num};
+use wordfabrica_doc::props::Rgb;
+use wordfabrica_doc::section::NumFormat;
+use wordfabrica_doc::styles::{Style, StyleKind, StyleSheet, TableStyleParts};
+use wordfabrica_doc::{Blocks, Comment, Document, PartKind, Revision, RevisionKind};
 
 use crate::DocxError;
 use crate::package::{Package, Rels, rt};

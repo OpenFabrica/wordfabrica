@@ -49,7 +49,7 @@ pub fn tool_definitions() -> Value {
         tool(
             "list_commands",
             "List commands",
-            "Every WordCraft command: id, label, ribbon location, shortcut and params. Filter with `query`.",
+            "Every WordFabrica command: id, label, ribbon location, shortcut and params. Filter with `query`.",
             obj(json!({"query": s("Case-insensitive filter on id/label/location")}), &[]),
             true
         ),
@@ -120,8 +120,8 @@ pub fn tool_definitions() -> Value {
             obj(json!({"page": n("1-based page"), "scale": n("Pixels per point (default 1)")}), &[]),
             true
         ),
-        tool("parity", "Feature parity", "WordCraft's command coverage of the word-processor feature catalog.", obj(json!({}), &[]), true),
-        tool("screenshot", "Screenshot app", "Screenshot of the whole WordCraft window (desktop app only).", obj(json!({}), &[]), true),
+        tool("parity", "Feature parity", "WordFabrica's command coverage of the word-processor feature catalog.", obj(json!({}), &[]), true),
+        tool("screenshot", "Screenshot app", "Screenshot of the whole WordFabrica window (desktop app only).", obj(json!({}), &[]), true),
         tool(
             "click",
             "Click",
@@ -246,11 +246,11 @@ pub fn call_tool(b: &mut dyn Backend, name: &str, a: &Value) -> ToolResult {
         "parity" => wrap(b.call("ui.parity", json!({}))),
         "render_page" => {
             if b.has_ui() {
-                let path = std::env::temp_dir().join("wordcraft-mcp-page.png");
+                let path = std::env::temp_dir().join("wordfabrica-mcp-page.png");
                 let path_s = path.to_string_lossy().to_string();
                 match b.call("ui.render", json!({"path": path_s, "page": a.get("page").cloned().unwrap_or(json!(1)), "scale": a.get("scale").cloned().unwrap_or(json!(1.0))})) {
                     Ok(info) => match std::fs::read(&path) {
-                        Ok(bytes) => ToolResult::image(wordcraft_engine::cmd::insert::base64_encode(&bytes), &info),
+                        Ok(bytes) => ToolResult::image(wordfabrica_engine::cmd::insert::base64_encode(&bytes), &info),
                         Err(e) => ToolResult::error(e.to_string()),
                     },
                     Err(e) => ToolResult::error(e),
@@ -266,10 +266,10 @@ pub fn call_tool(b: &mut dyn Backend, name: &str, a: &Value) -> ToolResult {
             }
         }
         "screenshot" => {
-            let path = std::env::temp_dir().join("wordcraft-mcp-shot.png");
+            let path = std::env::temp_dir().join("wordfabrica-mcp-shot.png");
             match b.call("ui.screenshot", json!({"path": path.to_string_lossy()})) {
                 Ok(info) => match std::fs::read(&path) {
-                    Ok(bytes) => ToolResult::image(wordcraft_engine::cmd::insert::base64_encode(&bytes), &info),
+                    Ok(bytes) => ToolResult::image(wordfabrica_engine::cmd::insert::base64_encode(&bytes), &info),
                     Err(e) => ToolResult::error(e.to_string()),
                 },
                 Err(e) => ToolResult::error(e),

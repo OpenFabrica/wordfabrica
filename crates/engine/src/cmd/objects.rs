@@ -4,9 +4,9 @@
 //! caret). Picture adjustments re-encode the bitmap (originals are kept for Reset Picture).
 
 use serde_json::{Value, json};
-use wordcraft_doc::para::{Float, InlineObject, Wrap};
-use wordcraft_doc::props::Rgb;
-use wordcraft_doc::{Pos, StoryRef};
+use wordfabrica_doc::para::{Float, InlineObject, Wrap};
+use wordfabrica_doc::props::Rgb;
+use wordfabrica_doc::{Pos, StoryRef};
 
 use super::sel_result;
 use crate::{CmdError, CmdResult, CommandSpec, Selection, Session, p};
@@ -148,7 +148,7 @@ pub fn specs() -> Vec<CommandSpec> {
             } else {
                 return Err(CmdError::Params("`path` or `data` required".into()));
             };
-            wordcraft_render::image_size(&bytes).ok_or_else(|| CmdError::Failed("not a supported image".into()))?;
+            wordfabrica_render::image_size(&bytes).ok_or_else(|| CmdError::Failed("not a supported image".into()))?;
             let key = s.doc.add_media(bytes, "png");
             with_obj(s, |o| {
                 if let InlineObject::Image { media, .. } = o {
@@ -206,8 +206,8 @@ pub fn specs() -> Vec<CommandSpec> {
                 if f.wrap == Wrap::Inline {
                     f.wrap = Wrap::Square;
                 }
-                f.h_rel = wordcraft_doc::para::Anchor::Margin;
-                f.v_rel = wordcraft_doc::para::Anchor::Margin;
+                f.h_rel = wordfabrica_doc::para::Anchor::Margin;
+                f.v_rel = wordfabrica_doc::para::Anchor::Margin;
                 let (tw, th) = (sect.text_width(), sect.text_height());
                 let col = if preset.ends_with("Left") { 0.0 } else if preset.ends_with("Right") { tw - size.0 } else { (tw - size.0) / 2.0 };
                 let row = if preset.starts_with("top") { 0.0 } else if preset.starts_with("bottom") { th - size.1 } else { (th - size.1) / 2.0 };
@@ -227,7 +227,7 @@ pub fn specs() -> Vec<CommandSpec> {
                 if f.wrap == Wrap::Inline {
                     f.wrap = Wrap::Square;
                 }
-                f.h_rel = wordcraft_doc::para::Anchor::Margin;
+                f.h_rel = wordfabrica_doc::para::Anchor::Margin;
                 f.x = match h.as_str() {
                     "left" => 0.0,
                     "right" => tw - w,
@@ -242,7 +242,7 @@ pub fn specs() -> Vec<CommandSpec> {
             let n = p::u64(v, "index").unwrap_or(0) as usize;
             let list = all_objects(s);
             let (pos, _) = list.into_iter().nth(n).ok_or_else(|| CmdError::Failed("no such object".into()))?;
-            let end = Pos { off: pos.off + wordcraft_doc::para::OBJ.len_utf8(), ..pos.clone() };
+            let end = Pos { off: pos.off + wordfabrica_doc::para::OBJ.len_utf8(), ..pos.clone() };
             s.sel = Selection { anchor: pos, focus: end };
             sel_result(s)
         })
@@ -273,7 +273,7 @@ pub fn specs() -> Vec<CommandSpec> {
         .params(r#"{"color": "RRGGBB" | null, "width"?: pt}"#)
         .when(has_shape),
         CommandSpec::new("shape.change", "Change Shape", "Shape Format › Insert Shapes", |s, v| {
-            let kind: wordcraft_doc::para::ShapeKind = serde_json::from_value(v.get("kind").cloned().unwrap_or(json!("rectangle"))).map_err(|e| CmdError::Params(e.to_string()))?;
+            let kind: wordfabrica_doc::para::ShapeKind = serde_json::from_value(v.get("kind").cloned().unwrap_or(json!("rectangle"))).map_err(|e| CmdError::Params(e.to_string()))?;
             with_obj(s, |o| {
                 if let InlineObject::Shape { kind: k, .. } = o {
                     *k = kind;
@@ -294,7 +294,7 @@ pub fn selected(s: &Session) -> Option<(Pos, InlineObject)> {
         let Some(p) = s.doc.para(story, &path) else { continue };
         for off in p.object_offsets() {
             let inside = if a == b {
-                off + wordcraft_doc::para::OBJ.len_utf8() == a.off || off == a.off
+                off + wordfabrica_doc::para::OBJ.len_utf8() == a.off || off == a.off
             } else {
                 (path != a.path || off >= a.off) && (path != b.path || off < b.off)
             };
@@ -573,7 +573,7 @@ mod tests {
 
     #[test]
     fn picture_pipeline() {
-        let mut s = Session::new(wordcraft_doc::Document::new());
+        let mut s = Session::new(wordfabrica_doc::Document::new());
         let data = super::super::insert::base64_encode(&png(20, 10));
         s.run("insert.picture", &json!({"data": data})).unwrap();
         assert!(selected(&s).is_some());

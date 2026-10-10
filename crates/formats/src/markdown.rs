@@ -9,7 +9,7 @@
 //!
 //! Export writes the same constructs; pictures become `![alt](media-name)` placeholders.
 
-use wordcraft_doc::{Align, Document};
+use wordfabrica_doc::{Align, Document};
 
 use crate::html::decode_entity;
 use crate::model::{self, Cell, FBlock, FTable, Fmt, Inline, Kind, ListInfo, Para, make_img};

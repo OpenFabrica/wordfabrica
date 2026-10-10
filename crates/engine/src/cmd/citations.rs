@@ -2,9 +2,9 @@
 //! table of figures, cross-references, table of authorities, footnote options.
 
 use serde_json::{Value, json};
-use wordcraft_doc::para::InlineObject;
-use wordcraft_doc::props::{CharProps, TabAlign, TabLeader, TabStop};
-use wordcraft_doc::{Block, Paragraph, Path, Pos, Source, StoryRef};
+use wordfabrica_doc::para::InlineObject;
+use wordfabrica_doc::props::{CharProps, TabAlign, TabLeader, TabStop};
+use wordfabrica_doc::{Block, Paragraph, Path, Pos, Source, StoryRef};
 
 use super::{delete_selection, sel_result};
 use crate::{CmdError, CmdResult, CommandSpec, Selection, Session, p};
@@ -79,16 +79,16 @@ pub fn specs() -> Vec<CommandSpec> {
             .params(r#"{"to": "heading|bookmark|figure|table", "target": string (text / name / number), "show"?: "text|page|number|aboveBelow"} or {} to list targets"#),
         CommandSpec::new("references.noteOptions", "Footnote and Endnote", "References › Footnotes", |s, v| {
             if let Some(f) = p::str(v, "footnoteFormat") {
-                s.doc.settings.footnote_format = wordcraft_doc::section::NumFormat::from_ooxml(f);
+                s.doc.settings.footnote_format = wordfabrica_doc::section::NumFormat::from_ooxml(f);
             }
             if let Some(f) = p::str(v, "endnoteFormat") {
-                s.doc.settings.endnote_format = wordcraft_doc::section::NumFormat::from_ooxml(f);
+                s.doc.settings.endnote_format = wordfabrica_doc::section::NumFormat::from_ooxml(f);
             }
             Ok(json!({"footnoteFormat": s.doc.settings.footnote_format, "endnoteFormat": s.doc.settings.endnote_format}))
         })
         .params(r#"{"footnoteFormat"?: "decimal|lowerRoman|upperRoman|lowerLetter|upperLetter", "endnoteFormat"?: …}"#),
         CommandSpec::new("references.researcher", "Researcher", "References › Research", |s, _| {
-            s.status = "Researcher needs an online service; WordCraft keeps your documents offline.".into();
+            s.status = "Researcher needs an online service; WordFabrica keeps your documents offline.".into();
             Ok(json!({"available": false}))
         })
         .pure(),
@@ -317,12 +317,12 @@ const ENTRY_STYLE: &str = "ListEntry";
 /// Rebuild every generated list.
 pub fn update_generated(s: &mut Session) -> Result<(), CmdError> {
     if s.doc.styles.get(ENTRY_STYLE).is_none() {
-        s.doc.styles.upsert(wordcraft_doc::Style {
+        s.doc.styles.upsert(wordfabrica_doc::Style {
             id: ENTRY_STYLE.into(),
             name: "List Entry".into(),
-            kind: wordcraft_doc::StyleKind::Paragraph,
+            kind: wordfabrica_doc::StyleKind::Paragraph,
             based_on: Some("Normal".into()),
-            para: wordcraft_doc::ParaProps { space_after: Some(4.0), ..Default::default() },
+            para: wordfabrica_doc::ParaProps { space_after: Some(4.0), ..Default::default() },
             hidden: true,
             ..Default::default()
         });
@@ -530,7 +530,7 @@ mod tests {
 
     #[test]
     fn citations_and_bibliography() {
-        let mut s = Session::new(wordcraft_doc::Document::new());
+        let mut s = Session::new(wordfabrica_doc::Document::new());
         s.run("text.insert", &json!({"text": "Studios matter "})).unwrap();
         s.run("references.citation", &json!({"source": {"author": "Rivera, Alex; Chen, Mei", "title": "Shared Spaces", "year": "2021", "publisher": "Harbor Books", "city": "Portland"}})).unwrap();
         assert!(s.doc.plain_text(StoryRef::Body).contains("(Rivera & Chen, 2021)"), "{}", s.doc.plain_text(StoryRef::Body));
@@ -547,7 +547,7 @@ mod tests {
 
     #[test]
     fn index_and_figures() {
-        let mut s = Session::new(wordcraft_doc::Document::from_text("Kilns are hot.\nPresses are heavy.\nMore kilns."));
+        let mut s = Session::new(wordfabrica_doc::Document::from_text("Kilns are hot.\nPresses are heavy.\nMore kilns."));
         s.run("select.text", &json!({"text": "Kilns"})).unwrap();
         s.run("references.markEntry", &json!({})).unwrap();
         s.run("select.text", &json!({"text": "Presses"})).unwrap();

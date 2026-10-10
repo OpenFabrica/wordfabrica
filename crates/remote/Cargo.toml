@@ -1,16 +1,16 @@
 [package]
-name = "wordcraft-remote"
+name = "wordfabrica-remote"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Shared document storage protocol for WordCraft browser and server"
+description = "Shared document storage protocol for WordFabrica browser and server"
 
 [lints]
 workspace = true
 
 [dependencies]
 serde.workspace = true
-wordcraft-doc.workspace = true
+wordfabrica-doc.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

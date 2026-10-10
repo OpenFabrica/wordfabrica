@@ -1,8 +1,8 @@
 //! Undo, clipboard, find & replace, Go To, Format Painter.
 
 use serde_json::{Value, json};
-use wordcraft_doc::edit::Fragment;
-use wordcraft_doc::{Block, Pos, StoryRef};
+use wordfabrica_doc::edit::Fragment;
+use wordfabrica_doc::{Block, Pos, StoryRef};
 
 use super::{delete_selection, pos_json, sel_result};
 use crate::{CmdError, CmdResult, CommandSpec, Selection, Session, p};
@@ -87,7 +87,7 @@ fn paste(s: &mut Session, v: &Value) -> CmdResult {
     let at = delete_selection(s)?;
     let mut frag = frag;
     if s.doc.settings.track_changes {
-        let rid = super::new_revision(s, wordcraft_doc::RevisionKind::Insert);
+        let rid = super::new_revision(s, wordfabrica_doc::RevisionKind::Insert);
         for b in &mut frag.blocks {
             if let Block::Para(p) = b {
                 for r in &mut p.runs {
@@ -235,7 +235,7 @@ fn goto(s: &mut Session, v: &Value) -> CmdResult {
         let idx = (pg.max(1) as usize - 1).min(l.pages.len().saturating_sub(1));
         let target = l.pages.get(idx).and_then(|page| {
             page.items.iter().find_map(|it| match it {
-                wordcraft_layout::Placed::Lines { story, path, para, l0, .. } if *story == StoryRef::Body => {
+                wordfabrica_layout::Placed::Lines { story, path, para, l0, .. } if *story == StoryRef::Body => {
                     para.lines.get(*l0).map(|ln| Pos { story: *story, path: path.clone(), off: ln.start })
                 }
                 _ => None,

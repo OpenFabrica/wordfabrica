@@ -12,7 +12,7 @@ pub fn label(code: &str) -> &str {
 }
 
 pub fn current_label(app: &WordApp) -> String {
-    let state = wordcraft_engine::cmd::format::state(&app.session);
+    let state = wordfabrica_engine::cmd::format::state(&app.session);
     state.get("lang").and_then(serde_json::Value::as_str).map(label).unwrap_or(tl!("Multiple languages")).to_string()
 }
 

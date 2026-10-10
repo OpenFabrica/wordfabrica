@@ -1,9 +1,9 @@
 //! References tab: table of contents, footnotes/endnotes, captions; field updates.
 
 use serde_json::{Value, json};
-use wordcraft_doc::para::{InlineObject, NoteKind};
-use wordcraft_doc::props::{CharProps, TabAlign, TabLeader, TabStop};
-use wordcraft_doc::{Block, Paragraph, PartKind, Path, Pos, StoryRef, para_block};
+use wordfabrica_doc::para::{InlineObject, NoteKind};
+use wordfabrica_doc::props::{CharProps, TabAlign, TabLeader, TabStop};
+use wordfabrica_doc::{Block, Paragraph, PartKind, Path, Pos, StoryRef, para_block};
 
 use super::{delete_selection, sel_result};
 use crate::{CmdError, CmdResult, CommandSpec, Selection, Session, p};
@@ -247,7 +247,7 @@ fn caption(s: &mut Session, v: &Value) -> CmdResult {
     let at = Pos { off: len, ..f };
     let new = s.doc.split_paragraph(&at)?;
     let para = s.doc.para_mut(new.story, &new.path)?;
-    para.props = wordcraft_doc::ParaProps { style: Some("Caption".into()), ..Default::default() };
+    para.props = wordfabrica_doc::ParaProps { style: Some("Caption".into()), ..Default::default() };
     para.mark = CharProps::default();
     let base = format!("{label} ");
     para.insert_text(0, &base, &CharProps::default())?;
@@ -276,7 +276,7 @@ pub fn update_fields(s: &mut Session) -> Result<(), CmdError> {
         let mut updates: Vec<(usize, String)> = Vec::new();
         for (k, o) in p.objects.iter().enumerate() {
             let InlineObject::Field { instr, locked: false, .. } = o else { continue };
-            let name = wordcraft_layout::fields::field_name(instr);
+            let name = wordfabrica_layout::fields::field_name(instr);
             match name.as_str() {
                 "DATE" | "TIME" | "CREATEDATE" | "SAVEDATE" | "PRINTDATE" => {
                     let pic = instr

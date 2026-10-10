@@ -2,9 +2,9 @@
 //! document inspector, restrict editing, versions, templates, Quick Parts, and more.
 
 use serde_json::{Value, json};
-use wordcraft_doc::para::InlineObject;
-use wordcraft_doc::props::{CharProps, NumRef};
-use wordcraft_doc::{Block, Document, Paragraph, Pos, RevisionKind, StoryRef, para_block};
+use wordfabrica_doc::para::InlineObject;
+use wordfabrica_doc::props::{CharProps, NumRef};
+use wordfabrica_doc::{Block, Document, Paragraph, Pos, RevisionKind, StoryRef, para_block};
 
 use super::{delete_selection, sel_result};
 use crate::{CmdError, CmdResult, CommandSpec, Selection, Session, p};
@@ -153,7 +153,7 @@ pub fn specs() -> Vec<CommandSpec> {
         CommandSpec::new("file.compatibility", "Check Compatibility", "File › Info", |s, _| {
             let mut issues = Vec::new();
             if s.doc.settings.watermark.is_some() {
-                issues.push("Watermarks are kept in WordCraft documents but not yet written to .docx.");
+                issues.push("Watermarks are kept in WordFabrica documents but not yet written to .docx.");
             }
             if s.doc
                 .para_paths(StoryRef::Body)
@@ -213,7 +213,7 @@ pub fn specs() -> Vec<CommandSpec> {
             if !title.is_empty() {
                 lines.push(title);
             }
-            let frag = wordcraft_doc::edit::Fragment {
+            let frag = wordfabrica_doc::edit::Fragment {
                 blocks: lines.iter().map(|l| Block::Para(Paragraph::with_text(l, CharProps::default()).styled("NoSpacing"))).collect(),
             };
             let end = s.doc.insert_fragment(&at, &frag)?;
@@ -331,10 +331,10 @@ pub fn specs() -> Vec<CommandSpec> {
         })
         .params(r#"{"char": string}"#),
         CommandSpec::new("para.defineNumber", "Define New Number Format", "Home › Paragraph › Numbering", |s, v| {
-            let fmt = wordcraft_doc::section::NumFormat::from_ooxml(p::str(v, "format").unwrap_or("decimal"));
+            let fmt = wordfabrica_doc::section::NumFormat::from_ooxml(p::str(v, "format").unwrap_or("decimal"));
             let text = p::str(v, "text").unwrap_or("%1.").to_string();
             let start = p::u64(v, "start").unwrap_or(1).min(100_000) as u32;
-            let id = s.doc.numbering.add_list(wordcraft_doc::ListKind::Numbered);
+            let id = s.doc.numbering.add_list(wordfabrica_doc::ListKind::Numbered);
             if let Some(a) = s.doc.numbering.abstract_of(id).map(|a| a.id)
                 && let Some(abs) = s.doc.numbering.abstracts.iter_mut().find(|x| x.id == a)
                 && let Some(l) = abs.levels.first_mut()
@@ -353,7 +353,7 @@ pub fn specs() -> Vec<CommandSpec> {
             let on = p::bool(v, "value").unwrap_or_else(|| !s.doc.para_at(&s.sel.focus).and_then(|x| x.props.bidi).unwrap_or(false));
             super::para::fmt(s, &|pp| {
                 pp.bidi = Some(on);
-                pp.align = Some(if on { wordcraft_doc::Align::Right } else { wordcraft_doc::Align::Left });
+                pp.align = Some(if on { wordfabrica_doc::Align::Right } else { wordfabrica_doc::Align::Left });
             })
         }),
         CommandSpec::new("review.language", "Language", "Review › Language", language)
@@ -495,9 +495,9 @@ fn compare(s: &mut Session, v: &Value) -> CmdResult {
     let new: Vec<Paragraph> = revised.body.iter().filter_map(|b| b.as_para().cloned()).collect();
     let author = "Compare".to_string();
     let date = super::now_iso();
-    s.doc.revisions.push(wordcraft_doc::Revision { kind: RevisionKind::Insert, author: author.clone(), date: date.clone() });
+    s.doc.revisions.push(wordfabrica_doc::Revision { kind: RevisionKind::Insert, author: author.clone(), date: date.clone() });
     let ins = (s.doc.revisions.len() - 1) as u32;
-    s.doc.revisions.push(wordcraft_doc::Revision { kind: RevisionKind::Delete, author, date });
+    s.doc.revisions.push(wordfabrica_doc::Revision { kind: RevisionKind::Delete, author, date });
     let del = (s.doc.revisions.len() - 1) as u32;
     let ops = lcs_ops(&old.iter().map(|p| p.plain_text()).collect::<Vec<_>>(), &new.iter().map(|p| p.plain_text()).collect::<Vec<_>>());
     let mut out: Vec<Paragraph> = Vec::new();
@@ -689,7 +689,7 @@ fn inspect_doc(s: &mut Session, v: &Value) -> CmdResult {
         "revisions": s.doc.para_paths(StoryRef::Body).iter().filter(|p| s.doc.para(StoryRef::Body, p).is_some_and(|x| x.runs.iter().any(|r| r.props.ins.is_some() || r.props.del.is_some()))).count(),
         "properties": !s.doc.core.creator.is_empty() || !s.doc.core.last_modified_by.is_empty(),
         "hiddenText": has_hidden,
-        "headers": s.doc.parts.values().filter(|p| matches!(p.kind, wordcraft_doc::PartKind::Header | wordcraft_doc::PartKind::Footer)).count(),
+        "headers": s.doc.parts.values().filter(|p| matches!(p.kind, wordfabrica_doc::PartKind::Header | wordfabrica_doc::PartKind::Footer)).count(),
     });
     for r in &remove {
         match r.as_str() {

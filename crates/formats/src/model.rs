@@ -4,14 +4,14 @@
 
 use std::sync::Arc;
 
-use wordcraft_doc::numbering::{AbstractNum, Level, ListKind, Num, levels_for};
-use wordcraft_doc::para::{InlineObject, OBJ};
-use wordcraft_doc::props::{
+use wordfabrica_doc::numbering::{AbstractNum, Level, ListKind, Num, levels_for};
+use wordfabrica_doc::para::{InlineObject, OBJ};
+use wordfabrica_doc::props::{
     Border, BorderStyle, Borders, CellProps, CharProps, NumRef, ParaProps, RowProps, TextColor, Underline, VMerge, VertAlign,
 };
-use wordcraft_doc::section::NumFormat;
-use wordcraft_doc::styles::{Style, StyleKind};
-use wordcraft_doc::{Align, Block, Blocks, Document, Paragraph, Rgb, Table, para_block};
+use wordfabrica_doc::section::NumFormat;
+use wordfabrica_doc::styles::{Style, StyleKind};
+use wordfabrica_doc::{Align, Block, Blocks, Document, Paragraph, Rgb, Table, para_block};
 
 /// Font used for code spans and code blocks.
 pub const MONO_FONT: &str = "Courier New";
@@ -419,11 +419,11 @@ impl Builder<'_> {
     }
 
     fn table(&mut self, t: &FTable, depth: usize) -> Option<Table> {
-        let rows: Vec<&Vec<Cell>> = t.rows.iter().filter(|r| !r.is_empty()).take(wordcraft_doc::table::MAX_ROWS).collect();
+        let rows: Vec<&Vec<Cell>> = t.rows.iter().filter(|r| !r.is_empty()).take(wordfabrica_doc::table::MAX_ROWS).collect();
         if rows.is_empty() {
             return None;
         }
-        let cols = t.cols().clamp(1, wordcraft_doc::table::MAX_COLS);
+        let cols = t.cols().clamp(1, wordfabrica_doc::table::MAX_COLS);
         let width = self.doc.last_section.text_width().max(72.0);
         let mut tb = Table::new(rows.len(), cols, width);
         if t.widths.len() == cols && t.widths.iter().all(|w| w.is_finite() && *w > 1.0) {
@@ -431,10 +431,10 @@ impl Builder<'_> {
         }
         tb.rows.clear();
         for r in rows {
-            let mut row = wordcraft_doc::Row { props: RowProps::default(), cells: Vec::new() };
+            let mut row = wordfabrica_doc::Row { props: RowProps::default(), cells: Vec::new() };
             row.props.header = !r.is_empty() && r.iter().all(|c| c.header);
             let mut g = 0usize;
-            for c in r.iter().take(wordcraft_doc::table::MAX_COLS) {
+            for c in r.iter().take(wordfabrica_doc::table::MAX_COLS) {
                 let span = (c.colspan.clamp(1, 63) as usize).min(cols.saturating_sub(g).max(1));
                 let w: f32 = tb.grid.get(g..(g + span).min(tb.grid.len())).map(|s| s.iter().sum()).unwrap_or(72.0);
                 g += span;
@@ -449,13 +449,13 @@ impl Builder<'_> {
                 } else {
                     VMerge::None
                 };
-                row.cells.push(wordcraft_doc::Cell {
+                row.cells.push(wordfabrica_doc::Cell {
                     props: CellProps { width: Some(w), span: span as u32, vmerge, shading: c.shading, ..Default::default() },
                     blocks,
                 });
             }
             if row.cells.is_empty() {
-                row.cells.push(wordcraft_doc::Cell::empty());
+                row.cells.push(wordfabrica_doc::Cell::empty());
             }
             tb.rows.push(row);
         }
@@ -868,8 +868,8 @@ impl ListCounter {
         }
         match li.level % 3 {
             0 => format!("{n}."),
-            1 => format!("{}.", wordcraft_doc::section::letters(n)),
-            _ => format!("{}.", wordcraft_doc::section::roman(n)),
+            1 => format!("{}.", wordfabrica_doc::section::letters(n)),
+            _ => format!("{}.", wordfabrica_doc::section::roman(n)),
         }
     }
 }

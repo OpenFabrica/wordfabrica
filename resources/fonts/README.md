@@ -1,6 +1,6 @@
-# WordCraft 字体资源
+# WordFabrica 字体资源
 
-此目录属于 WordCraft 仓库，无独立代码包或服务。`fonts-v*` annotated tag 标记资源版本。
+此目录属于 WordFabrica 仓库，无独立代码包或服务。`fonts-v*` annotated tag 标记资源版本。
 
 - `manifest.txt`：构建输入及每个内置字体的原始来源、许可证和 SHA-256。六个内置字体文件从 craft-fonts 的 `8dcdacd5153e64560d109541a47d806f26f048c0` 版本原样导入。
 - `server/`：运行时扩展字体；目前为 Noto Serif CJK SC Regular，来源为 [Noto CJK](https://github.com/notofonts/noto-cjk/tree/main/Serif/OTF/SimplifiedChinese)，精确文件由 `SHA256SUMS` 固定。

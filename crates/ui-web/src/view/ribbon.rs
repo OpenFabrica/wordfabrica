@@ -33,7 +33,7 @@ fn group_view(b: &Bridge, g: &'static Group, dark: Memo<bool>) -> impl IntoView 
     let ctls = g.ctls.iter().map(|c| ctl_view(b, c, dark)).collect_view();
     let launcher = g.launcher.map(|cmd| {
         let b = b.clone();
-        let title = wordcraft_ui_egui::i18n::fmt(&t("{group} settings"), &[("group", &t(g.title))]);
+        let title = wordfabrica_ui_egui::i18n::fmt(&t("{group} settings"), &[("group", &t(g.title))]);
         view! {
             <button class="wc-launcher" title=title.clone() aria-label=title on:mousedown=keep_focus
                 inner_html=move || icon_svg("launcher", 11.0, dark.get(), true)
@@ -140,7 +140,7 @@ fn split_view(
     let bar = swatch.map(|slot| {
         let style = move || {
             let hex = st.with(|s| s.last_colors.get(slot.key()).cloned().unwrap_or_default());
-            match wordcraft_doc::Rgb::parse(&hex) {
+            match wordfabrica_doc::Rgb::parse(&hex) {
                 Some(c) => format!("background:#{}", c.hex()),
                 None => "background:transparent".to_string(),
             }
@@ -259,7 +259,7 @@ fn combo(
                             if let Some(i) = input {
                                 i.set_value(&current.get_untracked());
                             }
-                            b1.send(wordcraft_ui_egui::Action::FocusDocument);
+                            b1.send(wordfabrica_ui_egui::Action::FocusDocument);
                         }
                         _ => {}
                     }
@@ -451,7 +451,7 @@ fn style_gallery(b: &Bridge, dark: Memo<bool>) -> AnyView {
             .skip(from)
             .take(VISIBLE)
             .map(|item| {
-                let label = wordcraft_ui_egui::i18n::style_name(&item.name);
+                let label = wordfabrica_ui_egui::i18n::style_name(&item.name);
                 let key = format!("style:{}:{lang}:{is_dark}:{skey}", item.id);
                 let b2 = b1.clone();
                 let b3 = b1.clone();
@@ -494,7 +494,7 @@ fn style_gallery(b: &Bridge, dark: Memo<bool>) -> AnyView {
 
 /// Layout ▸ Paragraph: indents (inches) and spacing (points), applied when a field changes.
 fn para_fields(b: &Bridge) -> AnyView {
-    type Get = fn(&wordcraft_ui_egui::host::ParaState) -> f32;
+    type Get = fn(&wordfabrica_ui_egui::host::ParaState) -> f32;
     let field = |label: &'static str, get: Get, id: &'static str, key: &'static str, inches: bool| {
         let value = b.select(move |s| get(&s.para));
         let b = b.clone();

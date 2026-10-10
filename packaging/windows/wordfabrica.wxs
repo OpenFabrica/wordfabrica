@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  WordFabrica MSI (WiX Toolset v5: `dotnet tool install -g wix`). Built by package.ps1:
+
+    wix build wordfabrica.wxs -arch x64 -d Version=1.2.3 -d BinDir=... -d IconPath=... -o out.msi
+
+  Per-machine install into Program Files with a Start Menu shortcut.
+
+  UpgradeCode and the component GUIDs below belong to WordFabrica alone. Never copy them from (or
+  into) a sibling Craft app: Windows Installer treats every package sharing an UpgradeCode as one
+  product, so a shared code makes one app's installer refuse to install ("a newer version is
+  already installed") or silently uninstall the other. packaging-lint.yml checks this.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+      Name="WordFabrica"
+      Manufacturer="OpenFabrica"
+      Version="$(var.Version)"
+      UpgradeCode="79939487-BA36-41E0-B275-9E244BD33596"
+      Scope="perMachine"
+      Compressed="yes"
+      Language="1033">
+    <SummaryInformation Description="WordFabrica word processor" Manufacturer="OpenFabrica" />
+    <!-- Same-version upgrades let successive pre-releases of one X.Y.Z replace each other
+         (MSI versions are numeric, so 1.2.3-rc.1 and 1.2.3-rc.2 are both 1.2.3). -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+        DowngradeErrorMessage="A newer version of WordFabrica is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="WordfabricaIcon.ico" SourceFile="$(var.IconPath)" />
+    <Property Id="ARPPRODUCTICON" Value="WordfabricaIcon.ico" />
+    <Property Id="ARPURLINFOABOUT" Value="https://openfabrica.dev" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/OpenFabrica/wordfabrica/releases" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/OpenFabrica/wordfabrica/discussions" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="WordFabrica" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+
+    <Feature Id="Main" Title="WordFabrica" Level="1">
+      <ComponentGroupRef Id="WordfabricaFiles" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="WordfabricaFiles" Directory="INSTALLFOLDER">
+      <Component Id="WordfabricaApp" Guid="1D6496C7-52DA-4289-B7BF-9400FDA0C5B0">
+        <File Id="WordfabricaExe" Source="$(var.BinDir)\wordfabrica.exe" KeyPath="yes">
+          <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="WordFabrica"
+              Description="WordFabrica word processor" WorkingDirectory="INSTALLFOLDER" Advertise="yes"
+              Icon="WordfabricaIcon.ico" IconIndex="0" />
+        </File>
+
+        <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\wordfabrica.exe" Value="[#WordfabricaExe]" Type="string" />
+      </Component>
+
+      <Component Id="WordfabricaCli">
+        <File Id="WordfabricaCliExe" Source="$(var.BinDir)\wordfabrica-cli.exe" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

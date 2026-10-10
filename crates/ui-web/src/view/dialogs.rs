@@ -1,5 +1,5 @@
 //! Dialogs as HTML `<dialog>` modals with the same fields, labels and buttons as the egui ones
-//! (`wordcraft_ui_egui::dialogs`). The form is a local copy of `ChromeState::dialog`; every button
+//! (`wordfabrica_ui_egui::dialogs`). The form is a local copy of `ChromeState::dialog`; every button
 //! sends the whole form back as [`Action::Dialog`], so `dialogs::press` runs the same commands
 //! whichever front end shows the dialog.
 
@@ -8,9 +8,9 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use leptos::prelude::*;
 use wasm_bindgen::JsCast as _;
-use wordcraft_ui_egui::credits::{self, CONTRIBUTORS, MODELS, NameMode, SortKey, TOTAL_COMMITS};
-use wordcraft_ui_egui::dialogs::{Dialog, DialogButton, command_hits, title};
-use wordcraft_ui_egui::{Action, tl};
+use wordfabrica_ui_egui::credits::{self, CONTRIBUTORS, MODELS, NameMode, SortKey, TOTAL_COMMITS};
+use wordfabrica_ui_egui::dialogs::{Dialog, DialogButton, command_hits, title};
+use wordfabrica_ui_egui::{Action, tl};
 
 use super::{focus_selector, input_checked, input_value, t};
 use crate::bridge::{Bridge, focus_canvas};
@@ -681,7 +681,7 @@ fn commands_body(f: Form) -> impl IntoView {
                         <button type="button" class="wc-cmd-hit" role="option" on:click=move |_| f.press(DialogButton::Command(cmd.clone()))
                             on:keydown=move |ev| hit_keys(&ev)>
                             <span class="wc-cmd-label">{tl!(c.label).to_string()}</span>
-                            <span class="wc-cmd-loc">{wordcraft_ui_egui::i18n::location(c.location)}</span>
+                            <span class="wc-cmd-loc">{wordfabrica_ui_egui::i18n::location(c.location)}</span>
                             <span class="wc-cmd-shortcut">{shortcut}</span>
                         </button>
                     }
@@ -724,7 +724,7 @@ fn hit_keys(ev: &web_sys::KeyboardEvent) {
     }
 }
 
-/// About WordCraft: About / Contributors / Models tabs.
+/// About WordFabrica: About / Contributors / Models tabs.
 fn about_body(f: Form) -> impl IntoView {
     let tab = Memo::new(move |_| {
         f.d.with(|d| match d {
@@ -764,21 +764,21 @@ fn about_body(f: Form) -> impl IntoView {
 
 /// About ▸ About: name, version, description and links.
 fn about_view() -> impl IntoView {
-    let build = option_env!("WORDCRAFT_BUILD_SHA").map(|s| s.get(..8).unwrap_or(s)).unwrap_or(tl!("development build"));
-    let version = wordcraft_ui_egui::i18n::fmt(tl!("Version {version} ({build})"), &[("version", env!("CARGO_PKG_VERSION")), ("build", build)]);
+    let build = option_env!("WORDFABRICA_BUILD_SHA").map(|s| s.get(..8).unwrap_or(s)).unwrap_or(tl!("development build"));
+    let version = wordfabrica_ui_egui::i18n::fmt(tl!("Version {version} ({build})"), &[("version", env!("CARGO_PKG_VERSION")), ("build", build)]);
     let link = |label: &str, href: &'static str| {
         view! { <a href=href target="_blank" rel="noopener">{t(label)}</a> }
     };
     view! {
-        <h3 class="wc-about-name">{t("WordCraft")}</h3>
+        <h3 class="wc-about-name">{t("WordFabrica")}</h3>
         <p>{version}</p>
-        <p class="wc-about-text">{t("A free, open-source word processor written from scratch in Rust.\nPart of the Crafting Apps from the ArtCraft team.")}</p>
+        <p class="wc-about-text">{t("A free, open-source word processor written from scratch in Rust.\nPart of OpenFabrica: open source tools for makers, builders, and creatives.")}</p>
         <div class="wc-about-links">
-            {link("getartcraft.com/apps/wordcraft", "https://getartcraft.com/apps/wordcraft")}
-            {link("Join us on Discord: discord.gg/artcraft", "https://discord.gg/artcraft")}
-            {link("Source code: github.com/storytold/wordcraft", "https://github.com/storytold/wordcraft")}
+            {link("openfabrica.dev", "https://openfabrica.dev")}
+            {link("Join the community: GitHub Discussions", "https://github.com/OpenFabrica/wordfabrica/discussions")}
+            {link("Source code: github.com/OpenFabrica/wordfabrica", "https://github.com/OpenFabrica/wordfabrica")}
         </div>
-        <p class="wc-dlg-note">{t("MIT OR Apache-2.0. Copyright (c) 2026 ArtCraft Team and the WordCraft contributors.")}</p>
+        <p class="wc-dlg-note">{t("MIT OR Apache-2.0. Copyright (c) 2026 the OpenFabrica contributors. Based on WordCraft by the ArtCraft Team and the WordCraft contributors.")}</p>
     }
 }
 

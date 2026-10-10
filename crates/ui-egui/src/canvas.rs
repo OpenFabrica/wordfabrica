@@ -7,8 +7,8 @@ use std::hash::{Hash, Hasher};
 
 use egui::{Align2, Color32, Pos2, Rect, Sense, Stroke, TextureHandle, Ui, pos2, vec2};
 use serde_json::json;
-use wordcraft_doc::{Pos, StoryRef};
-use wordcraft_layout::{DocLayout, Page, Placed};
+use wordfabrica_doc::{Pos, StoryRef};
+use wordfabrica_layout::{DocLayout, Page, Placed};
 
 use crate::WordApp;
 use crate::theme::{Tokens, regular, semibold};
@@ -93,7 +93,7 @@ pub struct Geometry {
 pub fn markup_width(app: &WordApp) -> f32 {
     let v = &app.session.view;
     // Word shows comments either in balloons (contextual) or in the Comments pane (list).
-    let on = v.show_markup && v.show_comments && !v.comments_pane && !v.read_mode && !v.multi_page && v.mode == wordcraft_layout::ViewMode::Print;
+    let on = v.show_markup && v.show_comments && !v.comments_pane && !v.read_mode && !v.multi_page && v.mode == wordfabrica_layout::ViewMode::Print;
     if on && !app.session.doc.comments.is_empty() { 216.0 } else { 0.0 }
 }
 
@@ -110,7 +110,7 @@ pub fn geometry(app: &WordApp, l: &DocLayout, avail: egui::Vec2) -> Geometry {
     }
     let maxw = page_w + markup;
     let maxh = l.pages.iter().map(|p| p.h.min(20_000.0)).fold(0.0f32, f32::max).max(72.0);
-    let web = v.mode != wordcraft_layout::ViewMode::Print;
+    let web = v.mode != wordfabrica_layout::ViewMode::Print;
     let mut scale = v.zoom.clamp(0.1, 5.0) * PX_PER_PT;
     let cols = if v.multi_page || v.read_mode { 2 } else { 1 };
     match v.fit.as_str() {
@@ -181,7 +181,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
     let layout = app.session.layout();
     let full = ui.available_rect_before_wrap();
-    let show_ruler = app.session.view.ruler && app.session.view.mode == wordcraft_layout::ViewMode::Print && !app.session.view.read_mode;
+    let show_ruler = app.session.view.ruler && app.session.view.mode == wordfabrica_layout::ViewMode::Print && !app.session.view.read_mode;
     let (hruler, vruler, area) = if show_ruler {
         let h = Rect::from_min_max(pos2(full.min.x + RULER, full.min.y), pos2(full.max.x, full.min.y + RULER));
         let v = Rect::from_min_max(pos2(full.min.x, full.min.y + RULER), pos2(full.min.x + RULER, full.max.y));
@@ -263,16 +263,16 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                 let key = pkey ^ (band as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ u64::from(band_pt.to_bits());
                 let fresh = app.canvas.textures.get(&id).is_some_and(|(k, _)| *k == key);
                 if !fresh && (rendered < 2 || !app.canvas.textures.contains_key(&id) && rendered < 4) {
-                    let mut opts = wordcraft_render::RenderOptions::default();
+                    let mut opts = wordfabrica_render::RenderOptions::default();
                     opts.display.marks = app.session.view.marks;
                     opts.display.markup = app.session.view.show_markup;
                     let editing_hf = matches!(app.session.sel.focus.story, StoryRef::Part(_));
                     opts.display.dim_header = !editing_hf;
                     opts.display.dim_body = editing_hf;
                     let img = if single {
-                        wordcraft_render::render_page(&app.session.doc, page, scale_px, &opts)
+                        wordfabrica_render::render_page(&app.session.doc, page, scale_px, &opts)
                     } else {
-                        wordcraft_render::render_area(&app.session.doc, page, 0.0, y0, page.w, y1 - y0, scale_px, &opts)
+                        wordfabrica_render::render_area(&app.session.doc, page, 0.0, y0, page.w, y1 - y0, scale_px, &opts)
                     };
                     let px = img.to_straight();
                     let ci = egui::ColorImage::from_rgba_unmultiplied([img.width as usize, img.height as usize], &px);
@@ -410,7 +410,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
     {
         let (a, b) = app.session.sel.ordered();
         if !(a <= pos && pos <= b) || app.session.sel.is_collapsed() {
-            app.session.sel = wordcraft_engine::Selection::caret(pos);
+            app.session.sel = wordfabrica_engine::Selection::caret(pos);
         }
         app.canvas.context_issue = app.session.run("review.suggestions", &json!({})).ok().filter(|v| !v.is_null());
         app.canvas.context_synonyms = app.session.run("review.thesaurus", &json!({})).ok().and_then(|v| v.get("synonyms").cloned());
@@ -456,7 +456,7 @@ fn comment_stamp(iso: &str, offset_min: i64) -> String {
     let doy = (153 * ((mo + 9) % 12) + 2) / 5 + d - 1;
     let days = era * 146_097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719_468;
     let mins = days * 1440 + h * 60 + mi + offset_min;
-    let (y, m, d) = wordcraft_engine::cmd::civil_from_days(mins.div_euclid(1440));
+    let (y, m, d) = wordfabrica_engine::cmd::civil_from_days(mins.div_euclid(1440));
     let t = mins.rem_euclid(1440);
     format!("{y:04}-{m:02}-{d:02} {:02}:{:02}", t / 60, t % 60)
 }
@@ -494,7 +494,7 @@ fn balloons(app: &mut WordApp, ui: &mut Ui, painter: &egui::Painter, rects: &[Re
     let clip = ui.clip_rect();
     // (page, anchor x, anchor y, id) for each anchored, unresolved-or-not comment.
     let mut by_page: HashMap<usize, Vec<(f32, f32, u32, Pos)>> = HashMap::new();
-    for (id, pos) in wordcraft_engine::cmd::review::comment_list(&app.session) {
+    for (id, pos) in wordfabrica_engine::cmd::review::comment_list(&app.session) {
         let Some(pos) = pos else { continue };
         let Some(c) = layout.caret_on(&pos, app.session.page_hint) else { continue };
         by_page.entry(c.page).or_default().push((c.x, c.top + c.height, id, pos));
@@ -639,7 +639,7 @@ fn balloons(app: &mut WordApp, ui: &mut Ui, painter: &egui::Painter, rects: &[Re
         commit_comment(app);
     }
     if let Some((id, p)) = clicked {
-        app.session.sel = wordcraft_engine::Selection::caret(p);
+        app.session.sel = wordfabrica_engine::Selection::caret(p);
         edit_comment(app, id);
     }
     if let Some((cmd, id)) = action {
@@ -691,14 +691,14 @@ fn mouse(app: &mut WordApp, ui: &Ui, resp: &egui::Response, rects: &[Rect], layo
             let _ = app.run(id, json!({}));
             let _ = s;
             if let Some(pos) = app.session.layout().hit(page, x, y, app.session.sel.focus.story) {
-                app.session.sel = wordcraft_engine::Selection::caret(pos);
+                app.session.sel = wordfabrica_engine::Selection::caret(pos);
             }
             return;
         }
         if matches!(story, StoryRef::Part(_)) && layout.header_footer_at(page, y).is_none() {
             let _ = app.run("insert.closeHeader", json!({}));
             if let Some(pos) = layout.hit(page, x, y, StoryRef::Body) {
-                app.session.sel = wordcraft_engine::Selection::caret(pos);
+                app.session.sel = wordfabrica_engine::Selection::caret(pos);
             }
             return;
         }
@@ -719,11 +719,11 @@ fn mouse(app: &mut WordApp, ui: &Ui, resp: &egui::Response, rects: &[Rect], layo
                     .doc
                     .parts
                     .get(&id)
-                    .is_some_and(|p| matches!(p.kind, wordcraft_doc::PartKind::Footnote | wordcraft_doc::PartKind::Endnote)) =>
+                    .is_some_and(|p| matches!(p.kind, wordfabrica_doc::PartKind::Footnote | wordfabrica_doc::PartKind::Endnote)) =>
             {
                 StoryRef::Part(id)
             }
-            Some(StoryRef::Body) if matches!(story, StoryRef::Part(id) if app.session.doc.parts.get(&id).is_some_and(|p| matches!(p.kind, wordcraft_doc::PartKind::Footnote | wordcraft_doc::PartKind::Endnote))) => {
+            Some(StoryRef::Body) if matches!(story, StoryRef::Part(id) if app.session.doc.parts.get(&id).is_some_and(|p| matches!(p.kind, wordfabrica_doc::PartKind::Footnote | wordfabrica_doc::PartKind::Endnote))) => {
                 StoryRef::Body
             }
             _ => story,
@@ -1008,8 +1008,8 @@ fn context_menu(app: &mut WordApp, ui: &mut Ui) {
                     let _ = app.run("select.word", json!({}));
                     let (a, b) = app.session.sel.ordered();
                     let trimmed = app.session.doc.para_at(&a).and_then(|p| p.text.get(a.off..b.off)).map(|t| t.trim_end().len()).unwrap_or(0);
-                    let end = wordcraft_doc::Pos { off: a.off + trimmed, ..b };
-                    app.session.sel = wordcraft_engine::Selection { anchor: a, focus: end };
+                    let end = wordfabrica_doc::Pos { off: a.off + trimmed, ..b };
+                    app.session.sel = wordfabrica_engine::Selection { anchor: a, focus: end };
                     let _ = app.run("text.insert", json!({"text": w, "raw": true}));
                     ui.close();
                 }
@@ -1050,8 +1050,8 @@ mod tests {
     }
 
     use super::*;
-    use wordcraft_doc::Document;
-    use wordcraft_engine::Session;
+    use wordfabrica_doc::Document;
+    use wordfabrica_engine::Session;
 
     #[test]
     fn context_menu_follows_interface_language_and_preserves_suggestions() {

@@ -4,9 +4,9 @@
 
 use leptos::prelude::*;
 use serde_json::json;
-use wordcraft_ui_egui::host::{CommentItem, NavResult, StyleItem};
-use wordcraft_ui_egui::i18n::{fmt, style_name};
-use wordcraft_ui_egui::{Action, tl};
+use wordfabrica_ui_egui::host::{CommentItem, NavResult, StyleItem};
+use wordfabrica_ui_egui::i18n::{fmt, style_name};
+use wordfabrica_ui_egui::{Action, tl};
 
 use super::{input_value, keep_focus, t};
 use crate::bridge::Bridge;

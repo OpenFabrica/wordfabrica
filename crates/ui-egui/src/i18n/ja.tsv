@@ -2,9 +2,9 @@
 
 	(no suggestions)	（候補なし）
 	1.5 Line Spacing	1.5 行
-	A free, open-source word processor written from scratch in Rust.\nPart of the Crafting Apps from the ArtCraft team.	Rust でゼロから書かれた、無料のオープンソース ワープロです。\nArtCraft チームの Crafting Apps のひとつです。
+	A free, open-source word processor written from scratch in Rust.\nPart of OpenFabrica: open source tools for makers, builders, and creatives.	Rust でゼロから書かれた、無料のオープンソース ワープロです。\nOpenFabrica (メイカー、ビルダー、クリエイターのためのオープンソース ツール) のひとつです。
 	About	情報
-	About WordCraft	WordCraft について
+	About WordFabrica	WordFabrica について
 	Accept	承諾
 	Accept All Changes	すべての変更を承諾
 	Accept This Change	この変更を承諾
@@ -123,7 +123,7 @@
 	Comment	コメント
 	Comments	コメント
 	Comments Pane	コメント ウィンドウ
-	Community\nDiscord	コミュニティ\nDiscord
+	Community\nDiscussions	コミュニティ\nディスカッション
 	Compact	コンパクト
 	Compare	比較
 	Compress Pictures	図の圧縮
@@ -175,8 +175,7 @@
 	Dictate	ディクテーション
 	Different First Page	先頭ページのみ別指定
 	Different Odd & Even Pages	奇数/偶数ページ別指定
-	Discord	Discord
-	Discord community	Discord コミュニティ
+	Community	コミュニティ
 	Display	表示
 	Display for Review	変更内容の表示
 	Distribute Columns	列の幅を揃える
@@ -221,7 +220,7 @@
 	Equation	数式
 	Eraser	消しゴム
 	Even Page	偶数ページから開始
-	Every command is available to scripts and AI agents: run `wordcraft-cli mcp` for an MCP server, or start the app with `--control <port>` for the JSON control channel.	すべてのコマンドはスクリプトと AI エージェントから利用できます。`wordcraft-cli mcp` で MCP サーバーを起動するか、`--control <port>` を付けてアプリを起動すると JSON 制御チャネルが使えます。
+	Every command is available to scripts and AI agents: run `wordfabrica-cli mcp` for an MCP server, or start the app with `--control <port>` for the JSON control channel.	すべてのコマンドはスクリプトと AI エージェントから利用できます。`wordfabrica-cli mcp` で MCP サーバーを起動するか、`--control <port>` を付けてアプリを起動すると JSON 制御チャネルが使えます。
 	Export	エクスポート
 	Export a copy to share (PDF, Word document)	共有用にコピーをエクスポート（PDF、Word 文書）
 	Export Page as PNG	ページを PNG としてエクスポート
@@ -332,8 +331,8 @@
 	Inspect Document	ドキュメント検査
 	Interface language:	表示言語:
 	Italic	斜体
-	Join the ArtCraft community on Discord	Discord の ArtCraft コミュニティに参加
-	Join us on Discord: discord.gg/artcraft	Discord で参加: discord.gg/artcraft
+	Join the OpenFabrica community on GitHub	GitHub で OpenFabrica コミュニティに参加
+	Join the community: GitHub Discussions	コミュニティに参加: GitHub Discussions
 	Justify	両端揃え
 	Keep Lines Together	段落を分割しない
 	Keep lines together	段落を分割しない
@@ -389,7 +388,7 @@
 	Merge Formatting	書式を結合
 	Merged PRs	マージ済みの PR
 	Mirrored	見開きページ
-	MIT OR Apache-2.0. Copyright (c) 2026 ArtCraft Team and the WordCraft contributors.	MIT OR Apache-2.0。Copyright (c) 2026 ArtCraft チームおよび WordCraft の貢献者。
+	MIT OR Apache-2.0. Copyright (c) 2026 the OpenFabrica contributors. Based on WordCraft by the ArtCraft Team and the WordCraft contributors.	MIT OR Apache-2.0。Copyright (c) 2026 OpenFabrica の貢献者。ArtCraft チームおよび WordCraft の貢献者による WordCraft をもとにしています。
 	Moderate	やや狭い
 	Modify Style	スタイルの変更
 	Modify…	変更…
@@ -633,7 +632,7 @@
 	Small caps	小型英大文字
 	SmartArt	SmartArt
 	Sort	並べ替え
-	Source code: github.com/storytold/wordcraft	ソース コード: github.com/storytold/wordcraft
+	Source code: github.com/OpenFabrica/wordfabrica	ソース コード: github.com/OpenFabrica/wordfabrica
 	Space before/after:	段落前/後の間隔:
 	Spacing	間隔
 	Spacing (pt):	間隔 (pt):
@@ -757,7 +756,7 @@
 	Word Left	前の単語へ
 	Word Right	次の単語へ
 	WordArt	ワードアート
-	WordCraft	WordCraft
+	WordFabrica	WordFabrica
 	Words	単語数
 	Words only	単語のみ
 	Wrap Text	文字列の折り返し

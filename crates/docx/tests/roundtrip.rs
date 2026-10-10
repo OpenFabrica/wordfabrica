@@ -2,20 +2,20 @@
 
 use std::sync::Arc;
 
-use wordcraft_doc::numbering::ListKind;
-use wordcraft_doc::para::{Anchor, Float, NoteKind, ShapeKind, Wrap};
-use wordcraft_doc::props::{
+use wordfabrica_doc::numbering::ListKind;
+use wordfabrica_doc::para::{Anchor, Float, NoteKind, ShapeKind, Wrap};
+use wordfabrica_doc::props::{
     Align, Border, BorderStyle, Borders, CharProps, HeightRule, Highlight, LineSpacing, NumRef, ParaProps, Rgb, RowProps, TabAlign, TabLeader,
     TabStop, TableLook, TextColor, Underline, VAlign, VMerge, VertAlign,
 };
-use wordcraft_doc::section::{Columns, LineNumberRestart, LineNumbering, NumFormat, SectionProps, SectionStart};
-use wordcraft_doc::styles::{Style, StyleKind};
-use wordcraft_doc::table::{Cell, Table};
-use wordcraft_doc::{Block, Blocks, Comment, Document, InlineObject, Paragraph, PartKind, Revision, RevisionKind, Watermark, para_block};
+use wordfabrica_doc::section::{Columns, LineNumberRestart, LineNumbering, NumFormat, SectionProps, SectionStart};
+use wordfabrica_doc::styles::{Style, StyleKind};
+use wordfabrica_doc::table::{Cell, Table};
+use wordfabrica_doc::{Block, Blocks, Comment, Document, InlineObject, Paragraph, PartKind, Revision, RevisionKind, Watermark, para_block};
 
 fn rt(doc: &Document) -> Document {
-    let bytes = wordcraft_docx::write(doc).expect("write");
-    wordcraft_docx::read(&bytes).expect("read")
+    let bytes = wordfabrica_docx::write(doc).expect("write");
+    wordfabrica_docx::read(&bytes).expect("read")
 }
 
 fn paras(doc: &Document) -> Vec<&Paragraph> {
@@ -462,14 +462,14 @@ fn note_never_references_itself() {
     p.insert_object(4, InlineObject::NoteRef { kind: NoteKind::Footnote, id: f, custom: String::new() }, &CharProps::default()).unwrap();
     d.body = vec![para_block(p)];
 
-    let bytes = wordcraft_docx::write(&d).expect("write");
+    let bytes = wordfabrica_docx::write(&d).expect("write");
     let mut zip = zip::ZipArchive::new(std::io::Cursor::new(&bytes)).unwrap();
     let mut xml = String::new();
     std::io::Read::read_to_string(&mut zip.by_name("word/footnotes.xml").unwrap(), &mut xml).unwrap();
     assert!(!xml.contains("<w:footnoteReference"), "a footnote cites itself: {xml}");
     assert_eq!(xml.matches("<w:footnoteRef/>").count(), 1, "{xml}");
 
-    let r = wordcraft_docx::read(&bytes).expect("read");
+    let r = wordfabrica_docx::read(&bytes).expect("read");
     let got = paras(&r)[0];
     let Some(InlineObject::NoteRef { id, .. }) = got.objects.first() else { panic!("{:?}", got.objects) };
     assert_eq!(part_text(&r, Some(*id)).trim(), "The note.");
@@ -494,7 +494,7 @@ fn toc_field_wraps_its_entries() {
     blocks.push(Paragraph::with_text("Body", CharProps::default()));
     let d = doc_with(blocks);
 
-    let bytes = wordcraft_docx::write(&d).expect("write");
+    let bytes = wordfabrica_docx::write(&d).expect("write");
     let mut zip = zip::ZipArchive::new(std::io::Cursor::new(&bytes)).unwrap();
     let mut xml = String::new();
     std::io::Read::read_to_string(&mut zip.by_name("word/document.xml").unwrap(), &mut xml).unwrap();
@@ -505,8 +505,8 @@ fn toc_field_wraps_its_entries() {
     assert!(sdt < xml.find("Contents").unwrap() && xml.find("</w:sdt>").unwrap() < xml.find(">Body<").unwrap(), "{xml}");
     assert!(begin < xml.find("Intro").unwrap() && fend > last_entry && fend < xml.find("</w:sdt>").unwrap(), "field must span the entries: {xml}");
 
-    // WordCraft reads its own TOC back unchanged.
-    let r = wordcraft_docx::read(&bytes).expect("read");
+    // WordFabrica reads its own TOC back unchanged.
+    let r = wordfabrica_docx::read(&bytes).expect("read");
     let ps = paras(&r);
     assert_eq!(ps.iter().map(|p| p.plain_text()).collect::<Vec<_>>(), ["Contents", "Intro\t1", "Detail\t2", "Body"]);
     assert!(matches!(ps[0].objects.first(), Some(InlineObject::Field { instr, .. }) if instr.starts_with("TOC")), "{:?}", ps[0].objects);
@@ -740,8 +740,8 @@ fn hostile_model_values_still_write() {
     d.body = vec![para_block(p)];
     d.media.insert("weird name/../x".into(), Arc::new(b"GIF89a....".to_vec()));
     d.media.insert("".into(), Arc::new(vec![0, 1, 2]));
-    let bytes = wordcraft_docx::write(&d).unwrap();
-    let r = wordcraft_docx::read(&bytes).unwrap();
+    let bytes = wordfabrica_docx::write(&d).unwrap();
+    let r = wordfabrica_docx::read(&bytes).unwrap();
     let t = paras(&r)[0].plain_text();
     assert!(t.contains("y<&>\"'"), "{t}");
     assert!(t.contains("raw") && t.contains("fallback"), "{t}");
@@ -769,7 +769,7 @@ fn chinese_font_is_explicit_for_east_asian_text_in_docx() {
         "中文 English",
         CharProps { font: Some(family.into()), lang: Some("zh-CN".into()), ..Default::default() },
     )]);
-    let bytes = wordcraft_docx::write(&doc).unwrap();
+    let bytes = wordfabrica_docx::write(&doc).unwrap();
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(&bytes)).unwrap();
     let mut xml = String::new();
     std::io::Read::read_to_string(&mut archive.by_name("word/document.xml").unwrap(), &mut xml).unwrap();
@@ -777,7 +777,7 @@ fn chinese_font_is_explicit_for_east_asian_text_in_docx() {
         assert!(xml.contains(&format!("w:{script}=\"{family}\"")), "missing {script} font in exported DOCX");
     }
     assert!(xml.contains("w:eastAsia=\"zh-CN\""));
-    let restored = wordcraft_docx::read(&bytes).unwrap();
+    let restored = wordfabrica_docx::read(&bytes).unwrap();
     assert_eq!(paras(&restored)[0].plain_text(), "中文 English");
     assert_eq!(paras(&restored)[0].props_of_char(0).font.as_deref(), Some(family));
 }

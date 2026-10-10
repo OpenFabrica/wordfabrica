@@ -1,7 +1,7 @@
 //! Hit testing and caret geometry.
 
-use wordcraft_doc::{Document, Path, Pos, StoryRef};
-use wordcraft_geom::Rect;
+use wordfabrica_doc::{Document, Path, Pos, StoryRef};
+use wordfabrica_geom::Rect;
 
 use crate::para::ParaLayout;
 use crate::{DocLayout, Page, Placed};
@@ -267,7 +267,7 @@ impl DocLayout {
     pub fn cell_at(&self, page: usize, x: f32, y: f32) -> Option<(StoryRef, Path, usize, usize)> {
         let p = self.pages.get(page)?;
         p.items.iter().rev().find_map(|it| match it {
-            Placed::Cell { rect, table, row, cell, story } if rect.contains(wordcraft_geom::Point::new(x, y)) => {
+            Placed::Cell { rect, table, row, cell, story } if rect.contains(wordfabrica_geom::Point::new(x, y)) => {
                 Some((*story, table.clone(), *row, *cell))
             }
             _ => None,

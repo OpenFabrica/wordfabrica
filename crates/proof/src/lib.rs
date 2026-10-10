@@ -1,4 +1,4 @@
-//! WordCraft proofing.
+//! WordFabrica proofing.
 //!
 //! - **Spelling** against the public-domain Moby word list (~160k words, the same list that
 //!   drives hyphenation), with inflections (`-s`, `-es`, `-ed`, `-ing`, `-ly`, `'s`…), a user
@@ -112,8 +112,8 @@ const EXTRA: &[&str] = &[
     "podcast",
     "podcasts",
     "hashtag",
-    "wordcraft",
-    "artcraft",
+    "wordfabrica",
+    "openfabrica",
     "discord",
     "github",
     "rust",
@@ -484,9 +484,9 @@ mod tests {
 
     #[test]
     fn user_dictionary_works() {
-        assert!(!is_correct("zxqwordcrafty"));
-        add_word("zxqwordcrafty");
-        assert!(is_correct("zxqwordcrafty"));
+        assert!(!is_correct("zxqwordfabricay"));
+        add_word("zxqwordfabricay");
+        assert!(is_correct("zxqwordfabricay"));
     }
 
     #[test]

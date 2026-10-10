@@ -2,10 +2,10 @@
 //! table-style conditional formatting. Rows are laid out as free-standing boxes; pagination
 //! moves whole rows or splits them between lines (`split_row`).
 
-use wordcraft_doc::props::{Align, Border, Borders, CharProps, HeightRule, Rgb, VAlign, VMerge};
-use wordcraft_doc::styles::TableStyleParts;
-use wordcraft_doc::{StoryRef, Table};
-use wordcraft_geom::Rect;
+use wordfabrica_doc::props::{Align, Border, Borders, CharProps, HeightRule, Rgb, VAlign, VMerge};
+use wordfabrica_doc::styles::TableStyleParts;
+use wordfabrica_doc::{StoryRef, Table};
+use wordfabrica_geom::Rect;
 
 use crate::{Ctx, Placed, layout_box};
 
@@ -251,7 +251,7 @@ pub fn layout_table(ctx: &mut Ctx, story: StoryRef, t: &Table, path: &[u32], ava
             if let Some(e) = b.right.filter(Border::is_visible) {
                 items.push(Placed::Rule { x0: x1, y0, x1, y1, border: e });
             }
-            items.push(Placed::Cell { rect: Rect::new(c.x, 0.0, c.w, rh), table: wordcraft_doc::Path(path.to_vec()), row: ri, cell: ci, story });
+            items.push(Placed::Cell { rect: Rect::new(c.x, 0.0, c.w, rh), table: wordfabrica_doc::Path(path.to_vec()), row: ri, cell: ci, story });
         }
         out.push(RowLayout { height: rh, items });
     }

@@ -1,7 +1,7 @@
 //! Caret movement and selection.
 
 use serde_json::Value;
-use wordcraft_doc::{Pos, StoryRef};
+use wordfabrica_doc::{Pos, StoryRef};
 
 use super::{parse_pos, sel_result};
 use crate::{CmdError, CmdResult, CommandSpec, Selection, Session, p};

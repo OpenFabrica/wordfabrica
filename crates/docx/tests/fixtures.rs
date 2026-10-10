@@ -2,9 +2,9 @@
 
 use std::io::Write;
 
-use wordcraft_doc::para::{NoteKind, ShapeKind, Wrap};
-use wordcraft_doc::props::{Align, TextColor, VMerge};
-use wordcraft_doc::{Block, Document, InlineObject, Paragraph};
+use wordfabrica_doc::para::{NoteKind, ShapeKind, Wrap};
+use wordfabrica_doc::props::{Align, TextColor, VMerge};
+use wordfabrica_doc::{Block, Document, InlineObject, Paragraph};
 
 const W_NS: &str = r#"xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office""#;
 
@@ -44,7 +44,7 @@ fn docx(body: &str, doc_rels: &[(&str, &str, &str)], extra: &[(&str, &str)]) -> 
 }
 
 fn read_body(body: &str) -> Document {
-    wordcraft_docx::read(&docx(body, &[], &[])).unwrap()
+    wordfabrica_docx::read(&docx(body, &[], &[])).unwrap()
 }
 
 fn paras(d: &Document) -> Vec<&Paragraph> {
@@ -77,7 +77,7 @@ fn toc_complex_field_spanning_paragraphs() {
     assert_eq!(p[4].plain_text(), "Page 7");
     assert_eq!(p[4].objects[0], InlineObject::Field { instr: "PAGE".into(), result: "7".into(), locked: false });
     // And it writes back out and reads the same.
-    let again = wordcraft_docx::read(&wordcraft_docx::write(&d).unwrap()).unwrap();
+    let again = wordfabrica_docx::read(&wordfabrica_docx::write(&d).unwrap()).unwrap();
     assert_eq!(again.body, d.body);
 }
 
@@ -94,7 +94,7 @@ fn hyperlink_runs_and_wrappers() {
 </w:p>
 <w:sdt><w:sdtContent><w:p><w:r><w:t>in block sdt</w:t></w:r></w:p></w:sdtContent></w:sdt>"#;
     let bytes = docx(body, &[("rId5", "hyperlink", "https://example.org/")], &[]);
-    let d = wordcraft_docx::read(&bytes).unwrap();
+    let d = wordfabrica_docx::read(&bytes).unwrap();
     let p = paras(&d);
     assert_eq!(p[0].text, "siteXABC\u{F04A}\u{2011}\u{AD}\n\u{C}\u{E} e&T");
     assert_eq!(p[0].props_of_char(0).link.as_deref(), Some("https://example.org/"));
@@ -216,7 +216,7 @@ fn styles_numbering_settings_notes_comments_from_parts() {
         ("word/header1.xml", header.as_bytes()),
         ("docProps/core.xml", core.as_bytes()),
     ]);
-    let d = wordcraft_docx::read(&bytes).unwrap();
+    let d = wordfabrica_docx::read(&bytes).unwrap();
     // Styles: localized default id renamed to Normal; display names mapped.
     let h = d.styles.get("1").unwrap();
     assert_eq!(h.name, "Heading 1");
@@ -229,25 +229,25 @@ fn styles_numbering_settings_notes_comments_from_parts() {
     assert_eq!(d.styles.default_chr.font.as_deref(), Some("Minor Face"));
     assert_eq!(d.styles.default_chr.size, Some(11.0));
     let g = d.styles.get("Grid").unwrap().table.as_ref().unwrap();
-    assert_eq!(g.header_fill, Some(wordcraft_doc::Rgb(0x44, 0x72, 0xC4)));
+    assert_eq!(g.header_fill, Some(wordfabrica_doc::Rgb(0x44, 0x72, 0xC4)));
     assert_eq!(g.header_chr.bold, Some(true));
-    assert_eq!(d.settings.theme_colors[4], wordcraft_doc::Rgb(0x44, 0x72, 0xC4));
+    assert_eq!(d.settings.theme_colors[4], wordfabrica_doc::Rgb(0x44, 0x72, 0xC4));
     assert_eq!(d.settings.major_font, "Major Face");
     // Numbering.
     let lv = d.numbering.level(2, 0).unwrap();
     assert_eq!((lv.start, lv.text.as_str(), lv.indent, lv.hanging, lv.align), (3, "%1)", 36.0, 18.0, Align::Right));
     let lv1 = d.numbering.level(2, 1).unwrap();
     assert_eq!(lv1.chr.font.as_deref(), Some("Courier New"));
-    assert_eq!(lv1.suffix, wordcraft_doc::numbering::LevelSuffix::Space);
+    assert_eq!(lv1.suffix, wordfabrica_doc::numbering::LevelSuffix::Space);
     assert_eq!(d.numbering.num(2).unwrap().start_overrides, vec![(0, 5)]);
     // Settings.
     assert!(d.settings.track_changes && d.settings.even_odd_headers);
     assert_eq!(d.settings.default_tab, 35.4);
-    assert_eq!(d.settings.footnote_format, wordcraft_doc::section::NumFormat::LowerRoman);
+    assert_eq!(d.settings.footnote_format, wordfabrica_doc::section::NumFormat::LowerRoman);
     // Body.
     let p = paras(&d);
     assert_eq!(p[0].props.style.as_deref(), Some("1"));
-    assert_eq!(p[0].props.numbering, Some(wordcraft_doc::props::NumRef { num: 2, level: 1 }));
+    assert_eq!(p[0].props.numbering, Some(wordfabrica_doc::props::NumRef { num: 2, level: 1 }));
     assert_eq!(p[0].props_of_char(4).font.as_deref(), Some("Major Face"));
     match &p[0].objects[..] {
         [InlineObject::CommentStart { id: 5 }, InlineObject::NoteRef { kind: NoteKind::Footnote, id, .. }, InlineObject::CommentEnd { id: 5 }] => {
@@ -290,7 +290,7 @@ fn vml_image_and_inline_drawing() {
         ("word/_rels/document.xml.rels", r.as_bytes()),
         ("word/media/pic.png", png),
     ]);
-    let d = wordcraft_docx::read(&bytes).unwrap();
+    let d = wordfabrica_docx::read(&bytes).unwrap();
     let p = paras(&d);
     assert_eq!(p[0].objects.len(), 2);
     match (&p[0].objects[0], &p[0].objects[1]) {
@@ -313,7 +313,7 @@ fn strict_namespace_and_bad_numbers() {
 <w:sectPr><w:pgSz w:w="0" w:h="x"/><w:cols w:num="-3"/><w:pgNumType w:start="-1" w:fmt="klingon"/></w:sectPr>
 </w:body></w:document>"#;
     let bytes = zip(&[("_rels/.rels", ROOT_RELS.as_bytes()), ("word/document.xml", doc.as_bytes())]);
-    let d = wordcraft_docx::read(&bytes).unwrap();
+    let d = wordfabrica_docx::read(&bytes).unwrap();
     let p = paras(&d);
     assert_eq!(p[0].text, "strict");
     assert_eq!(p[0].props.align, Some(Align::Right));
@@ -329,7 +329,7 @@ fn strict_namespace_and_bad_numbers() {
     assert_eq!(d.last_section.page_w, 612.0);
     assert_eq!(d.last_section.columns.count, 1);
     // The document can be written back.
-    wordcraft_docx::write(&d).unwrap();
+    wordfabrica_docx::write(&d).unwrap();
 }
 
 #[test]
@@ -364,9 +364,9 @@ fn header_self_reference_and_escaping_targets() {
         ("word/header1.xml", hdr.as_bytes()),
         ("word/_rels/header1.xml.rels", hdr_rels.as_bytes()),
     ]);
-    let d = wordcraft_docx::read(&bytes).unwrap();
+    let d = wordfabrica_docx::read(&bytes).unwrap();
     assert_eq!(d.last_section.headers.default, d.last_section.headers.even);
     assert!(d.media.is_empty());
-    let out = wordcraft_docx::write(&d).unwrap();
-    wordcraft_docx::read(&out).unwrap();
+    let out = wordfabrica_docx::write(&d).unwrap();
+    wordfabrica_docx::read(&out).unwrap();
 }

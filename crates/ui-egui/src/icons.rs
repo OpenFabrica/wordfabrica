@@ -1,4 +1,4 @@
-//! WordCraft's icon set, drawn in code (original artwork; no external icon assets).
+//! WordFabrica's icon set, drawn in code (original artwork; no external icon assets).
 //!
 //! Icons are designed on a 20×20 grid in two colours: line work (`c`) and an accent (`a`).
 //! The same drawing code paints into egui ([`paint`]) and writes SVG for the web chrome ([`svg`]).
@@ -1182,10 +1182,12 @@ fn draw(pen: &Pen, name: &str, c: Color32, accent: Color32) {
             pen.line_c(&[(14.0, 11.0), (14.0, 17.0)], a);
             pen.line_c(&[(11.0, 14.0), (17.0, 14.0)], a);
         }
-        "discord" => {
-            pen.fill(&[(3.0, 6.0), (7.0, 3.5), (13.0, 3.5), (17.0, 6.0), (17.5, 14.0), (13.5, 16.5), (6.5, 16.5), (2.5, 14.0)], a);
-            pen.fcircle(7.5, 10.5, 1.5, Color32::WHITE);
-            pen.fcircle(12.5, 10.5, 1.5, Color32::WHITE);
+        // 社区：两个人并排，后面的人小一点
+        "community" => {
+            pen.fcircle(13.5, 6.5, 2.6, a);
+            pen.fill(&[(9.5, 15.5), (10.5, 11.0), (13.5, 10.0), (16.5, 11.0), (17.5, 15.5)], a);
+            pen.fcircle(7.5, 7.5, 3.0, a);
+            pen.fill(&[(2.5, 17.5), (3.5, 12.5), (7.5, 11.0), (11.5, 12.5), (12.5, 17.5)], a);
         }
         "help" => {
             pen.circle(10.0, 10.0, 7.0, c);

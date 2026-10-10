@@ -4,10 +4,10 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use wordcraft_doc::edit::Fragment;
-use wordcraft_doc::props::CharProps;
-use wordcraft_doc::{Document, Path, Pos, StoryRef};
-use wordcraft_layout::{DocLayout, LayoutCache, LayoutOptions, ViewMode};
+use wordfabrica_doc::edit::Fragment;
+use wordfabrica_doc::props::CharProps;
+use wordfabrica_doc::{Document, Path, Pos, StoryRef};
+use wordfabrica_layout::{DocLayout, LayoutCache, LayoutOptions, ViewMode};
 
 use crate::{CmdError, Registry};
 
@@ -128,7 +128,7 @@ pub struct Session {
     /// protection this lives outside the document, so the user cannot lift it.
     pub read_only: bool,
     /// Format painter: copied formatting waiting to be applied (and whether it stays on).
-    pub painter: Option<(CharProps, wordcraft_doc::props::ParaProps, bool)>,
+    pub painter: Option<(CharProps, wordfabrica_doc::props::ParaProps, bool)>,
     /// Last message for the status bar / agents.
     pub status: String,
     history: Vec<Undo>,
@@ -183,7 +183,7 @@ impl Session {
             goal_x: None,
             page_hint: 0,
             registry: Arc::new(crate::cmd::registry()),
-            author: "WordCraft User".into(),
+            author: "WordFabrica User".into(),
             read_only: false,
             painter: None,
             status: String::new(),
@@ -231,7 +231,7 @@ impl Session {
             return l.clone();
         }
         let opts = LayoutOptions { view: self.view.mode, web_width: ww, show_hidden: self.view.marks, proofing: self.view.proofing };
-        let l = Arc::new(wordcraft_layout::layout(&self.doc, &mut self.cache, &opts));
+        let l = Arc::new(wordfabrica_layout::layout(&self.doc, &mut self.cache, &opts));
         self.layout = Some((self.rev, ww, self.view.mode, l.clone(), self.view.proofing));
         l
     }
@@ -247,7 +247,7 @@ impl Session {
                 Some((r, m, l)) if *r == self.rev && *m == marks => l.clone(),
                 _ => {
                     let opts = LayoutOptions { view: ViewMode::Print, web_width: 0.0, show_hidden: marks, proofing: false };
-                    let l = Arc::new(wordcraft_layout::layout(&self.doc, &mut self.cache, &opts));
+                    let l = Arc::new(wordfabrica_layout::layout(&self.doc, &mut self.cache, &opts));
                     self.print_layout = Some((self.rev, marks, l.clone()));
                     l
                 }
@@ -261,7 +261,7 @@ impl Session {
     /// A layout for output (PDF, images, print): no proofing marks, print view.
     pub fn export_layout(&self) -> Arc<DocLayout> {
         let opts = LayoutOptions { view: ViewMode::Print, web_width: 0.0, show_hidden: false, proofing: false };
-        Arc::new(wordcraft_layout::layout(&self.doc, &mut LayoutCache::new(), &opts))
+        Arc::new(wordfabrica_layout::layout(&self.doc, &mut LayoutCache::new(), &opts))
     }
 
     /// Invalidate the cached layout (fonts changed etc.).

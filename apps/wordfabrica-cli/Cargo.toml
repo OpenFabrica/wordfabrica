@@ -1,0 +1,21 @@
+[package]
+name = "wordfabrica-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "WordFabrica command line: convert, inspect, render, run commands, MCP server"
+
+[[bin]]
+name = "wordfabrica-cli"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+wordfabrica-doc = { workspace = true }
+wordfabrica-engine = { workspace = true }
+wordfabrica-render = { workspace = true }
+wordfabrica-mcp = { workspace = true }
+serde_json = { workspace = true }

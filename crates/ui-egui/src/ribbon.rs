@@ -181,7 +181,7 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
                     .map(|s| if s.fract() == 0.0 { format!("{s:.0}") } else { format!("{s}") })
                     .unwrap_or_default();
                 let sizes: Vec<String> =
-                    wordcraft_engine::cmd::format::SIZES.iter().map(|s| if s.fract() == 0.0 { format!("{s:.0}") } else { s.to_string() }).collect();
+                    wordfabrica_engine::cmd::format::SIZES.iter().map(|s| if s.fract() == 0.0 { format!("{s:.0}") } else { s.to_string() }).collect();
                 if let Some(v) = combo(ui, "size", 62.0, &size, &sizes, None)
                     && let Ok(x) = v.trim().parse::<f64>()
                 {
@@ -229,10 +229,10 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
                 });
                 let hl = app.canvas.last_highlight.clone();
                 split(ui, app, "highlight", "Text Highlight Color", "format.highlight", json!({"color": hl}), false, None, |ui, app| {
-                    let grid = wordcraft_doc::props::Highlight::ALL;
+                    let grid = wordfabrica_doc::props::Highlight::ALL;
                     egui::Grid::new("hl").spacing(vec2(3.0, 3.0)).show(ui, |ui| {
                         for (i, h) in grid.iter().enumerate().skip(1) {
-                            let c = h.rgb().unwrap_or(wordcraft_doc::Rgb::WHITE);
+                            let c = h.rgb().unwrap_or(wordfabrica_doc::Rgb::WHITE);
                             let (r, resp) = ui.allocate_exact_size(vec2(18.0, 18.0), Sense::click());
                             ui.painter().rect_filled(r, 2.0, egui::Color32::from_rgb(c.0, c.1, c.2));
                             if resp.on_hover_text(h.name()).clicked() {
@@ -248,7 +248,7 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
                     mi(ui, app, "No Color", "format.highlight", json!({"color": "none"}));
                 });
                 let fc = app.canvas.last_font_color.clone();
-                let sw = wordcraft_doc::Rgb::parse(&fc).map(crate::theme::c32);
+                let sw = wordfabrica_doc::Rgb::parse(&fc).map(crate::theme::c32);
                 split(ui, app, "fontcolor", "Font Color", "format.color", json!({"color": fc}), false, sw, |ui, app| {
                     mi(ui, app, "Automatic", "format.color", json!({"color": "auto"}));
                     let theme = app.session.doc.settings.theme_colors.clone();
@@ -310,7 +310,7 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
                 small(ui, app, "pilcrow", None, "Show/Hide ¶", "view.marks", json!({}), marks);
             });
             crate::widgets::row(ui, |ui| {
-                use wordcraft_doc::Align as A;
+                use wordfabrica_doc::Align as A;
                 small(ui, app, "alignLeft", None, "Align Left", "para.alignLeft", json!({}), align == A::Left);
                 small(ui, app, "alignCenter", None, "Center", "para.alignCenter", json!({}), align == A::Center);
                 small(ui, app, "alignRight", None, "Align Right", "para.alignRight", json!({}), align == A::Right);
@@ -518,7 +518,7 @@ fn draw(app: &mut WordApp, ui: &mut Ui) {
 fn design(app: &mut WordApp, ui: &mut Ui) {
     group(ui, "Themes", None, app, |ui, app| {
         menu_button(ui, app, "themes", Some("Themes"), "Themes", true, |ui, app| {
-            for (name, ..) in wordcraft_engine::cmd::design::THEMES {
+            for (name, ..) in wordfabrica_engine::cmd::design::THEMES {
                 mi(ui, app, name, "design.theme", json!({"name": name}));
             }
         });
@@ -527,12 +527,12 @@ fn design(app: &mut WordApp, ui: &mut Ui) {
         crate::previews::style_set_gallery(app, ui);
         stack(ui, 2, |ui| {
             menu_button(ui, app, "colors", Some("Colors"), "Theme Colors", false, |ui, app| {
-                for (name, ..) in wordcraft_engine::cmd::design::THEMES {
+                for (name, ..) in wordfabrica_engine::cmd::design::THEMES {
                     mi(ui, app, name, "design.themeColors", json!({"name": name}));
                 }
             });
             menu_button(ui, app, "fonts", Some("Fonts"), "Theme Fonts", false, |ui, app| {
-                for (name, h, b, _) in wordcraft_engine::cmd::design::THEMES {
+                for (name, h, b, _) in wordfabrica_engine::cmd::design::THEMES {
                     mi(ui, app, &format!("{name}: {h} / {b}"), "design.themeFonts", json!({"heading": h, "body": b}));
                 }
             });
@@ -599,7 +599,7 @@ fn layout(app: &mut WordApp, ui: &mut Ui) {
             mi(ui, app, "Landscape", "layout.orientation", json!({"value": "landscape"}));
         });
         menu_button(ui, app, "size", Some("Size"), "Size", true, |ui, app| {
-            for (n, w, h) in wordcraft_geom::PAPER_SIZES {
+            for (n, w, h) in wordfabrica_geom::PAPER_SIZES {
                 mi(ui, app, &format!("{n}   {:.2}\" × {:.2}\"", w / 72.0, h / 72.0), "layout.size", json!({"name": n}));
             }
         });
@@ -893,7 +893,7 @@ fn view(app: &mut WordApp, ui: &mut Ui) {
 fn help(app: &mut WordApp, ui: &mut Ui) {
     group(ui, "Help", None, app, |ui, app| {
         big(ui, app, "help", "Help", "ui.dialog", json!({"name": "about"}), false);
-        big(ui, app, "discord", "Community\nDiscord", "ui.discord", json!({}), false);
+        big(ui, app, "community", "Community\nDiscussions", "ui.community", json!({}), false);
     });
     group(ui, "Agents", None, app, |ui, app| {
         big(ui, app, "macros", "Commands", "ui.dialog", json!({"name": "commands"}), false);
@@ -931,7 +931,7 @@ fn table_design(app: &mut WordApp, ui: &mut Ui) {
             .styles
             .styles
             .iter()
-            .filter(|s| s.kind == wordcraft_doc::StyleKind::Table && !s.hidden)
+            .filter(|s| s.kind == wordfabrica_doc::StyleKind::Table && !s.hidden)
             .map(|s| (s.id.clone(), s.name.clone()))
             .collect();
         // A framed gallery like Home's Styles, centred in the ribbon height.

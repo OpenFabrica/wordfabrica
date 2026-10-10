@@ -66,15 +66,15 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                 }
             }
             ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-                for (label, id) in [("About", "about"), ("Discord community", "discord")] {
+                for (label, id) in [("About", "about"), ("Community", "community")] {
                     let (r, resp) = ui.allocate_exact_size(vec2(200.0, 32.0), Sense::click());
                     if resp.hovered() {
                         ui.painter().rect_filled(r, 0.0, egui::Color32::from_white_alpha(26));
                     }
                     ui.painter().text(pos2(r.min.x + 22.0, r.center().y), Align2::LEFT_CENTER, tl!(label), regular(13.0), egui::Color32::WHITE);
                     if resp.clicked() {
-                        if id == "discord" {
-                            let _ = app.run("ui.discord", json!({}));
+                        if id == "community" {
+                            let _ = app.run("ui.community", json!({}));
                         } else {
                             app.dialog = crate::dialogs::Dialog::open("about", app);
                         }
@@ -131,7 +131,7 @@ fn template_tile(ui: &mut Ui, app: &mut WordApp, label: &str, template: &str) {
 }
 
 fn new_page(app: &mut WordApp, ui: &mut Ui) {
-    let hour = wordcraft_engine::cmd::now_iso().get(11..13).and_then(|h| h.parse::<u32>().ok()).unwrap_or(9);
+    let hour = wordfabrica_engine::cmd::now_iso().get(11..13).and_then(|h| h.parse::<u32>().ok()).unwrap_or(9);
     heading(
         ui,
         if hour < 12 {
@@ -302,7 +302,7 @@ fn options_page(app: &mut WordApp, ui: &mut Ui) {
         let _ = app.run("ui.dark", json!({"value": dark}));
     }
     ui.checkbox(&mut app.autosave, tl!("AutoSave documents that have been saved"));
-    ui.checkbox(&mut app.ui.show_discord, tl!("Show the community button in the title bar"));
+    ui.checkbox(&mut app.ui.show_community, tl!("Show the community button in the title bar"));
     ui.add_space(10.0);
     ui.label(egui::RichText::new(tl!("Display")).font(semibold(15.0)));
     let mut marks = app.session.view.marks;
@@ -315,7 +315,7 @@ fn options_page(app: &mut WordApp, ui: &mut Ui) {
     }
     ui.add_space(10.0);
     ui.label(egui::RichText::new(tl!("Agents")).font(semibold(15.0)));
-    ui.label(tl!("Every command is available to scripts and AI agents: run `wordcraft-cli mcp` for an MCP server, or start the app with `--control <port>` for the JSON control channel."));
+    ui.label(tl!("Every command is available to scripts and AI agents: run `wordfabrica-cli mcp` for an MCP server, or start the app with `--control <port>` for the JSON control channel."));
 }
 
 /// File ▸ Options ▸ Interface language: follow the system (the default) or pick one (#8).
@@ -349,8 +349,8 @@ fn language_picker(app: &mut WordApp, ui: &mut Ui) {
 mod tests {
     use super::*;
     use crate::{Hosted, HostedDocument};
-    use wordcraft_doc::Document;
-    use wordcraft_engine::Session;
+    use wordfabrica_doc::Document;
+    use wordfabrica_engine::Session;
 
     /// A hosted app on File ▸ Open with one server document listed.
     fn hosted_app(dirty: bool) -> WordApp {

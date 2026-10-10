@@ -1,6 +1,6 @@
 //! Property writers, in ECMA-376 schema element order.
 
-use wordcraft_doc::props::{
+use wordfabrica_doc::props::{
     Align, Border, BorderStyle, Borders, CellProps, CharProps, HeightRule, Highlight, LineSpacing, ParaProps, RowProps, TabAlign, TabLeader,
     TableLook, TableProps, TextColor, VAlign, VMerge, VertAlign,
 };
@@ -17,7 +17,7 @@ fn toggle(w: &mut W, name: &str, v: Option<bool>) {
 }
 
 fn round(v: f32) -> i64 {
-    let v = wordcraft_geom::finite(v);
+    let v = wordfabrica_geom::finite(v);
     v.round().clamp(-1e9, 1e9) as i64
 }
 
@@ -54,13 +54,13 @@ pub fn rpr_inner(w: &mut W, c: &CharProps) {
         w.val("w:w", &n(round(s.clamp(1.0, 600.0))));
     }
     if let Some(k) = c.kern {
-        w.val("w:kern", &n(wordcraft_geom::to_half_points(k.clamp(0.0, 1638.0))));
+        w.val("w:kern", &n(wordfabrica_geom::to_half_points(k.clamp(0.0, 1638.0))));
     }
     if let Some(p) = c.position {
-        w.val("w:position", &n(wordcraft_geom::to_half_points(p.clamp(-1584.0, 1584.0))));
+        w.val("w:position", &n(wordfabrica_geom::to_half_points(p.clamp(-1584.0, 1584.0))));
     }
     if let Some(s) = c.size {
-        let hp = n(wordcraft_geom::to_half_points(s.clamp(1.0, 1638.0)).max(2));
+        let hp = n(wordfabrica_geom::to_half_points(s.clamp(1.0, 1638.0)).max(2));
         w.val("w:sz", &hp);
         w.val("w:szCs", &hp);
     }

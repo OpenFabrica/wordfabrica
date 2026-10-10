@@ -1,9 +1,9 @@
 //! Typing and deleting.
 
 use serde_json::Value;
-use wordcraft_doc::para::{COLUMN_BREAK, NB_HYPHEN, NBSP, PAGE_BREAK, SOFT_HYPHEN};
-use wordcraft_doc::props::NumRef;
-use wordcraft_doc::{Block, ListKind, Pos};
+use wordfabrica_doc::para::{COLUMN_BREAK, NB_HYPHEN, NBSP, PAGE_BREAK, SOFT_HYPHEN};
+use wordfabrica_doc::props::NumRef;
+use wordfabrica_doc::{Block, ListKind, Pos};
 
 use super::{delete_selection, sel_result, split_para, type_text};
 use crate::{CmdError, CmdResult, CommandSpec, Selection, Session, p};
@@ -141,7 +141,7 @@ fn tab(s: &mut Session, _: &Value) -> CmdResult {
         }
         let mut path = tpath.0.clone();
         path.extend([nr as u32, nc as u32, 0]);
-        let start = Pos { story, path: wordcraft_doc::Path(path), off: 0 };
+        let start = Pos { story, path: wordfabrica_doc::Path(path), off: 0 };
         // Select the cell's content like Word.
         let end_path = s.doc.para_paths(story).into_iter().rfind(|q| q.0.starts_with(&start.path.0[..start.path.0.len() - 1]));
         let end = end_path.map(|q| {
@@ -181,7 +181,7 @@ fn back_tab(s: &mut Session, _: &Value) -> CmdResult {
         };
         let mut path = tpath.0.clone();
         path.extend([nr as u32, nc as u32, 0]);
-        s.sel = Selection::caret(Pos { story, path: wordcraft_doc::Path(path), off: 0 });
+        s.sel = Selection::caret(Pos { story, path: wordfabrica_doc::Path(path), off: 0 });
         return sel_result(s);
     }
     let f = s.sel.focus.clone();
@@ -287,7 +287,7 @@ fn delete(s: &mut Session, _: &Value) -> CmdResult {
                 *l -= 1;
             }
             path.extend([0, 0, 0]);
-            s.sel = Selection::caret(Pos { story: f.story, path: wordcraft_doc::Path(path), off: 0 });
+            s.sel = Selection::caret(Pos { story: f.story, path: wordfabrica_doc::Path(path), off: 0 });
         }
     }
     sel_result(s)

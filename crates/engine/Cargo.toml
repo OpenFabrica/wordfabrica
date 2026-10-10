@@ -1,23 +1,23 @@
 [package]
-name = "wordcraft-engine"
+name = "wordfabrica-engine"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "WordCraft engine: session, selection, undo, the command registry (every action is a command), Word's command catalog, file I/O dispatch"
+description = "WordFabrica engine: session, selection, undo, the command registry (every action is a command), Word's command catalog, file I/O dispatch"
 
 [lints]
 workspace = true
 
 [dependencies]
-wordcraft-geom = { workspace = true }
-wordcraft-doc = { workspace = true }
-wordcraft-fonts = { workspace = true }
-wordcraft-layout = { workspace = true }
-wordcraft-render = { workspace = true }
-wordcraft-proof = { workspace = true }
-wordcraft-docx = { workspace = true }
-wordcraft-pdf = { workspace = true }
-wordcraft-formats = { workspace = true }
+wordfabrica-geom = { workspace = true }
+wordfabrica-doc = { workspace = true }
+wordfabrica-fonts = { workspace = true }
+wordfabrica-layout = { workspace = true }
+wordfabrica-render = { workspace = true }
+wordfabrica-proof = { workspace = true }
+wordfabrica-docx = { workspace = true }
+wordfabrica-pdf = { workspace = true }
+wordfabrica-formats = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

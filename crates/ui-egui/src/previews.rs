@@ -6,8 +6,8 @@ use std::sync::Arc;
 
 use egui::{Rect, Response, Sense, Stroke, TextureHandle, Ui, pos2, vec2};
 use serde_json::{Value, json};
-use wordcraft_doc::props::CharProps;
-use wordcraft_doc::{Block, Document, Paragraph, Table, para_block};
+use wordfabrica_doc::props::CharProps;
+use wordfabrica_doc::{Block, Document, Paragraph, Table, para_block};
 
 use crate::WordApp;
 use crate::theme::{Tokens, regular};
@@ -25,8 +25,8 @@ pub struct Previews {
 impl Previews {
     pub fn families(&mut self) -> Vec<String> {
         if self.families.is_none() {
-            let mut f: Vec<String> = wordcraft_fonts::FontDb::global().families().into_iter().filter(|f| !f.starts_with('.')).collect();
-            for w in ["宋体", "黑体", wordcraft_doc::styles::BODY_FONT, wordcraft_doc::styles::HEADING_FONT] {
+            let mut f: Vec<String> = wordfabrica_fonts::FontDb::global().families().into_iter().filter(|f| !f.starts_with('.')).collect();
+            for w in ["宋体", "黑体", wordfabrica_doc::styles::BODY_FONT, wordfabrica_doc::styles::HEADING_FONT] {
                 if !f.iter().any(|x| x == w) {
                     f.push(w.to_string());
                 }
@@ -134,7 +134,7 @@ fn snippet_blocks(
     h: f32,
     ppp: f32,
     margin: f32,
-    paper: Option<wordcraft_doc::Rgb>,
+    paper: Option<wordfabrica_doc::Rgb>,
 ) -> Option<egui::ColorImage> {
     let mut d = Document::new();
     d.styles = base.styles.clone();
@@ -146,13 +146,13 @@ fn snippet_blocks(
     d.last_section.margin_right = margin;
     d.last_section.margin_top = margin;
     d.last_section.margin_bottom = 0.0;
-    let l = wordcraft_layout::layout(&d, &mut wordcraft_layout::LayoutCache::new(), &Default::default());
+    let l = wordfabrica_layout::layout(&d, &mut wordfabrica_layout::LayoutCache::new(), &Default::default());
     let page = l.pages.first()?;
-    let mut opts = wordcraft_render::RenderOptions::default();
+    let mut opts = wordfabrica_render::RenderOptions::default();
     if let Some(p) = paper {
         opts.paper = p;
     }
-    let img = wordcraft_render::render_area(&d, page, 0.0, 0.0, w + 2.0 * margin, h + margin, ppp, &opts);
+    let img = wordfabrica_render::render_area(&d, page, 0.0, 0.0, w + 2.0 * margin, h + margin, ppp, &opts);
     let px = img.to_straight();
     Some(egui::ColorImage::from_rgba_unmultiplied([img.width as usize, img.height as usize], &px))
 }
@@ -222,7 +222,7 @@ pub fn style_gallery(app: &mut WordApp, ui: &mut Ui, state: &Value) {
     let t = Tokens::get(ui.ctx());
     let current = state.get("style").and_then(Value::as_str).unwrap_or("Normal").to_string();
     let styles: Vec<(String, String, bool)> =
-        app.session.doc.styles.gallery().iter().map(|s| (s.id.clone(), s.name.clone(), s.kind == wordcraft_doc::StyleKind::Character)).collect();
+        app.session.doc.styles.gallery().iter().map(|s| (s.id.clone(), s.name.clone(), s.kind == wordfabrica_doc::StyleKind::Character)).collect();
     let rev = app.session.rev();
     let skey = app.previews.styles_key(&app.session.doc, rev);
     let ppp = ui.ctx().pixels_per_point();
@@ -352,7 +352,7 @@ pub fn style_image(doc: &Document, id: &str, label: &str, is_char: bool, ppp: f3
         Paragraph::with_text(label, CharProps::default()).styled(id)
     };
     p.props.space_before = Some(0.0);
-    p.props.align = Some(wordcraft_doc::Align::Left);
+    p.props.align = Some(wordfabrica_doc::Align::Left);
     // Keep hanging indents (bullets) but start the first line at the tile's left edge.
     let first = doc.styles.resolve_para(&p.props).indent_first;
     p.props.indent_left = Some(if first.is_finite() { (-first).max(0.0) } else { 0.0 });
@@ -363,7 +363,7 @@ pub fn style_image(doc: &Document, id: &str, label: &str, is_char: bool, ppp: f3
 
 /// Design ▸ Document Formatting: a style set shown on a title, a heading and body text.
 pub fn style_set_image(name: &str, ppp: f32) -> Option<egui::ColorImage> {
-    let mut s = wordcraft_engine::Session::new(Document::new());
+    let mut s = wordfabrica_engine::Session::new(Document::new());
     let _ = s.run("design.styleSet", &json!({"name": name}));
     let blocks = vec![
         Block::Para(Paragraph::with_text("Title", CharProps::default()).styled("Title")),
@@ -387,11 +387,11 @@ pub fn table_style_image(doc: &Document, style: &str, ppp: f32) -> Option<egui::
 
 /// File ▸ New: the first page of a template, `width_px` pixels wide.
 pub fn template_image(template: &str, width_px: f32) -> Option<egui::ColorImage> {
-    let mut s = wordcraft_engine::Session::new(Document::new());
+    let mut s = wordfabrica_engine::Session::new(Document::new());
     let _ = s.run("file.new", &json!({"template": template}));
     let l = s.export_layout();
     let page = l.pages.first()?;
-    let img = wordcraft_render::render_page(&s.doc, page, width_px / page.w, &Default::default());
+    let img = wordfabrica_render::render_page(&s.doc, page, width_px / page.w, &Default::default());
     let px = img.to_straight();
     Some(egui::ColorImage::from_rgba_unmultiplied([img.width as usize, img.height as usize], &px))
 }

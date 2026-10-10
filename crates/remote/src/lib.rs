@@ -3,7 +3,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 use serde::{Deserialize, Serialize};
-use wordcraft_doc::Document;
+use wordfabrica_doc::Document;
 
 /// Maximum encoded request/snapshot size (including embedded pictures).
 pub const MAX_BYTES: usize = 16 * 1024 * 1024;

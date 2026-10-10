@@ -1,20 +1,20 @@
 [package]
-name = "wordcraft-ui-egui"
+name = "wordfabrica-ui-egui"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "WordCraft egui front end (Word-style ribbon UI); swappable: nothing below depends on it"
+description = "WordFabrica egui front end (Word-style ribbon UI); swappable: nothing below depends on it"
 
 [lints]
 workspace = true
 
 [dependencies]
-wordcraft-geom = { workspace = true }
-wordcraft-doc = { workspace = true }
-wordcraft-fonts = { workspace = true }
-wordcraft-layout = { workspace = true }
-wordcraft-render = { workspace = true }
-wordcraft-engine = { workspace = true }
+wordfabrica-geom = { workspace = true }
+wordfabrica-doc = { workspace = true }
+wordfabrica-fonts = { workspace = true }
+wordfabrica-layout = { workspace = true }
+wordfabrica-render = { workspace = true }
+wordfabrica-engine = { workspace = true }
 egui = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

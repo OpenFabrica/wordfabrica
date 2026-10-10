@@ -1,10 +1,10 @@
 //! File format dispatch by extension. Format crates plug in here.
 
-use wordcraft_doc::Document;
+use wordfabrica_doc::Document;
 
-/// Formats WordCraft opens.
+/// Formats WordFabrica opens.
 pub const OPEN_EXTS: &[&str] = &["docx", "docm", "dotx", "txt", "md", "markdown", "html", "htm", "rtf", "odt", "wcraft.json", "json"];
-/// Formats WordCraft saves (Save As).
+/// Formats WordFabrica saves (Save As).
 pub const SAVE_EXTS: &[&str] = &["docx", "pdf", "txt", "md", "html", "rtf", "odt", "png", "json"];
 
 fn ext_of(name: &str) -> String {
@@ -31,7 +31,7 @@ pub fn open_bytes(name: &str, bytes: &[u8]) -> Result<Document, String> {
 pub fn save_bytes(name: &str, doc: &Document) -> Result<Vec<u8>, String> {
     let ext = ext_of(name);
     match ext.as_str() {
-        "txt" | "text" => Ok(doc.plain_text(wordcraft_doc::StoryRef::Body).replace('\n', "\r\n").into_bytes()),
+        "txt" | "text" => Ok(doc.plain_text(wordfabrica_doc::StoryRef::Body).replace('\n', "\r\n").into_bytes()),
         "json" => serde_json::to_vec_pretty(doc).map_err(|e| e.to_string()),
         other => match crate::io_ext::save(other, doc) {
             Some(r) => r,

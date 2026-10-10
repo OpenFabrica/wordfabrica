@@ -2,8 +2,8 @@
 
 use std::sync::Arc;
 
-use wordcraft_doc::para::InlineObject;
-use wordcraft_doc::{Align, Block, CharProps, Document, Paragraph, Table, para_block};
+use wordfabrica_doc::para::InlineObject;
+use wordfabrica_doc::{Align, Block, CharProps, Document, Paragraph, Table, para_block};
 
 use crate::model::{self, FBlock, Kind};
 use crate::{export, import};
@@ -38,17 +38,17 @@ fn sample() -> Document {
     p.insert_text(n, ".", &CharProps::default()).unwrap();
     blocks.push(para_block(p));
     blocks.push(para_block(Paragraph::with_text("Second Level", CharProps::default()).styled("Heading2")));
-    let bul = d.numbering.add_list(wordcraft_doc::ListKind::Bullet);
-    let num = d.numbering.add_list(wordcraft_doc::ListKind::Numbered);
+    let bul = d.numbering.add_list(wordfabrica_doc::ListKind::Bullet);
+    let num = d.numbering.add_list(wordfabrica_doc::ListKind::Numbered);
     for (t, nm, lvl) in [("first bullet", bul, 0u8), ("second bullet", bul, 0), ("nested bullet", bul, 1)] {
         let mut q = Paragraph::with_text(t, CharProps::default()).styled("ListParagraph");
-        q.props.numbering = Some(wordcraft_doc::props::NumRef { num: nm, level: lvl });
+        q.props.numbering = Some(wordfabrica_doc::props::NumRef { num: nm, level: lvl });
         blocks.push(para_block(q));
     }
     blocks.push(para_block(Paragraph::with_text("Between lists", CharProps::default())));
     for t in ["step one", "step two"] {
         let mut q = Paragraph::with_text(t, CharProps::default()).styled("ListParagraph");
-        q.props.numbering = Some(wordcraft_doc::props::NumRef { num, level: 0 });
+        q.props.numbering = Some(wordfabrica_doc::props::NumRef { num, level: 0 });
         blocks.push(para_block(q));
     }
     let mut t = Table::new(2, 2, 400.0);
@@ -203,7 +203,7 @@ fn odt_round_trip() {
 fn txt_round_trip() {
     check_round_trip("txt", false);
     let d = import("txt", "a\r\nb\nc".as_bytes()).unwrap().unwrap();
-    assert_eq!(d.plain_text(wordcraft_doc::StoryRef::Body), "a\nb\nc");
+    assert_eq!(d.plain_text(wordfabrica_doc::StoryRef::Body), "a\nb\nc");
     // UTF-16 LE with BOM, UTF-16 without BOM, Windows-1252.
     let mut u16le = vec![0xFF, 0xFE];
     for u in "héllo".encode_utf16() {
@@ -227,16 +227,16 @@ fn rtf_merged_cells_and_lists() {
     let mut d = Document::new();
     let mut t = Table::new(3, 2, 300.0);
     t.rows[0].cells[0].blocks = vec![para_block(Paragraph::with_text("tall", CharProps::default()))];
-    t.rows[0].cells[0].props.vmerge = wordcraft_doc::props::VMerge::Restart;
-    t.rows[1].cells[0].props.vmerge = wordcraft_doc::props::VMerge::Continue;
+    t.rows[0].cells[0].props.vmerge = wordfabrica_doc::props::VMerge::Restart;
+    t.rows[1].cells[0].props.vmerge = wordfabrica_doc::props::VMerge::Continue;
     d.body = vec![Arc::new(Block::Table(t))];
     d.ensure_nonempty();
     for ext in ["rtf", "html", "odt"] {
         let back = import(ext, &export(ext, &d).unwrap().unwrap()).unwrap().unwrap();
         let Some(Block::Table(bt)) = back.body.first().map(|b| &**b) else { panic!("{ext}: no table") };
         assert_eq!(bt.rows.len(), 3, "{ext}");
-        assert_eq!(bt.rows[0].cells[0].props.vmerge, wordcraft_doc::props::VMerge::Restart, "{ext}");
-        assert_eq!(bt.rows[1].cells[0].props.vmerge, wordcraft_doc::props::VMerge::Continue, "{ext}");
+        assert_eq!(bt.rows[0].cells[0].props.vmerge, wordfabrica_doc::props::VMerge::Restart, "{ext}");
+        assert_eq!(bt.rows[1].cells[0].props.vmerge, wordfabrica_doc::props::VMerge::Continue, "{ext}");
     }
 }
 

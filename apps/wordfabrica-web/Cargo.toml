@@ -1,0 +1,40 @@
+[package]
+name = "wordfabrica-web"
+description = "WordFabrica in the browser (eframe web runner, WebGPU with WebGL2 fallback)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "wordfabrica-web"
+path = "src/main.rs"
+
+[dependencies]
+wordfabrica-remote.workspace = true
+wordfabrica-fonts.workspace = true
+serde.workspace = true
+wordfabrica-engine = { workspace = true }
+wordfabrica-ui-egui = { workspace = true }
+wordfabrica-ui-web = { workspace = true }
+egui = { workspace = true }
+log = { workspace = true }
+serde_json = { workspace = true }
+wordfabrica-doc = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# `wgpu` pulls egui-wgpu's defaults: WebGPU plus the WebGL2 fallback.
+eframe = { workspace = true, features = ["default_fonts", "wgpu", "accesskit"] }
+rfd = { workspace = true }
+gloo-net = "0.6"
+gloo-timers = { version = "0.3", features = ["futures"] }
+gloo-events = "0.2"
+futures-util = "0.3"
+uuid = { version = "1", features = ["v4", "js"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "HtmlCanvasElement", "HtmlAnchorElement", "Blob", "BlobPropertyBag", "Url", "Location", "CssStyleDeclaration", "History", "BeforeUnloadEvent", "AbortController", "AbortSignal", "Storage", "Navigator", "DomTokenList"] }

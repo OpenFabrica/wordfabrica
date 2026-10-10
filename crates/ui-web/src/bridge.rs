@@ -7,9 +7,9 @@ use std::sync::{Arc, Mutex};
 
 use leptos::prelude::*;
 use wasm_bindgen::JsCast as _;
-use wordcraft_engine::Registry;
-use wordcraft_ui_egui::host::CommandInfo;
-use wordcraft_ui_egui::{Action, ChromeState, WordApp};
+use wordfabrica_engine::Registry;
+use wordfabrica_ui_egui::host::CommandInfo;
+use wordfabrica_ui_egui::{Action, ChromeState, WordApp};
 
 use crate::model::Item;
 use crate::plugins::{Plugin, TagCategory};
@@ -129,7 +129,7 @@ impl Bridge {
         let mut ok: Vec<Plugin> = Vec::new();
         for p in plugins {
             match p.validate() {
-                Ok(()) if ok.len() < wordcraft_remote::MAX_PLUGINS && !ok.iter().any(|o| o.id == p.id) => ok.push(p),
+                Ok(()) if ok.len() < wordfabrica_remote::MAX_PLUGINS && !ok.iter().any(|o| o.id == p.id) => ok.push(p),
                 Ok(()) => log::warn!("plugin {:?} skipped: duplicate or over the limit", p.id),
                 Err(e) => log::warn!("plugin skipped: {e}"),
             }
@@ -242,10 +242,10 @@ impl Bridge {
     /// Tooltip text: label, shortcut, where the command lives, and whether it's available.
     pub fn tooltip(&self, label: &str, id: &str) -> String {
         let info = self.commands.iter().find(|c| c.id == id);
-        let sc = info.map(|c| wordcraft_ui_egui::host::shortcut_display(&c.shortcut, self.mac)).unwrap_or_default();
+        let sc = info.map(|c| wordfabrica_ui_egui::host::shortcut_display(&c.shortcut, self.mac)).unwrap_or_default();
         let mut s = if sc.is_empty() { label.to_string() } else { format!("{label} ({sc})") };
         if let Some(c) = info {
-            let loc = wordcraft_ui_egui::i18n::location(&c.location);
+            let loc = wordfabrica_ui_egui::i18n::location(&c.location);
             if !loc.is_empty() {
                 s.push('\n');
                 s.push_str(&loc);
@@ -253,14 +253,14 @@ impl Bridge {
         }
         if self.state.with_untracked(|st| st.disabled.contains(id)) {
             s.push('\n');
-            s.push_str(wordcraft_ui_egui::tl!("Not available right now"));
+            s.push_str(wordfabrica_ui_egui::tl!("Not available right now"));
         }
         s
     }
 
     /// Shortcut text for a menu entry.
     pub fn shortcut(&self, id: &str) -> String {
-        self.commands.iter().find(|c| c.id == id).map(|c| wordcraft_ui_egui::host::shortcut_display(&c.shortcut, self.mac)).unwrap_or_default()
+        self.commands.iter().find(|c| c.id == id).map(|c| wordfabrica_ui_egui::host::shortcut_display(&c.shortcut, self.mac)).unwrap_or_default()
     }
 
     /// Render up to a few queued previews per frame (rendering is real layout work).
@@ -277,7 +277,7 @@ impl Bridge {
         let dark = self.state.with_untracked(|s| s.dark);
         let mut done = Vec::new();
         for (key, p) in todo {
-            use wordcraft_ui_egui::previews as pv;
+            use wordfabrica_ui_egui::previews as pv;
             let img = match &p {
                 Preview::Font(name) => pv::font_image(name, ppp),
                 Preview::Style { id, label, is_char } => pv::style_image(&app.session.doc, id, label, *is_char, ppp, dark),

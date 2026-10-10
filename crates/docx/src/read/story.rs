@@ -2,10 +2,10 @@
 
 use std::sync::Arc;
 
-use wordcraft_doc::para::{Anchor, Float, NoteKind, ShapeKind, Wrap};
-use wordcraft_doc::props::{CharProps, Rgb};
-use wordcraft_doc::table::{Cell, MAX_COLS, MAX_ROWS, Row, Table};
-use wordcraft_doc::{Block, Blocks, InlineObject, Paragraph, PartKind, RevisionKind, Run, para_block};
+use wordfabrica_doc::para::{Anchor, Float, NoteKind, ShapeKind, Wrap};
+use wordfabrica_doc::props::{CharProps, Rgb};
+use wordfabrica_doc::table::{Cell, MAX_COLS, MAX_ROWS, Row, Table};
+use wordfabrica_doc::{Block, Blocks, InlineObject, Paragraph, PartKind, RevisionKind, Run, para_block};
 
 use super::Reader;
 use super::props::{sectpr, tcpr, trpr};
@@ -76,9 +76,9 @@ impl PB {
         self.push_run(s.len(), props);
     }
     fn push_obj(&mut self, o: InlineObject, props: &CharProps) {
-        self.text.push(wordcraft_doc::para::OBJ);
+        self.text.push(wordfabrica_doc::para::OBJ);
         self.objects.push(o);
-        self.push_run(wordcraft_doc::para::OBJ.len_utf8(), props);
+        self.push_run(wordfabrica_doc::para::OBJ.len_utf8(), props);
     }
     fn push_run(&mut self, len: usize, props: &CharProps) {
         match self.runs.last_mut() {
@@ -95,7 +95,7 @@ fn clean_text(s: &str) -> String {
         .filter_map(|c| match c {
             '\n' | '\r' => Some(' '),
             '\t' => Some('\t'),
-            wordcraft_doc::para::OBJ => None,
+            wordfabrica_doc::para::OBJ => None,
             c if (c as u32) < 0x20 => None,
             c => Some(c),
         })
@@ -173,9 +173,9 @@ impl Reader<'_> {
         if let Some(Block::Para(p)) = out.last_mut().map(Arc::make_mut) {
             for o in sc.pending.drain(..) {
                 let props = p.runs.last().map(|r| r.props.clone()).unwrap_or_default();
-                p.text.push(wordcraft_doc::para::OBJ);
+                p.text.push(wordfabrica_doc::para::OBJ);
                 p.objects.push(o);
-                p.runs.push(Run { len: wordcraft_doc::para::OBJ.len_utf8(), props });
+                p.runs.push(Run { len: wordfabrica_doc::para::OBJ.len_utf8(), props });
             }
             p.normalize();
         }
@@ -232,7 +232,7 @@ impl Reader<'_> {
         para
     }
 
-    pub fn read_section(&mut self, s: &El, rels: &Rels) -> wordcraft_doc::SectionProps {
+    pub fn read_section(&mut self, s: &El, rels: &Rels) -> wordfabrica_doc::SectionProps {
         let (mut sp, refs) = sectpr(s);
         for r in refs {
             let Some(rel) = rels.by_id(&r.rid) else { continue };
@@ -682,7 +682,7 @@ impl Reader<'_> {
             collect(tr, "w:tc", &mut tcs, 0);
             for tc in tcs.into_iter().take(MAX_COLS) {
                 let (props, hcont) =
-                    tc.child("w:tcPr").map(tcpr).unwrap_or_else(|| (wordcraft_doc::props::CellProps { span: 1, ..Default::default() }, false));
+                    tc.child("w:tcPr").map(tcpr).unwrap_or_else(|| (wordfabrica_doc::props::CellProps { span: 1, ..Default::default() }, false));
                 if hcont && let Some(prev) = row.cells.last_mut() {
                     prev.props.span = (prev.props.span + props.span.max(1)).min(63);
                     continue;

@@ -3,12 +3,12 @@
 
 use std::sync::Arc;
 
-use wordcraft_doc::numbering::{Level, LevelSuffix};
-use wordcraft_doc::para::{COLUMN_BREAK, InlineObject, LINE_BREAK, NoteKind, OBJ, PAGE_BREAK, SOFT_HYPHEN};
-use wordcraft_doc::props::{Align, CharProps, LineSpacing, TabAlign, TabLeader, TabStop};
-use wordcraft_doc::resolve::{ResolvedChar, ResolvedPara};
-use wordcraft_doc::{Document, Paragraph};
-use wordcraft_fonts::FaceRef;
+use wordfabrica_doc::numbering::{Level, LevelSuffix};
+use wordfabrica_doc::para::{COLUMN_BREAK, InlineObject, LINE_BREAK, NoteKind, OBJ, PAGE_BREAK, SOFT_HYPHEN};
+use wordfabrica_doc::props::{Align, CharProps, LineSpacing, TabAlign, TabLeader, TabStop};
+use wordfabrica_doc::resolve::{ResolvedChar, ResolvedPara};
+use wordfabrica_doc::{Document, Paragraph};
+use wordfabrica_fonts::FaceRef;
 
 use crate::fields::{FieldCtx, field_text};
 
@@ -182,7 +182,7 @@ struct Builder<'a> {
 impl<'a> Builder<'a> {
     /// Style index for a resolved char in `face` (caps-scaled `size` override for small caps).
     fn style(&mut self, rc: &Arc<ResolvedChar>, face_override: Option<FaceRef>, small: bool) -> u16 {
-        let r = wordcraft_fonts::word::resolve(&rc.font, rc.bold, rc.italic);
+        let r = wordfabrica_fonts::word::resolve(&rc.font, rc.bold, rc.italic);
         let face = face_override.unwrap_or(r.face);
         let key = (
             format!("{}|{:?}|{}|{}", style_key(rc), rc.color, rc.underline as u8, small),
@@ -194,7 +194,7 @@ impl<'a> Builder<'a> {
             return *i;
         }
         let size = rc.draw_size() * if small { 0.8 } else { 1.0 };
-        let (a, d) = wordcraft_fonts::word::line_metrics(&face);
+        let (a, d) = wordfabrica_fonts::word::line_metrics(&face);
         let k = size as f64 / face.upem.max(1.0);
         let st = StyleRun {
             face,
@@ -218,7 +218,7 @@ impl<'a> Builder<'a> {
             return;
         }
         // Split by font coverage (fallback faces) and small caps case.
-        let primary = wordcraft_fonts::word::resolve(&rc.font, rc.bold, rc.italic).face;
+        let primary = wordfabrica_fonts::word::resolve(&rc.font, rc.bold, rc.italic).face;
         let mut seg_start = 0;
         let mut cur: Option<(Option<FaceRef>, bool)> = None;
         let mut segs: Vec<(usize, usize, Option<FaceRef>, bool)> = Vec::new();
@@ -226,7 +226,7 @@ impl<'a> Builder<'a> {
             let face = if primary.covers(c) || c.is_whitespace() || c.is_control() || c == SOFT_HYPHEN {
                 None
             } else {
-                wordcraft_fonts::FontDb::global().fallback_for(c, primary.id()).map(|f| FaceRef::of(&f))
+                wordfabrica_fonts::FontDb::global().fallback_for(c, primary.id()).map(|f| FaceRef::of(&f))
             };
             let small = rc.small_caps && !rc.caps && c.is_lowercase();
             let k = (face, small);
@@ -248,7 +248,7 @@ impl<'a> Builder<'a> {
             let si = self.style(rc, face, small);
             let Some(st) = self.styles.get(si as usize).cloned() else { continue };
             let upper = rc.caps || small;
-            let shaped = wordcraft_fonts::shape(&st.face, sub, &[], |c| if upper { c.to_uppercase().next().unwrap_or(c) } else { c });
+            let shaped = wordfabrica_fonts::shape(&st.face, sub, &[], |c| if upper { c.to_uppercase().next().unwrap_or(c) } else { c });
             let k = st.size / st.face.upem.max(1.0) as f32;
             let hscale = rc.scale / 100.0;
             // Group glyphs by cluster byte offset; graphemes may span several shaper clusters.
@@ -439,7 +439,7 @@ pub fn layout_para(p: &Paragraph, env: &ParaEnv) -> ParaLayout {
                     obj_index += 1;
                     match p.objects.get(k) {
                         Some(InlineObject::Image { w, h, float, .. }) | Some(InlineObject::Shape { w, h, float, .. }) => {
-                            if float.wrap == wordcraft_doc::para::Wrap::Inline {
+                            if float.wrap == wordfabrica_doc::para::Wrap::Inline {
                                 let maxw = (env.width - rp.indent_left.max(0.0) - rp.indent_right.max(0.0)).max(18.0);
                                 let (w, h) = (w.clamp(1.0, 4000.0), h.clamp(1.0, 4000.0));
                                 let s = if w > maxw { maxw / w } else { 1.0 };
@@ -464,7 +464,7 @@ pub fn layout_para(p: &Paragraph, env: &ParaEnv) -> ParaLayout {
                                 custom.clone()
                             };
                             let mut sup = (*rc).clone();
-                            sup.vert_align = wordcraft_doc::props::VertAlign::Superscript;
+                            sup.vert_align = wordfabrica_doc::props::VertAlign::Superscript;
                             b.shape_atomic(&num, start, end, &Arc::new(sup));
                             notes.push((b.clusters.len().saturating_sub(1), *id));
                         }
@@ -502,10 +502,10 @@ pub fn layout_para(p: &Paragraph, env: &ParaEnv) -> ParaLayout {
         // A Symbol/Wingdings bullet (U+F0B7…) without that font installed, or in a face that has
         // no glyph at the private-use code: draw the standard character instead, since a
         // substitute has another glyph, or none, there.
-        let r = wordcraft_fonts::word::resolve(&rc.font, rc.bold, rc.italic);
+        let r = wordfabrica_fonts::word::resolve(&rc.font, rc.bold, rc.italic);
         let text: String = text
             .chars()
-            .map(|c| match wordcraft_fonts::word::symbol_font_char(&rc.font, c) {
+            .map(|c| match wordfabrica_fonts::word::symbol_font_char(&rc.font, c) {
                 Some(u) if r.substituted || !r.face.covers(c) => u,
                 _ => c,
             })
@@ -995,7 +995,7 @@ fn hyphen_glyph(pl: &ParaLayout, style: u16, cache: &mut Vec<(u16, u32, f32)>) -
         .styles
         .get(style as usize)
         .and_then(|st| {
-            let g = wordcraft_fonts::shape(&st.face, "-", &[], |c| c).into_iter().next()?;
+            let g = wordfabrica_fonts::shape(&st.face, "-", &[], |c| c).into_iter().next()?;
             let k = st.size / st.face.upem.max(1.0) as f32 * st.rc.scale / 100.0;
             Some((style, g.gid, g.x_advance as f32 * k))
         })
@@ -1009,7 +1009,7 @@ fn hyphen_glyph(pl: &ParaLayout, style: u16, cache: &mut Vec<(u16, u32, f32)>) -
 fn hyphenation_points(p: &Paragraph, pl: &ParaLayout, auto: bool) -> Vec<u32> {
     let mut bytes: Vec<usize> = p.text.char_indices().filter(|(_, c)| *c == SOFT_HYPHEN).map(|(i, c)| i + c.len_utf8()).collect();
     if auto {
-        let lim = wordcraft_proof::hyphen::Limits::default();
+        let lim = wordfabrica_proof::hyphen::Limits::default();
         let mut start: Option<usize> = None;
         let text = &p.text;
         for (i, c) in text.char_indices().chain(std::iter::once((text.len(), ' '))) {
@@ -1021,7 +1021,7 @@ fn hyphenation_points(p: &Paragraph, pl: &ParaLayout, auto: bool) -> Vec<u32> {
                         && w.chars().count() >= lim.min_word
                     {
                         let offs: Vec<usize> = w.char_indices().map(|(o, _)| o).collect();
-                        for pt in wordcraft_proof::hyphen::hyphen_points(w, &lim) {
+                        for pt in wordfabrica_proof::hyphen::hyphen_points(w, &lim) {
                             if let Some(o) = offs.get(pt) {
                                 bytes.push(a + o);
                             }
@@ -1148,17 +1148,17 @@ fn proof_issues(p: &Paragraph) -> Vec<(usize, usize, bool)> {
         p.run_ranges().any(|(r, c)| r.start < b && a < r.end && (c.no_proof == Some(true) || c.hidden == Some(true) || c.link.is_some()))
     };
     let mut v: Vec<(usize, usize, bool)> =
-        wordcraft_proof::check_spelling(&text).into_iter().filter(|i| !skip(i.start, i.end)).map(|i| (i.start, i.end, false)).collect();
-    v.extend(wordcraft_proof::check_grammar(&text).into_iter().filter(|i| !skip(i.start, i.end)).map(|i| (i.start, i.end, true)));
+        wordfabrica_proof::check_spelling(&text).into_iter().filter(|i| !skip(i.start, i.end)).map(|i| (i.start, i.end, false)).collect();
+    v.extend(wordfabrica_proof::check_grammar(&text).into_iter().filter(|i| !skip(i.start, i.end)).map(|i| (i.start, i.end, true)));
     v
 }
 
 /// Text for proofing with the same byte offsets: inline objects and tracked deletions become
 /// U+0001 bytes (neither words nor spaces).
-pub fn proof_text(p: &wordcraft_doc::Paragraph) -> String {
+pub fn proof_text(p: &wordfabrica_doc::Paragraph) -> String {
     let mut out = String::with_capacity(p.text.len());
     for (i, c) in p.text.char_indices() {
-        let deleted = c == wordcraft_doc::para::OBJ || p.props_of_char(i).del.is_some();
+        let deleted = c == wordfabrica_doc::para::OBJ || p.props_of_char(i).del.is_some();
         if deleted {
             for _ in 0..c.len_utf8() {
                 out.push('\u{1}');

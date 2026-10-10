@@ -1,16 +1,16 @@
 [package]
-name = "wordcraft-formats"
+name = "wordfabrica-formats"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "WordCraft import/export: plain text, Markdown, HTML, RTF and OpenDocument Text"
+description = "WordFabrica import/export: plain text, Markdown, HTML, RTF and OpenDocument Text"
 
 [lints]
 workspace = true
 
 [dependencies]
-wordcraft-doc = { workspace = true }
-wordcraft-geom = { workspace = true }
+wordfabrica-doc = { workspace = true }
+wordfabrica-geom = { workspace = true }
 image = { workspace = true }
 quick-xml = { workspace = true }
 zip = { workspace = true }

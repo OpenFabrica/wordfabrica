@@ -2,11 +2,11 @@
 
 use std::collections::HashMap;
 
-use wordcraft_doc::props::{
+use wordfabrica_doc::props::{
     Align, Border, BorderStyle, Borders, CellProps, CharProps, HeightRule, Highlight, LineSpacing, NumRef, ParaProps, Rgb, RowProps, TabAlign,
     TabLeader, TabStop, TableLook, TableProps, TextColor, Underline, VAlign, VMerge, VertAlign,
 };
-use wordcraft_doc::section::{Columns, LineNumberRestart, LineNumbering, NumFormat, SectionProps, SectionStart};
+use wordfabrica_doc::section::{Columns, LineNumberRestart, LineNumbering, NumFormat, SectionProps, SectionStart};
 
 use crate::units::{int, measure, on_off, tw, u32_of};
 use crate::xml::El;

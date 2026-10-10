@@ -1,4 +1,4 @@
-//! WordCraft document model.
+//! WordFabrica document model.
 //!
 //! A [`Document`] holds the main story (`body`) and secondary stories (`parts`: headers,
 //! footers, notes, comments, text boxes). A story is a list of [`Block`]s: paragraphs and tables;

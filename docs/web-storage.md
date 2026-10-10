@@ -18,22 +18,22 @@
 rustup target add wasm32-unknown-unknown
 cargo install trunk --locked
 # 默认使用项目 resources/fonts/，无需额外字体项目或环境变量。
-cd apps/wordcraft-web
+cd apps/wordfabrica-web
 trunk build --release
 cd ../..
-cargo run -p wordcraft-server
+cargo run -p wordfabrica-server
 ```
 
 打开 `http://127.0.0.1:8771/`。构建产物在 `dist/web`；服务器缺少构建产物时拒绝启动并提示构建命令。
 
 | 环境变量 | 默认值 | 职责 |
 |---|---|---|
-| `WORDCRAFT_LISTEN` | `127.0.0.1:8771` | 监听地址 |
-| `WORDCRAFT_WEB_DIR` | `dist/web` | 静态网页目录 |
-| `WORDCRAFT_DATA_DIR` | `data` | SQLite 数据目录，不能放进静态网页目录 |
-| `WORDCRAFT_FONTS_DIR` | `resources/fonts/server` | 可选的服务端字体目录；见 [字体扩展](web-fonts.md) |
-| `WORDCRAFT_PLUGINS_DIR` | `plugins`（不存在时不加载） | 可选的插件目录；见 [插件](plugins.md) |
-| `WORDCRAFT_INTEGRATION_SECRET` 等 | 未设置 = 关闭 | 可选的第三方集成（公开地址、文件存储、下载有效期、主机白名单）；见 [第三方集成](web-integration.md) |
+| `WORDFABRICA_LISTEN` | `127.0.0.1:8771` | 监听地址 |
+| `WORDFABRICA_WEB_DIR` | `dist/web` | 静态网页目录 |
+| `WORDFABRICA_DATA_DIR` | `data` | SQLite 数据目录，不能放进静态网页目录 |
+| `WORDFABRICA_FONTS_DIR` | `resources/fonts/server` | 可选的服务端字体目录；见 [字体扩展](web-fonts.md) |
+| `WORDFABRICA_PLUGINS_DIR` | `plugins`（不存在时不加载） | 可选的插件目录；见 [插件](plugins.md) |
+| `WORDFABRICA_INTEGRATION_SECRET` 等 | 未设置 = 关闭 | 可选的第三方集成（公开地址、文件存储、下载有效期、主机白名单）；见 [第三方集成](web-integration.md) |
 
 路径相对启动目录。备份时停止服务再复制数据目录，或使用 SQLite backup API 在线备份；运行中不要只复制主数据库而忽略 WAL。
 静态部署可用 `?local` 保留下载模式；`?sample` 创建演示内容；`?doc=<uuid>` 重新打开服务端文档。
@@ -90,16 +90,16 @@ sequenceDiagram
 不启用 CORS；拒绝跨站 Fetch 和不匹配 Host 的 Origin；响应禁止缓存。
 
 - `crates/remote`：L2 的共享线协议 DTO，仅依赖模型与 serde；避免前后端重复维护协议，不包含 HTTP 或存储实现。
-- `apps/wordcraft-server`：交付层 HTTP 路由、配置和 SQLite 基础设施；阻塞操作移到 Tokio blocking 线程。
-- `apps/wordcraft-web/src/remote.rs`：浏览器异步保存、文档列表和状态反馈；`sync.rs` 包含可在原生测试的回执规则。
+- `apps/wordfabrica-server`：交付层 HTTP 路由、配置和 SQLite 基础设施；阻塞操作移到 Tokio blocking 线程。
+- `apps/wordfabrica-web/src/remote.rs`：浏览器异步保存、文档列表和状态反馈；`sync.rs` 包含可在原生测试的回执规则。
 - `Services::request_save`：让现有 `file.save` 菜单/快捷键/按钮走同一路径；导出保持独立，不将导出误认为服务端保存成功。
 
 ## 检查
 
 ```sh
-cargo test -p wordcraft-server -p wordcraft-web -p wordcraft-ui-egui
+cargo test -p wordfabrica-server -p wordfabrica-web -p wordfabrica-ui-egui
 cargo xtask ci
-cargo check --target wasm32-unknown-unknown -p wordcraft-web
+cargo check --target wasm32-unknown-unknown -p wordfabrica-web
 ```
 
 HTTP 测试覆盖创建/读取/列表/重试/冲突/非法 JSON/体积限制/跨域；存储测试覆盖重启与竞争写入。

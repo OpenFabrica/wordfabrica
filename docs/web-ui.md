@@ -6,7 +6,7 @@
 
 - **外围界面**用 HTML/CSS。标题栏、选项卡、功能区、下拉菜单、侧栏、对话框、文件页、状态栏都在这一层。
   代码是 Rust，用 [Leptos](https://leptos.dev)（CSR 模式）写，在 `crates/ui-web`。
-- **文档区**仍是 egui canvas（`#wordcraft_canvas`）。排版、绘制、光标、选区、输入法、标尺、批注气球、右键菜单都留在这里。
+- **文档区**仍是 egui canvas（`#wordfabrica_canvas`）。排版、绘制、光标、选区、输入法、标尺、批注气球、右键菜单都留在这里。
 
 桌面版不变，仍全部由 egui 绘制。
 
@@ -75,11 +75,11 @@ HTML 事件 ──Action──▶ 队列 ──(下一帧前)──▶ WordApp::
 
 ```sh
 export PATH="$HOME/.cargo/bin:$PATH"   # wasm 检查需要 rustup 的 cargo
-cd apps/wordcraft-web && trunk build --release && cd ../..
-cargo run -p wordcraft-server          # 打开 http://127.0.0.1:8771/
+cd apps/wordfabrica-web && trunk build --release && cd ../..
+cargo run -p wordfabrica-server          # 打开 http://127.0.0.1:8771/
 ```
 
-- 样式在 `apps/wordcraft-web/style/*.css`。颜色只用 `--wc-*` 变量；变量由 `theme::Tokens` 写到 `<html>`，深色模式自动切换。
+- 样式在 `apps/wordfabrica-web/style/*.css`。颜色只用 `--wc-*` 变量；变量由 `theme::Tokens` 写到 `<html>`，深色模式自动切换。
 - 新功能先加命令（`CommandSpec`），再在 `model.rs` 里放按钮。不要在 HTML 层保存文档数据。
 - `cargo xtask layers` 把 `ui-web` 放在 L6，它可以依赖 `ui-egui`，反过来不行。
 

@@ -4,9 +4,9 @@
 
 use leptos::prelude::*;
 use serde_json::json;
-use wordcraft_ui_egui::host::{FileAction, Properties};
-use wordcraft_ui_egui::i18n::{Lang, fmt};
-use wordcraft_ui_egui::{Action, tl};
+use wordfabrica_ui_egui::host::{FileAction, Properties};
+use wordfabrica_ui_egui::i18n::{Lang, fmt};
+use wordfabrica_ui_egui::{Action, tl};
 
 use super::{icon_svg, icon_svg_in, input_checked, input_value, t};
 use crate::bridge::{Bridge, Preview};
@@ -109,8 +109,8 @@ fn screen(b: Bridge) -> impl IntoView {
                 <button class="wc-file-nav-minor" on:click=move |_| b3.send(Action::run("ui.dialog", json!({"name": "about"})))>
                     {t("About")}
                 </button>
-                <button class="wc-file-nav-minor" on:click=move |_| b4.send(Action::run("ui.discord", json!({})))>
-                    {t("Discord community")}
+                <button class="wc-file-nav-minor" on:click=move |_| b4.send(Action::run("ui.community", json!({})))>
+                    {t("Community")}
                 </button>
             </nav>
             <div class="wc-file-content">{content}</div>
@@ -120,7 +120,7 @@ fn screen(b: Bridge) -> impl IntoView {
 
 /// Home / New: greeting, template tiles, then the documents to reopen.
 fn new_page(b: Bridge) -> impl IntoView {
-    let hour = wordcraft_engine::cmd::now_iso().get(11..13).and_then(|h| h.parse::<u32>().ok()).unwrap_or(9);
+    let hour = wordfabrica_engine::cmd::now_iso().get(11..13).and_then(|h| h.parse::<u32>().ok()).unwrap_or(9);
     let greeting = if hour < 12 {
         "Good morning"
     } else if hour < 18 {
@@ -244,7 +244,7 @@ fn server_list(b: Bridge) -> impl IntoView {
             </div>
             {move || server.with(|s| s.listing).then(|| view! { <p class="wc-file-dim" role="status">{t("Loading…")}</p> })}
             {move || server.with(|s| s.list_error.clone()).map(|e| {
-                view! { <p class="wc-file-error" role="alert">{wordcraft_ui_egui::i18n::t(&e).to_string()}</p> }
+                view! { <p class="wc-file-error" role="alert">{wordfabrica_ui_egui::i18n::t(&e).to_string()}</p> }
             })}
             {move || dirty.get().then(|| {
                 view! { <p class="wc-file-dim">{t("Save your current changes before opening another document.")}</p> }
@@ -356,7 +356,7 @@ fn options_page(b: Bridge) -> impl IntoView {
     let author = b.select(|s| s.author.clone());
     let dark = b.select(|s| s.dark);
     let autosave = b.select(|s| s.file.as_ref().is_some_and(|f| f.autosave));
-    let discord = b.select(|s| s.show_discord);
+    let community = b.select(|s| s.show_community);
     let marks = b.select(|s| s.toggles.get("marks").copied().unwrap_or(false));
     let ruler = b.select(|s| s.toggles.get("ruler").copied().unwrap_or(false));
     // No "Automatic" entry: on the web the language is always an explicit pick (like egui's wasm build).
@@ -384,13 +384,13 @@ fn options_page(b: Bridge) -> impl IntoView {
         </div>
         {check("Dark mode", dark, &b, |on| Action::run("ui.dark", json!({"value": on})))}
         {check("AutoSave documents that have been saved", autosave, &b, Action::SetAutosave)}
-        {check("Show the community button in the title bar", discord, &b, Action::SetShowDiscord)}
+        {check("Show the community button in the title bar", community, &b, Action::SetShowCommunity)}
         <h2 class="wc-file-subheading">{t("Display")}</h2>
         {check("Show all formatting marks", marks, &b, |on| Action::run("view.marks", json!({"value": on})))}
         {check("Show rulers", ruler, &b, |on| Action::run("view.ruler", json!({"value": on})))}
         <h2 class="wc-file-subheading">{t("Agents")}</h2>
         <p class="wc-file-text">
-            {t("Every command is available to scripts and AI agents: run `wordcraft-cli mcp` for an MCP server, or start the app with `--control <port>` for the JSON control channel.")}
+            {t("Every command is available to scripts and AI agents: run `wordfabrica-cli mcp` for an MCP server, or start the app with `--control <port>` for the JSON control channel.")}
         </p>
     }
 }

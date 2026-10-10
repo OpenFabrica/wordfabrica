@@ -19,8 +19,8 @@ pub mod tools;
 pub mod view;
 
 use serde_json::{Value, json};
-use wordcraft_doc::props::CharProps;
-use wordcraft_doc::{Pos, Revision, RevisionKind, StoryRef};
+use wordfabrica_doc::props::CharProps;
+use wordfabrica_doc::{Pos, Revision, RevisionKind, StoryRef};
 
 use crate::{CmdError, CmdResult, Registry, Session};
 
@@ -155,7 +155,7 @@ pub fn split_para(s: &mut Session, at: &Pos) -> Result<Pos, CmdError> {
     if empty_list {
         // Enter on an empty list item ends the list (Word behaviour).
         let para = s.doc.para_mut(at.story, &at.path)?;
-        para.props.numbering = Some(wordcraft_doc::props::NumRef { num: 0, level: 0 });
+        para.props.numbering = Some(wordfabrica_doc::props::NumRef { num: 0, level: 0 });
         para.props.indent_left = None;
         para.props.indent_first = None;
         para.touch();

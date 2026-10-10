@@ -1,31 +1,31 @@
 [workspace]
 resolver = "3"
 members = ["crates/*", "apps/*", "xtask"]
-default-members = ["crates/*", "apps/wordcraft", "apps/wordcraft-cli", "xtask"]
+default-members = ["crates/*", "apps/wordfabrica", "apps/wordfabrica-cli", "xtask"]
 
 [workspace.package]
 version = "0.3.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 rust-version = "1.90"
-repository = "https://github.com/storytold/wordcraft"
+repository = "https://github.com/OpenFabrica/wordfabrica"
 
 [workspace.dependencies]
 # internal
-wordcraft-remote = { path = "crates/remote" }
-wordcraft-geom = { path = "crates/geom" }
-wordcraft-doc = { path = "crates/doc" }
-wordcraft-fonts = { path = "crates/fonts" }
-wordcraft-layout = { path = "crates/layout" }
-wordcraft-docx = { path = "crates/docx" }
-wordcraft-formats = { path = "crates/formats" }
-wordcraft-render = { path = "crates/render" }
-wordcraft-pdf = { path = "crates/pdf" }
-wordcraft-proof = { path = "crates/proof" }
-wordcraft-engine = { path = "crates/engine" }
-wordcraft-mcp = { path = "crates/mcp" }
-wordcraft-ui-egui = { path = "crates/ui-egui" }
-wordcraft-ui-web = { path = "crates/ui-web" }
+wordfabrica-remote = { path = "crates/remote" }
+wordfabrica-geom = { path = "crates/geom" }
+wordfabrica-doc = { path = "crates/doc" }
+wordfabrica-fonts = { path = "crates/fonts" }
+wordfabrica-layout = { path = "crates/layout" }
+wordfabrica-docx = { path = "crates/docx" }
+wordfabrica-formats = { path = "crates/formats" }
+wordfabrica-render = { path = "crates/render" }
+wordfabrica-pdf = { path = "crates/pdf" }
+wordfabrica-proof = { path = "crates/proof" }
+wordfabrica-engine = { path = "crates/engine" }
+wordfabrica-mcp = { path = "crates/mcp" }
+wordfabrica-ui-egui = { path = "crates/ui-egui" }
+wordfabrica-ui-web = { path = "crates/ui-web" }
 
 # foundation
 kurbo = { version = "0.13", features = ["serde"] }

@@ -1,10 +1,10 @@
-//! WordCraft's web chrome: the title bar, ribbon, status bar, side panes, dialogs and File
+//! WordFabrica's web chrome: the title bar, ribbon, status bar, side panes, dialogs and File
 //! screen as HTML/CSS (written in Rust with Leptos), around the egui canvas that still draws and
 //! edits the document.
 //!
 //! One rule keeps the two halves consistent: the chrome owns no document state. It reads a
-//! [`wordcraft_ui_egui::ChromeState`] snapshot that the app publishes after every frame and sends
-//! [`wordcraft_ui_egui::Action`]s back; the app applies them before the next frame. Menu and
+//! [`wordfabrica_ui_egui::ChromeState`] snapshot that the app publishes after every frame and sends
+//! [`wordfabrica_ui_egui::Action`]s back; the app applies them before the next frame. Menu and
 //! hover state are the only things the HTML side keeps.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
@@ -67,7 +67,7 @@ mod tests {
 
     #[test]
     fn shortcut_names_match_the_registry() {
-        let reg = wordcraft_engine::cmd::registry();
+        let reg = wordfabrica_engine::cmd::registry();
         let bold = shortcut_name("b", true, false, false, false, false);
         assert_eq!(bold.as_deref(), Some("Mod+B"));
         assert_eq!(reg.by_shortcut("Mod+B").map(|s| s.id), Some("format.bold"));

@@ -12,13 +12,13 @@ mod ribbon;
 use leptos::prelude::*;
 use wasm_bindgen::JsCast as _;
 use wasm_bindgen::closure::Closure;
-use wordcraft_ui_egui::theme::Tokens;
-use wordcraft_ui_egui::{Action, tl};
+use wordfabrica_ui_egui::theme::Tokens;
+use wordfabrica_ui_egui::{Action, tl};
 
 use crate::bridge::Bridge;
 
-/// The egui canvas element (see `apps/wordcraft-web/index.html`).
-pub const CANVAS_ID: &str = "wordcraft_canvas";
+/// The egui canvas element (see `apps/wordfabrica-web/index.html`).
+pub const CANVAS_ID: &str = "wordfabrica_canvas";
 /// Page elements the chrome mounts into.
 pub const SLOTS: [&str; 7] = ["wc-title", "wc-tabs", "wc-ribbon", "wc-left", "wc-right", "wc-status", "wc-overlay"];
 
@@ -66,7 +66,7 @@ fn overlay(b: Bridge) -> impl IntoView {
 
 impl Bridge {
     /// A memo of one part of the state: views using it update only when that part changes.
-    pub fn select<T>(&self, f: impl Fn(&wordcraft_ui_egui::ChromeState) -> T + Send + Sync + 'static) -> Memo<T>
+    pub fn select<T>(&self, f: impl Fn(&wordfabrica_ui_egui::ChromeState) -> T + Send + Sync + 'static) -> Memo<T>
     where
         T: PartialEq + Clone + Send + Sync + 'static,
     {
@@ -120,12 +120,12 @@ pub fn css_color(c: egui::Color32) -> String {
 pub fn icon_svg(name: &str, px: f32, dark: bool, enabled: bool) -> String {
     let t = if dark { Tokens::dark() } else { Tokens::light() };
     let (c, a) = if enabled { (t.icon, t.accent) } else { (t.text_disabled, t.text_disabled) };
-    wordcraft_ui_egui::icons::svg(name, px, c, a)
+    wordfabrica_ui_egui::icons::svg(name, px, c, a)
 }
 
 /// An icon in fixed colours (white on the accent buttons).
 pub fn icon_svg_in(name: &str, px: f32, c: egui::Color32) -> String {
-    wordcraft_ui_egui::icons::svg(name, px, c, c)
+    wordfabrica_ui_egui::icons::svg(name, px, c, c)
 }
 
 /// Keep focus where it is when a toolbar control is clicked with the mouse: the document's

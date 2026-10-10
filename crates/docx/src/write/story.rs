@@ -1,10 +1,10 @@
 //! Blocks, paragraphs, runs, objects and tables → WordprocessingML.
 
-use wordcraft_doc::para::{Anchor, Float, NoteKind, ShapeKind, Wrap};
-use wordcraft_doc::props::CharProps;
-use wordcraft_doc::section::{LineNumberRestart, SectionProps, SectionStart};
-use wordcraft_doc::table::Table;
-use wordcraft_doc::{Block, Blocks, InlineObject, Paragraph, RevisionKind};
+use wordfabrica_doc::para::{Anchor, Float, NoteKind, ShapeKind, Wrap};
+use wordfabrica_doc::props::CharProps;
+use wordfabrica_doc::section::{LineNumberRestart, SectionProps, SectionStart};
+use wordfabrica_doc::table::Table;
+use wordfabrica_doc::{Block, Blocks, InlineObject, Paragraph, RevisionKind};
 
 use super::props::{borders, ppr_inner, rpr, rpr_inner, tblpr, tcpr, trpr};
 use super::{PartRels, Writer};
@@ -63,7 +63,7 @@ impl Writer<'_> {
     fn para(&mut self, w: &mut W, p: &Paragraph, rels: &mut PartRels, top: bool, depth: usize) {
         // A drop cap is a separate framed paragraph holding the first character.
         if let Some(lines) = p.props.drop_cap.filter(|l| *l > 0)
-            && let Some(first) = p.text.chars().next().filter(|c| !matches!(*c, wordcraft_doc::para::OBJ | '\t' | '\n' | '\u{c}' | '\u{e}'))
+            && let Some(first) = p.text.chars().next().filter(|c| !matches!(*c, wordfabrica_doc::para::OBJ | '\t' | '\n' | '\u{c}' | '\u{e}'))
             && p.text.len() > first.len_utf8()
         {
             let mut head = p.clone();
@@ -133,7 +133,7 @@ impl Writer<'_> {
                     '\u{000E}' => Some(Piece::Br(Some("column"))),
                     '\u{2011}' => Some(Piece::NbHyphen),
                     '\u{00AD}' => Some(Piece::SoftHyphen),
-                    wordcraft_doc::para::OBJ => {
+                    wordfabrica_doc::para::OBJ => {
                         let o = p.objects.get(k);
                         k += 1;
                         Some(match o {
@@ -308,7 +308,7 @@ impl Writer<'_> {
                 let nid = self.note_id(*id, foot);
                 let mut p = props.clone();
                 if p.style.is_none() && p.vert_align.is_none() {
-                    p.vert_align = Some(wordcraft_doc::props::VertAlign::Superscript);
+                    p.vert_align = Some(wordfabrica_doc::props::VertAlign::Superscript);
                 }
                 self.rev_open(w, props);
                 w.open("w:r", &[]);
@@ -347,7 +347,7 @@ impl Writer<'_> {
                 w.open("pic:blipFill", &[]);
                 w.empty("a:blip", &[("r:embed", &rid)]);
                 if crop.iter().any(|c| *c > 0.0) {
-                    let c = |v: f32| n((wordcraft_geom::finite(v).clamp(0.0, 1.0) * 100_000.0).round() as i64);
+                    let c = |v: f32| n((wordfabrica_geom::finite(v).clamp(0.0, 1.0) * 100_000.0).round() as i64);
                     w.empty("a:srcRect", &[("l", &c(crop[0])), ("t", &c(crop[1])), ("r", &c(crop[2])), ("b", &c(crop[3]))]);
                 }
                 w.open("a:stretch", &[]);
@@ -496,7 +496,7 @@ impl Writer<'_> {
                             flush(w, &mut buf);
                             w.empty("w:br", &[]);
                         }
-                        c if (c as u32) < 0x20 || c == wordcraft_doc::para::OBJ => {}
+                        c if (c as u32) < 0x20 || c == wordfabrica_doc::para::OBJ => {}
                         c => buf.push(c),
                     }
                 }
@@ -669,7 +669,7 @@ impl Writer<'_> {
             let refs: Vec<(&str, &str)> = a.iter().map(|(k, v)| (*k, v.as_str())).collect();
             w.empty("w:lnNumType", &refs);
         }
-        if s.page_num_start.is_some() || s.page_num_format != wordcraft_doc::section::NumFormat::Decimal {
+        if s.page_num_start.is_some() || s.page_num_format != wordfabrica_doc::section::NumFormat::Decimal {
             let mut a = vec![("w:fmt", s.page_num_format.ooxml().to_string())];
             if let Some(st) = s.page_num_start {
                 a.push(("w:start", st.to_string()));
@@ -697,9 +697,9 @@ impl Writer<'_> {
             w.empty("w:cols", &refs);
         }
         match s.valign {
-            wordcraft_doc::props::VAlign::Top => {}
-            wordcraft_doc::props::VAlign::Center => w.val("w:vAlign", "center"),
-            wordcraft_doc::props::VAlign::Bottom => w.val("w:vAlign", "bottom"),
+            wordfabrica_doc::props::VAlign::Top => {}
+            wordfabrica_doc::props::VAlign::Center => w.val("w:vAlign", "center"),
+            wordfabrica_doc::props::VAlign::Bottom => w.val("w:vAlign", "bottom"),
         }
         if s.title_page {
             w.empty("w:titlePg", &[]);

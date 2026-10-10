@@ -1,9 +1,9 @@
 //! The ribbon as data: tabs → groups → controls, each control naming the command it runs.
-//! It mirrors the egui ribbon (`wordcraft_ui_egui::ribbon`) so both front ends offer the same
+//! It mirrors the egui ribbon (`wordfabrica_ui_egui::ribbon`) so both front ends offer the same
 //! commands; the HTML view only decides how it looks. Plain data keeps it testable natively.
 
 use serde_json::{Value, json};
-use wordcraft_ui_egui::ChromeState;
+use wordfabrica_ui_egui::ChromeState;
 
 /// A command and its parameters (JSON text, parsed when clicked).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -844,7 +844,7 @@ const VIEW: &[Group] = &[
 // ---- Help ----
 
 const HELP: &[Group] = &[
-    group("Help", &[big("help", "Help", cp("ui.dialog", r#"{"name":"about"}"#)), big("discord", "Community\nDiscord", c("ui.discord"))]),
+    group("Help", &[big("help", "Help", cp("ui.dialog", r#"{"name":"about"}"#)), big("community", "Community\nDiscussions", c("ui.community"))]),
     group("Agents", &[big("macros", "Commands", cp("ui.dialog", r#"{"name":"commands"}"#))]),
 ];
 
@@ -993,10 +993,10 @@ pub const STANDARD_COLORS: [&str; 10] = ["C00000", "FF0000", "FFC000", "FFFF00",
 /// The theme part of a colour grid: six rows (base colours, then lighter and darker tints) of the
 /// ten theme colours in Word's column order, as hex. Same arithmetic as the egui grid.
 pub fn theme_color_rows(theme: &[String]) -> Vec<Vec<String>> {
-    let base: Vec<wordcraft_doc::Rgb> = theme.iter().take(10).filter_map(|h| wordcraft_doc::Rgb::parse(h)).collect();
-    let tint = |c: wordcraft_doc::Rgb, k: f32| {
+    let base: Vec<wordfabrica_doc::Rgb> = theme.iter().take(10).filter_map(|h| wordfabrica_doc::Rgb::parse(h)).collect();
+    let tint = |c: wordfabrica_doc::Rgb, k: f32| {
         let f = |v: u8| if k >= 0.0 { (v as f32 + (255.0 - v as f32) * k) as u8 } else { (v as f32 * (1.0 + k)) as u8 };
-        wordcraft_doc::Rgb(f(c.0), f(c.1), f(c.2))
+        wordfabrica_doc::Rgb(f(c.0), f(c.1), f(c.2))
     };
     let order = [1usize, 0, 3, 2, 4, 5, 6, 7, 8, 9];
     [0.0f32, 0.8, 0.6, 0.4, -0.25, -0.5].iter().map(|&k| order.iter().filter_map(|&i| base.get(i).map(|c| tint(*c, k).hex())).collect()).collect()
@@ -1014,7 +1014,7 @@ pub const CHROME_IDS: &[&str] = &[
     "ui.tab",
     "ui.backstage",
     "ui.collapseRibbon",
-    "ui.discord",
+    "ui.community",
     "review.trackChanges",
     "view.commentsPane",
     "view.zoom",
@@ -1128,7 +1128,7 @@ mod tests {
             "tools.dictate",
             "view.arrangeAll",
         ];
-        let reg = wordcraft_engine::cmd::registry();
+        let reg = wordfabrica_engine::cmd::registry();
         let missing: Vec<_> = all_ids().into_iter().filter(|id| !id.starts_with("ui.") && reg.get(id).is_none() && !NOT_YET.contains(id)).collect();
         assert!(missing.is_empty(), "unknown commands {missing:?}");
     }
@@ -1175,7 +1175,7 @@ mod tests {
     /// Every icon the ribbon names is drawn (not the lettered fallback tile).
     #[test]
     fn every_ribbon_icon_is_drawn() {
-        let fallback = |name: &str| wordcraft_ui_egui::icons::svg(name, 20.0, Default::default(), Default::default()).contains("<rect x=\"2.400\"");
+        let fallback = |name: &str| wordfabrica_ui_egui::icons::svg(name, 20.0, Default::default(), Default::default()).contains("<rect x=\"2.400\"");
         let mut icons = Vec::new();
         for t in TABS {
             for g in t.groups {

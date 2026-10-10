@@ -1,9 +1,9 @@
 //! Insert tab: pages, tables, pictures, shapes, links, bookmarks, headers/footers, text, symbols.
 
 use serde_json::{Value, json};
-use wordcraft_doc::para::{Float, InlineObject, ShapeKind, Wrap};
-use wordcraft_doc::props::{Align, CharProps, Rgb, TabAlign, TabStop, TextColor};
-use wordcraft_doc::{Block, Paragraph, PartKind, Path, Pos, StoryRef, Table, para_block};
+use wordfabrica_doc::para::{Float, InlineObject, ShapeKind, Wrap};
+use wordfabrica_doc::props::{Align, CharProps, Rgb, TabAlign, TabStop, TextColor};
+use wordfabrica_doc::{Block, Paragraph, PartKind, Path, Pos, StoryRef, Table, para_block};
 
 use super::{delete_selection, sel_result, split_para, type_text};
 use crate::{CmdError, CmdResult, CommandSpec, Selection, Session, p};
@@ -87,7 +87,7 @@ pub fn specs() -> Vec<CommandSpec> {
         .params(r#"{"lines"?: n (0 = none)}"#),
         CommandSpec::new("insert.horizontalLine", "Horizontal Line", "Home › Paragraph › Borders", |s, _| {
             super::para::fmt(s, &|p| {
-                p.borders = Some(wordcraft_doc::props::Borders { bottom: Some(wordcraft_doc::props::Border::single(1.5)), ..Default::default() })
+                p.borders = Some(wordfabrica_doc::props::Borders { bottom: Some(wordfabrica_doc::props::Border::single(1.5)), ..Default::default() })
             })
         }),
         CommandSpec::new("insert.wordArt", "WordArt", "Insert › Text", |s, v| {
@@ -101,7 +101,7 @@ pub fn specs() -> Vec<CommandSpec> {
         CommandSpec::new("insert.textFromFile", "Text from File", "Insert › Text › Object", |s, v| {
             let path = p::req_str(v, "path")?;
             let doc = crate::io::open_path(std::path::Path::new(path)).map_err(CmdError::Failed)?;
-            let frag = wordcraft_doc::edit::Fragment { blocks: doc.body.iter().map(|b| (**b).clone()).collect() };
+            let frag = wordfabrica_doc::edit::Fragment { blocks: doc.body.iter().map(|b| (**b).clone()).collect() };
             let at = delete_selection(s)?;
             let end = s.doc.insert_fragment(&at, &frag)?;
             s.sel = Selection::caret(end);
@@ -212,7 +212,7 @@ fn picture(s: &mut Session, v: &Value) -> CmdResult {
         return Err(CmdError::Failed("image is larger than 200 MB".into()));
     }
     let (pw, ph) =
-        wordcraft_render::image_size(&bytes).ok_or_else(|| CmdError::Failed("not a supported image (PNG, JPEG, GIF, WebP, BMP)".into()))?;
+        wordfabrica_render::image_size(&bytes).ok_or_else(|| CmdError::Failed("not a supported image (PNG, JPEG, GIF, WebP, BMP)".into()))?;
     let ext = match bytes.get(..4) {
         Some([0x89, b'P', b'N', b'G']) => "png",
         Some([0xFF, 0xD8, ..]) => "jpeg",
@@ -321,10 +321,10 @@ fn bookmark(s: &mut Session, v: &Value) -> CmdResult {
     // Replace an existing bookmark of the same name.
     for (_, pos) in s.doc.bookmarks().into_iter().filter(|(n, _)| *n == name).rev() {
         let para = s.doc.para_mut(pos.story, &pos.path)?;
-        para.delete(pos.off, pos.off + wordcraft_doc::para::OBJ.len_utf8())?;
+        para.delete(pos.off, pos.off + wordfabrica_doc::para::OBJ.len_utf8())?;
         let offs: Vec<usize> = para.object_offsets();
         if let Some(e) = offs.into_iter().find(|o| matches!(para.object_at(*o), Some(InlineObject::BookmarkEnd { name: n }) if *n == name)) {
-            para.delete(e, e + wordcraft_doc::para::OBJ.len_utf8())?;
+            para.delete(e, e + wordfabrica_doc::para::OBJ.len_utf8())?;
         }
     }
     let (a, b) = s.sel.ordered();
@@ -530,8 +530,13 @@ fn cover_page(s: &mut Session, v: &Value) -> CmdResult {
     }
     let mut t =
         Paragraph::with_text(&title, CharProps { size: Some(44.0), color: Some(TextColor::Rgb(accent)), ..Default::default() }).styled("Title");
-    t.props.borders = Some(wordcraft_doc::props::Borders {
-        bottom: Some(wordcraft_doc::props::Border { style: wordcraft_doc::props::BorderStyle::Single, width: 2.0, color: Some(accent), space: 6.0 }),
+    t.props.borders = Some(wordfabrica_doc::props::Borders {
+        bottom: Some(wordfabrica_doc::props::Border {
+            style: wordfabrica_doc::props::BorderStyle::Single,
+            width: 2.0,
+            color: Some(accent),
+            space: 6.0,
+        }),
         ..Default::default()
     });
     blocks.push(Block::Para(t));
@@ -544,7 +549,7 @@ fn cover_page(s: &mut Session, v: &Value) -> CmdResult {
     let mut date = Paragraph::with_text(&format_date("MMMM d, yyyy"), CharProps::default());
     date.insert_text(date.len(), "\u{000C}", &CharProps::default())?;
     blocks.push(Block::Para(date));
-    let frag = wordcraft_doc::edit::Fragment { blocks };
+    let frag = wordfabrica_doc::edit::Fragment { blocks };
     let start = s.doc.start_of(StoryRef::Body);
     let at = s.doc.split_paragraph(&start)?;
     let _ = at;

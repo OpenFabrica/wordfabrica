@@ -1,19 +1,19 @@
 [package]
-name = "wordcraft-ui-web"
+name = "wordfabrica-ui-web"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "WordCraft web chrome: HTML/CSS ribbon, panes, dialogs and File screen (Leptos) around the egui document canvas"
+description = "WordFabrica web chrome: HTML/CSS ribbon, panes, dialogs and File screen (Leptos) around the egui document canvas"
 
 [lints]
 workspace = true
 
 [dependencies]
-wordcraft-ui-egui = { workspace = true }
-wordcraft-engine = { workspace = true }
-wordcraft-doc = { workspace = true }
-wordcraft-geom = { workspace = true }
-wordcraft-remote = { workspace = true }
+wordfabrica-ui-egui = { workspace = true }
+wordfabrica-engine = { workspace = true }
+wordfabrica-doc = { workspace = true }
+wordfabrica-geom = { workspace = true }
+wordfabrica-remote = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }
 

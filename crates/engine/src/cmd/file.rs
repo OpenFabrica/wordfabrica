@@ -1,7 +1,7 @@
 //! File tab (Backstage): new, open, save, export, print, properties; document inspection.
 
 use serde_json::{Value, json};
-use wordcraft_doc::{Block, Document, StoryRef};
+use wordfabrica_doc::{Block, Document, StoryRef};
 
 use super::{pos_json, sel_result};
 use crate::{CmdError, CmdResult, CommandSpec, Session, p};
@@ -142,7 +142,7 @@ fn export_png(s: &mut Session, v: &Value) -> CmdResult {
     let scale = p::f32(v, "scale").unwrap_or(2.0).clamp(0.1, 8.0);
     let l = s.export_layout();
     let pg = l.pages.get(page).ok_or_else(|| CmdError::Params(format!("no page {}", page + 1)))?;
-    let img = wordcraft_render::render_page(&s.doc, pg, scale, &Default::default());
+    let img = wordfabrica_render::render_page(&s.doc, pg, scale, &Default::default());
     let png = img.to_png();
     #[cfg(not(target_arch = "wasm32"))]
     std::fs::write(path, &png).map_err(|e| CmdError::Failed(format!("{path}: {e}")))?;
@@ -252,7 +252,7 @@ fn inspect(s: &mut Session, v: &Value) -> CmdResult {
 fn paragraph(s: &mut Session, v: &Value) -> CmdResult {
     let path: Vec<u32> = serde_json::from_value(v.get("path").cloned().unwrap_or(json!([0]))).map_err(|e| CmdError::Params(e.to_string()))?;
     let story = super::story_param(s, v);
-    let p = s.doc.para(story, &wordcraft_doc::Path(path)).ok_or_else(|| CmdError::Params("no paragraph there".into()))?;
+    let p = s.doc.para(story, &wordfabrica_doc::Path(path)).ok_or_else(|| CmdError::Params("no paragraph there".into()))?;
     let resolved = s.doc.styles.resolve_para(&p.props);
     Ok(json!({"paragraph": p, "resolved": resolved}))
 }
@@ -263,7 +263,7 @@ fn layout_summary(s: &mut Session, _: &Value) -> CmdResult {
         .pages
         .iter()
         .map(|p| {
-            let lines: usize = p.items.iter().map(|it| if let wordcraft_layout::Placed::Lines { l0, l1, .. } = it { l1 - l0 } else { 0 }).sum();
+            let lines: usize = p.items.iter().map(|it| if let wordfabrica_layout::Placed::Lines { l0, l1, .. } = it { l1 - l0 } else { 0 }).sum();
             json!({"number": p.number, "w": p.w, "h": p.h, "section": p.section, "lines": lines, "firstBlock": p.first_block, "header": p.header_story, "footer": p.footer_story})
         })
         .collect();

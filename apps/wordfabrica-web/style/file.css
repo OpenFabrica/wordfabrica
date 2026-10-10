@@ -1,0 +1,81 @@
+/* WordFabrica web File screen (Backstage): a full-window overlay with the accent-coloured page list
+   on the left and the current page on the right. Colours come from the --wc-* theme variables. */
+
+.wc-file { position: fixed; inset: 0; z-index: 50; display: flex; background: var(--wc-ribbon); color: var(--wc-text);
+  font: 13px/1.35 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+.wc-file button, .wc-file input, .wc-file select { font: inherit; }
+.wc-file button:focus-visible, .wc-file input:focus-visible, .wc-file select:focus-visible { outline: 2px solid var(--wc-accent); outline-offset: -2px; }
+
+/* ---------- nav column ---------- */
+.wc-file-nav { display: flex; flex-direction: column; flex: none; width: 200px; padding: 12px 0; box-sizing: border-box;
+  background: var(--wc-accent); color: #fff; overflow-y: auto; }
+.wc-file-nav button { display: flex; align-items: center; width: 100%; border: 0; border-radius: 0; background: transparent;
+  color: #fff; text-align: left; }
+.wc-file-nav button:hover { background: rgba(255, 255, 255, 0.10); }
+.wc-file-nav button:focus-visible { outline: 2px solid #fff; outline-offset: -3px; }
+.wc-file-back { height: 40px; padding: 0 17px; margin-bottom: 6px; }
+.wc-file-back svg { display: block; }
+.wc-file-nav-item { height: 38px; padding: 0 22px; font-size: 14px; font-weight: 500; }
+.wc-file-nav-item.active { background: rgba(255, 255, 255, 0.18); font-weight: 600; }
+.wc-file-nav .wc-file-nav-item.active:hover { background: rgba(255, 255, 255, 0.22); }
+.wc-file-nav-spacer { flex: 1; }
+.wc-file-nav-minor { height: 32px; padding: 0 22px; font-size: 13px; }
+
+/* ---------- content ---------- */
+.wc-file-content { flex: 1; min-width: 0; overflow-y: auto; padding: 30px 40px; box-sizing: border-box; }
+.wc-file-heading { margin: 0 0 16px; font-size: 26px; font-weight: 600; }
+.wc-file-subheading { margin: 18px 0 6px; font-size: 15px; font-weight: 600; }
+.wc-file-text { max-width: 720px; margin: 0 0 12px; }
+.wc-file-dim { margin: 4px 0; color: var(--wc-text-dim); }
+.wc-file-error { margin: 4px 0; color: var(--wc-red); }
+.wc-file-hint { margin: 0 0 4px; font-size: 11.5px; color: var(--wc-text-dim); }
+.wc-fs-button { min-height: 30px; padding: 4px 14px; border: 1px solid var(--wc-border-strong); border-radius: 4px;
+  background: var(--wc-input); color: var(--wc-text); text-align: left; }
+.wc-fs-button:hover:not(:disabled) { background: var(--wc-hover); }
+.wc-fs-button:active:not(:disabled) { background: var(--wc-pressed); }
+.wc-fs-button:disabled { color: var(--wc-text-disabled); }
+.wc-browse { font-size: 14px; font-weight: 500; margin-bottom: 18px; }
+
+/* ---------- templates ---------- */
+.wc-templates { display: flex; flex-wrap: wrap; gap: 18px; margin-bottom: 28px; }
+.wc-template { display: flex; flex-direction: column; gap: 6px; width: 152px; padding: 0; border: 0; background: transparent;
+  color: var(--wc-text); text-align: left; }
+.wc-template-thumb { display: block; box-sizing: border-box; width: 150px; height: 194px; overflow: hidden; border: 1px solid var(--wc-border-strong);
+  border-radius: 2px; background: #fff; }
+.wc-template:hover .wc-template-thumb { border: 2px solid var(--wc-accent); }
+.wc-template-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.wc-template-label { font-size: 12.5px; }
+
+/* ---------- document lists ---------- */
+.wc-file-list { max-width: 700px; }
+.wc-file-list-head { display: flex; align-items: center; gap: 12px; }
+.wc-file-list-head .wc-file-subheading { margin: 0; }
+.wc-file-list > .wc-file-subheading, .wc-file-list-head { margin-bottom: 6px; }
+.wc-file-doc { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 4px 8px; box-sizing: border-box;
+  border: 0; border-radius: 4px; background: transparent; color: var(--wc-text); text-align: left; }
+.wc-file-doc:hover:not(:disabled) { background: var(--wc-hover); }
+.wc-file-doc:disabled { color: var(--wc-text-dim); }
+.wc-file-doc-icon { display: inline-flex; flex: none; width: 22px; height: 22px; }
+.wc-file-doc-icon svg { display: block; }
+.wc-file-doc-text { display: flex; flex-direction: column; min-width: 0; }
+.wc-file-doc-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wc-file-doc-detail { font-size: 11px; color: var(--wc-text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- Info ---------- */
+.wc-file-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; max-width: 900px; }
+.wc-file-columns .wc-file-subheading { margin-top: 0; }
+.wc-file-form { display: grid; grid-template-columns: max-content minmax(220px, 320px); justify-content: start; gap: 6px 12px; align-items: center; margin-bottom: 8px; }
+.wc-file-field-label { color: var(--wc-text); }
+.wc-file-input { box-sizing: border-box; width: 100%; height: 28px; padding: 0 8px; border: 1px solid var(--wc-input-border);
+  border-radius: 4px; background: var(--wc-input); color: var(--wc-text); }
+.wc-file-input:focus { outline: none; border-color: var(--wc-accent); }
+.wc-file-stat { margin: 0 0 4px; }
+.wc-file-location { overflow-wrap: anywhere; }
+
+/* ---------- Print / Export ---------- */
+.wc-exports { display: flex; flex-direction: column; gap: 4px; }
+.wc-export { width: 320px; min-height: 34px; font-size: 13.5px; font-weight: 500; }
+
+/* ---------- Options ---------- */
+.wc-file-check { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+.wc-file-check input { margin: 0; accent-color: var(--wc-accent); }

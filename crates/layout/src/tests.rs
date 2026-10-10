@@ -1,7 +1,7 @@
 use super::*;
-use wordcraft_doc::para::InlineObject;
-use wordcraft_doc::props::{Align, ParaProps};
-use wordcraft_doc::{Pos, Table};
+use wordfabrica_doc::para::InlineObject;
+use wordfabrica_doc::props::{Align, ParaProps};
+use wordfabrica_doc::{Pos, Table};
 
 fn lay(doc: &Document) -> DocLayout {
     let mut c = LayoutCache::new();
@@ -46,7 +46,7 @@ fn long_paragraph_wraps_and_paginates() {
 
 #[test]
 fn hit_and_caret_agree() {
-    let d = Document::from_text("Hello world, this is WordCraft.\nSecond paragraph here.");
+    let d = Document::from_text("Hello world, this is WordFabrica.\nSecond paragraph here.");
     let l = lay(&d);
     for off in [0, 5, 12, 31] {
         let pos = Pos::body(0, off);
@@ -96,7 +96,8 @@ fn tabs_land_on_default_stops() {
 fn right_tab_aligns_text_end() {
     let mut d = Document::from_text("left\tright");
     d.format_paragraphs(&Pos::body(0, 0), &Pos::body(0, 0), &|p| {
-        p.tabs = Some(vec![wordcraft_doc::props::TabStop { pos: 400.0, align: wordcraft_doc::props::TabAlign::Right, leader: Default::default() }])
+        p.tabs =
+            Some(vec![wordfabrica_doc::props::TabStop { pos: 400.0, align: wordfabrica_doc::props::TabAlign::Right, leader: Default::default() }])
     })
     .unwrap();
     let l = lay(&d);
@@ -107,8 +108,8 @@ fn right_tab_aligns_text_end() {
 #[test]
 fn lists_get_labels_and_indent() {
     let mut d = Document::from_text("one\ntwo\nthree");
-    let id = d.numbering.add_list(wordcraft_doc::ListKind::Numbered);
-    d.format_paragraphs(&Pos::body(0, 0), &Pos::body(2, 0), &|p| p.numbering = Some(wordcraft_doc::props::NumRef { num: id, level: 0 })).unwrap();
+    let id = d.numbering.add_list(wordfabrica_doc::ListKind::Numbered);
+    d.format_paragraphs(&Pos::body(0, 0), &Pos::body(2, 0), &|p| p.numbering = Some(wordfabrica_doc::props::NumRef { num: id, level: 0 })).unwrap();
     let l = lay(&d);
     let labels: Vec<String> = l.pages[0]
         .items
@@ -124,17 +125,17 @@ fn lists_get_labels_and_indent() {
 fn symbol_font_bullet_without_the_font_draws_a_bullet() {
     // Word's default bullet: U+F0B7 in Symbol.
     let mut d = Document::from_text("one");
-    let id = d.numbering.add_list(wordcraft_doc::ListKind::BulletChar('\u{F0B7}'));
+    let id = d.numbering.add_list(wordfabrica_doc::ListKind::BulletChar('\u{F0B7}'));
     for a in &mut d.numbering.abstracts {
         if let Some(l) = a.levels.first_mut() {
             l.chr.font = Some("Symbol".into());
         }
     }
-    d.format_paragraphs(&Pos::body(0, 0), &Pos::body(0, 0), &|p| p.numbering = Some(wordcraft_doc::props::NumRef { num: id, level: 0 })).unwrap();
+    d.format_paragraphs(&Pos::body(0, 0), &Pos::body(0, 0), &|p| p.numbering = Some(wordfabrica_doc::props::NumRef { num: id, level: 0 })).unwrap();
     let l = lay(&d);
     let label = l.pages[0].items.iter().find_map(|it| if let Placed::Lines { para, .. } = it { para.label.clone() } else { None }).unwrap();
     // Where a real Symbol font with the private-use code is installed (Windows), the code stays.
-    let symbol = wordcraft_fonts::word::resolve("Symbol", false, false);
+    let symbol = wordfabrica_fonts::word::resolve("Symbol", false, false);
     let expected = if symbol.substituted || !symbol.face.covers('\u{F0B7}') { "\u{2022}" } else { "\u{F0B7}" };
     assert_eq!(label.text, expected);
     assert_eq!(label.glyphs.len(), 1);
@@ -144,8 +145,8 @@ fn symbol_font_bullet_without_the_font_draws_a_bullet() {
 fn tables_lay_out_cells() {
     let mut d = Document::from_text("before\nafter");
     let mut t = Table::new(2, 3, 468.0);
-    t.rows[0].cells[1].blocks = vec![wordcraft_doc::para_block(wordcraft_doc::Paragraph::with_text("cell text", Default::default()))];
-    d.insert_block(StoryRef::Body, &Path::top(1), wordcraft_doc::Block::Table(t)).unwrap();
+    t.rows[0].cells[1].blocks = vec![wordfabrica_doc::para_block(wordfabrica_doc::Paragraph::with_text("cell text", Default::default()))];
+    d.insert_block(StoryRef::Body, &Path::top(1), wordfabrica_doc::Block::Table(t)).unwrap();
     let l = lay(&d);
     let pos = Pos { story: StoryRef::Body, path: Path(vec![1, 0, 1, 0]), off: 0 };
     let c = l.caret(&pos).unwrap();
@@ -160,9 +161,9 @@ fn tables_lay_out_cells() {
 #[test]
 fn headers_and_page_fields() {
     let mut d = Document::from_text(&"para\n".repeat(120));
-    let mut hp = wordcraft_doc::Paragraph::new();
+    let mut hp = wordfabrica_doc::Paragraph::new();
     hp.insert_object(0, InlineObject::Field { instr: "PAGE".into(), result: String::new(), locked: false }, &Default::default()).unwrap();
-    let id = d.add_part(wordcraft_doc::PartKind::Footer, vec![wordcraft_doc::para_block(hp)]);
+    let id = d.add_part(wordfabrica_doc::PartKind::Footer, vec![wordfabrica_doc::para_block(hp)]);
     d.last_section.footers.default = Some(id);
     let l = lay(&d);
     assert!(l.pages.len() >= 2);
@@ -179,8 +180,8 @@ fn headers_and_page_fields() {
 #[test]
 fn tall_first_page_header_pushes_body_down() {
     let mut d = Document::from_text(&"para\n".repeat(120));
-    let tall: Vec<_> = (0..12).map(|_| wordcraft_doc::para_block(wordcraft_doc::Paragraph::new())).collect();
-    let id = d.add_part(wordcraft_doc::PartKind::Header, tall);
+    let tall: Vec<_> = (0..12).map(|_| wordfabrica_doc::para_block(wordfabrica_doc::Paragraph::new())).collect();
+    let id = d.add_part(wordfabrica_doc::PartKind::Header, tall);
     d.last_section.headers.first = Some(id);
     d.last_section.title_page = true;
     let l = lay(&d);
@@ -216,7 +217,7 @@ fn selection_rects_cover_range() {
 #[test]
 fn display_has_glyphs_and_marks() {
     let mut d = Document::from_text("Hello\tworld");
-    d.format_range(&Pos::body(0, 0), &Pos::body(0, 5), &|c| c.underline = Some(wordcraft_doc::props::Underline::Single)).unwrap();
+    d.format_range(&Pos::body(0, 0), &Pos::body(0, 5), &|c| c.underline = Some(wordfabrica_doc::props::Underline::Single)).unwrap();
     let l = lay(&d);
     let items = display::page_display(&d, &l.pages[0], &display::DisplayOptions { marks: true, ..Default::default() });
     assert!(items.iter().any(|i| matches!(i, display::Draw::Glyphs { .. })));
@@ -276,22 +277,22 @@ fn empty_center_tab_then_right_tab() {
 #[test]
 fn footnotes_sit_at_page_bottom() {
     let mut d = Document::from_text(&"Body text line.\n".repeat(30));
-    let mut note = wordcraft_doc::Paragraph::with_text("The note text.", Default::default()).styled("FootnoteText");
+    let mut note = wordfabrica_doc::Paragraph::with_text("The note text.", Default::default()).styled("FootnoteText");
     note.props.space_after = Some(0.0);
-    let id = d.add_part(wordcraft_doc::PartKind::Footnote, vec![wordcraft_doc::para_block(note)]);
+    let id = d.add_part(wordfabrica_doc::PartKind::Footnote, vec![wordfabrica_doc::para_block(note)]);
     d.insert_object(
         &Pos::body(3, 4),
-        InlineObject::NoteRef { kind: wordcraft_doc::para::NoteKind::Footnote, id, custom: String::new() },
+        InlineObject::NoteRef { kind: wordfabrica_doc::para::NoteKind::Footnote, id, custom: String::new() },
         &Default::default(),
     )
     .unwrap();
     let eid = d.add_part(
-        wordcraft_doc::PartKind::Endnote,
-        vec![wordcraft_doc::para_block(wordcraft_doc::Paragraph::with_text("An endnote.", Default::default()))],
+        wordfabrica_doc::PartKind::Endnote,
+        vec![wordfabrica_doc::para_block(wordfabrica_doc::Paragraph::with_text("An endnote.", Default::default()))],
     );
     d.insert_object(
         &Pos::body(5, 2),
-        InlineObject::NoteRef { kind: wordcraft_doc::para::NoteKind::Endnote, id: eid, custom: String::new() },
+        InlineObject::NoteRef { kind: wordfabrica_doc::para::NoteKind::Endnote, id: eid, custom: String::new() },
         &Default::default(),
     )
     .unwrap();
@@ -311,16 +312,16 @@ fn footnotes_sit_at_page_bottom() {
 #[test]
 fn text_wraps_around_square_float() {
     let mut d = Document::from_text(&"Words flow around the picture here. ".repeat(30));
-    let float = wordcraft_doc::para::Float {
-        wrap: wordcraft_doc::para::Wrap::Square,
-        h_rel: wordcraft_doc::para::Anchor::Column,
-        v_rel: wordcraft_doc::para::Anchor::Paragraph,
+    let float = wordfabrica_doc::para::Float {
+        wrap: wordfabrica_doc::para::Wrap::Square,
+        h_rel: wordfabrica_doc::para::Anchor::Column,
+        v_rel: wordfabrica_doc::para::Anchor::Paragraph,
         x: 0.0,
         y: 0.0,
         dist: 9.0,
     };
     let shape = InlineObject::Shape {
-        kind: wordcraft_doc::para::ShapeKind::Rectangle,
+        kind: wordfabrica_doc::para::ShapeKind::Rectangle,
         w: 144.0,
         h: 100.0,
         fill: None,
@@ -344,13 +345,13 @@ fn text_wraps_around_square_float() {
 fn line_numbers_borders_text_boxes() {
     let mut d = Document::from_text("one\ntwo\nthree");
     d.last_section.line_numbers = Some(Default::default());
-    d.last_section.page_borders = Some(wordcraft_doc::props::Borders::box_(wordcraft_doc::props::Border::single(1.0)));
+    d.last_section.page_borders = Some(wordfabrica_doc::props::Borders::box_(wordfabrica_doc::props::Border::single(1.0)));
     let id = d.add_part(
-        wordcraft_doc::PartKind::TextBox,
-        vec![wordcraft_doc::para_block(wordcraft_doc::Paragraph::with_text("inside the box", Default::default()))],
+        wordfabrica_doc::PartKind::TextBox,
+        vec![wordfabrica_doc::para_block(wordfabrica_doc::Paragraph::with_text("inside the box", Default::default()))],
     );
     let tb = InlineObject::Shape {
-        kind: wordcraft_doc::para::ShapeKind::TextBox,
+        kind: wordfabrica_doc::para::ShapeKind::TextBox,
         w: 144.0,
         h: 72.0,
         fill: None,
@@ -373,8 +374,8 @@ fn tall_rows_split_across_pages() {
     let mut d = Document::from_text("before\nafter");
     let mut t = Table::new(2, 2, 468.0);
     let long = "Row text that keeps going and going so the cell grows taller than a page. ".repeat(120);
-    t.rows[0].cells[0].blocks = vec![wordcraft_doc::para_block(wordcraft_doc::Paragraph::with_text(&long, Default::default()))];
-    d.insert_block(StoryRef::Body, &Path::top(1), wordcraft_doc::Block::Table(t.clone())).unwrap();
+    t.rows[0].cells[0].blocks = vec![wordfabrica_doc::para_block(wordfabrica_doc::Paragraph::with_text(&long, Default::default()))];
+    d.insert_block(StoryRef::Body, &Path::top(1), wordfabrica_doc::Block::Table(t.clone())).unwrap();
     let l = lay(&d);
     assert!(l.pages.len() >= 2, "pages {}", l.pages.len());
     // The cell's lines start on page 1 (row split, not moved) and continue on page 2.
@@ -407,7 +408,7 @@ fn tall_rows_split_across_pages() {
     // "Can't split" rows move whole instead.
     let mut d2 = Document::from_text("before\nafter");
     t.rows[0].props.cant_split = true;
-    d2.insert_block(StoryRef::Body, &Path::top(1), wordcraft_doc::Block::Table(t)).unwrap();
+    d2.insert_block(StoryRef::Body, &Path::top(1), wordfabrica_doc::Block::Table(t)).unwrap();
     let l2 = lay(&d2);
     assert!(l2.pages.len() >= 2);
 }
@@ -415,10 +416,10 @@ fn tall_rows_split_across_pages() {
 #[test]
 fn drop_cap_indents_its_lines() {
     let mut p =
-        wordcraft_doc::Paragraph::with_text(&"Every line of this paragraph wraps around a large first letter. ".repeat(6), Default::default());
+        wordfabrica_doc::Paragraph::with_text(&"Every line of this paragraph wraps around a large first letter. ".repeat(6), Default::default());
     p.props.drop_cap = Some(3);
     let mut d = Document::from_text("x");
-    d.body = vec![wordcraft_doc::para_block(p)];
+    d.body = vec![wordfabrica_doc::para_block(p)];
     let l = lay(&d);
     let Some(pl) = l.pages[0].items.iter().find_map(|i| if let Placed::Lines { para, .. } = i { Some(para.clone()) } else { None }) else {
         panic!("no lines")

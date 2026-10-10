@@ -7,7 +7,7 @@ use std::time::Duration;
 use serde_json::{Value, json};
 
 /// Something that answers control-channel methods (`engine.execute`, `document.inspect`,
-/// `ui.pointer`, `ui.render`, …). See `wordcraft_ui_egui::control` for the full list.
+/// `ui.pointer`, `ui.render`, …). See `wordfabrica_ui_egui::control` for the full list.
 pub trait Backend {
     /// Call one method. `Ok` carries the `result`, `Err` the error message.
     fn call(&mut self, method: &str, params: Value) -> Result<Value, String>;
@@ -17,7 +17,7 @@ pub trait Backend {
     fn describe(&self) -> String;
 }
 
-/// A running WordCraft app, reached through its loopback control port.
+/// A running WordFabrica app, reached through its loopback control port.
 pub struct Remote {
     addr: String,
     conn: Option<(BufReader<TcpStream>, TcpStream)>,
@@ -85,7 +85,7 @@ impl Backend for Remote {
                 self.conn = None;
                 self.roundtrip(&line).map_err(|e| {
                     self.conn = None;
-                    format!("WordCraft app at {} is not reachable: {e}", self.addr)
+                    format!("WordFabrica app at {} is not reachable: {e}", self.addr)
                 })?
             }
         };
@@ -102,6 +102,6 @@ impl Backend for Remote {
     }
 
     fn describe(&self) -> String {
-        format!("connected to the WordCraft app at {}", self.addr)
+        format!("connected to the WordFabrica app at {}", self.addr)
     }
 }

@@ -1,4 +1,4 @@
-//! WordCraft import/export for the "other" text formats: plain text, Markdown (CommonMark subset
+//! WordFabrica import/export for the "other" text formats: plain text, Markdown (CommonMark subset
 //! plus GFM tables and strikethrough), HTML, RTF and OpenDocument Text.
 //!
 //! Every format maps to a small flow model ([`model::Flow`]: paragraphs with a kind, list
@@ -15,7 +15,7 @@ pub mod odt;
 pub mod rtf;
 pub mod txt;
 
-use wordcraft_doc::Document;
+use wordfabrica_doc::Document;
 
 /// Extensions this crate handles.
 pub const EXTENSIONS: &[&str] = &["txt", "text", "md", "markdown", "html", "htm", "xhtml", "rtf", "odt"];

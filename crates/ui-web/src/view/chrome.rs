@@ -3,7 +3,7 @@
 
 use leptos::prelude::*;
 use serde_json::json;
-use wordcraft_ui_egui::{Action, tl};
+use wordfabrica_ui_egui::{Action, tl};
 
 use super::{icon_svg, icon_svg_in, input_value, keep_focus, menus, t};
 use crate::bridge::{Bridge, MenuSource};
@@ -38,7 +38,7 @@ pub fn title_bar(b: Bridge) -> impl IntoView {
     let autosave = b.select(|s| (s.autosave, s.autosave_ready));
     let title = b.select(|s| if s.title_status.is_empty() { s.title.clone() } else { format!("{} — {}", s.title, tl!(&s.title_status)) });
     let author = b.select(|s| s.author.clone());
-    let discord = b.select(|s| s.show_discord);
+    let community = b.select(|s| s.show_community);
     let always = Memo::new(|_| true);
     let (b1, b2, b3, b4) = (b.clone(), b.clone(), b.clone(), b.clone());
     let initials = move || author.get().split_whitespace().filter_map(|w| w.chars().next()).take(2).collect::<String>();
@@ -56,7 +56,7 @@ pub fn title_bar(b: Bridge) -> impl IntoView {
                 <span class="wc-knob"></span>
             </button>
             {qat(&b, "save", || t("Save"), "file.save", always, dark)}
-            {qat(&b, "undo", move || wordcraft_ui_egui::i18n::prefixed("Undo", &undo_label.get()), "edit.undo", can_undo, dark)}
+            {qat(&b, "undo", move || wordfabrica_ui_egui::i18n::prefixed("Undo", &undo_label.get()), "edit.undo", can_undo, dark)}
             {qat(&b, "redo", || t("Redo"), "edit.redo", can_redo, dark)}
         </div>
         <div class="wc-title" role="heading" attr:aria-level="1">{move || title.get()}</div>
@@ -65,13 +65,13 @@ pub fn title_bar(b: Bridge) -> impl IntoView {
                 <span class="wc-icon16" inner_html=move || icon_svg("search", 16.0, dark.get(), true)></span>
                 <span>{t("Search commands and help")}</span>
             </button>
-            {move || discord.get().then(|| {
+            {move || community.get().then(|| {
                 let b = b4.clone();
                 view! {
-                    <button class="wc-discord" title=t("Join the ArtCraft community on Discord") on:mousedown=keep_focus
-                        on:click=move |_| b.send(Action::run("ui.discord", json!({})))>
-                        <span class="wc-icon14" inner_html=icon_svg_in("discord", 14.0, egui::Color32::WHITE)></span>
-                        <span>{t("Discord")}</span>
+                    <button class="wc-community" title=t("Join the OpenFabrica community on GitHub") on:mousedown=keep_focus
+                        on:click=move |_| b.send(Action::run("ui.community", json!({})))>
+                        <span class="wc-icon14" inner_html=icon_svg_in("community", 14.0, egui::Color32::WHITE)></span>
+                        <span>{t("Community")}</span>
                     </button>
                 }
             })}
@@ -159,20 +159,20 @@ pub fn status_bar(b: Bridge) -> impl IntoView {
     let (b1, b2, b3, b4, b5, b6) = (b.clone(), b.clone(), b.clone(), b.clone(), b.clone(), b.clone());
     let pages = move || {
         let s = status.get();
-        wordcraft_ui_egui::i18n::fmt(tl!("Page {page} of {pages}"), &[("page", &s.page.to_string()), ("pages", &s.pages.to_string())])
+        wordfabrica_ui_egui::i18n::fmt(tl!("Page {page} of {pages}"), &[("page", &s.page.to_string()), ("pages", &s.pages.to_string())])
     };
     let words = move || {
         let s = status.get();
         match s.selected_words {
             Some(sel) => {
-                wordcraft_ui_egui::i18n::fmt(tl!("{selected} of {words} words"), &[("selected", &sel.to_string()), ("words", &s.words.to_string())])
+                wordfabrica_ui_egui::i18n::fmt(tl!("{selected} of {words} words"), &[("selected", &sel.to_string()), ("words", &s.words.to_string())])
             }
-            None => wordcraft_ui_egui::i18n::fmt(tl!("{words} words"), &[("words", &s.words.to_string())]),
+            None => wordfabrica_ui_egui::i18n::fmt(tl!("{words} words"), &[("words", &s.words.to_string())]),
         }
     };
     let language = move || {
         status.with(|s| match &s.doc_lang {
-            Some(code) => wordcraft_ui_egui::language::label(code).to_string(),
+            Some(code) => wordfabrica_ui_egui::language::label(code).to_string(),
             None => t("Multiple languages"),
         })
     };

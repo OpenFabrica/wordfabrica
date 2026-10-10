@@ -46,9 +46,9 @@ jobs:
           }
       - name: XML, desktop entry, AppStream, Flatpak manifest
         run: |
-          xmllint --noout packaging/windows/wordcraft.wxs packaging/macos/*.plist* packaging/linux/*.xml*
+          xmllint --noout packaging/windows/wordfabrica.wxs packaging/macos/*.plist* packaging/linux/*.xml*
           # Windows Installer needs Icon ids ending in .ico or .exe, or shortcuts show a blank icon.
-          if grep -oE '<Icon Id="[^"]*"' packaging/windows/wordcraft.wxs | grep -vE '\.(ico|exe)"$'; then
+          if grep -oE '<Icon Id="[^"]*"' packaging/windows/wordfabrica.wxs | grep -vE '\.(ico|exe)"$'; then
             echo "::error::Icon Id must end in .ico or .exe"; exit 1
           fi
           # Each Craft app needs its own MSI UpgradeCode and component GUIDs. Sharing one with a
@@ -63,22 +63,22 @@ jobs:
             AACA8593-C6ED-40A8-BA6C-CB325D8529F9 BA719860-95FE-4154-B265-47006B8E9083
             49E87D30-BB68-4896-AA1D-F45C833CFC3C DE018EF3-EE87-4E36-9F76-0B7B060A195E'
           for code in $siblings; do
-            if grep -qi "$code" packaging/windows/wordcraft.wxs; then
-              echo "::error file=packaging/windows/wordcraft.wxs::$code belongs to a sibling Craft app's MSI; generate a new GUID"; exit 1
+            if grep -qi "$code" packaging/windows/wordfabrica.wxs; then
+              echo "::error file=packaging/windows/wordfabrica.wxs::$code belongs to a sibling Craft app's MSI; generate a new GUID"; exit 1
             fi
           done
-          if [ "$(grep -oiE '(UpgradeCode|Guid)="[0-9A-F-]{36}"' packaging/windows/wordcraft.wxs | cut -d'"' -f2 | sort -f | uniq -di)" ]; then
-            echo "::error file=packaging/windows/wordcraft.wxs::duplicate GUID"; exit 1
+          if [ "$(grep -oiE '(UpgradeCode|Guid)="[0-9A-F-]{36}"' packaging/windows/wordfabrica.wxs | cut -d'"' -f2 | sort -f | uniq -di)" ]; then
+            echo "::error file=packaging/windows/wordfabrica.wxs::duplicate GUID"; exit 1
           fi
-          desktop-file-validate packaging/linux/ai.storyteller.wordcraft.desktop
-          sed -e 's/@VERSION@/0.0.0/' -e 's/@DATE@/2026-01-01/' packaging/linux/ai.storyteller.wordcraft.metainfo.xml.in >"$RUNNER_TEMP/ai.storyteller.wordcraft.metainfo.xml"
-          appstreamcli validate --no-net --explain "$RUNNER_TEMP/ai.storyteller.wordcraft.metainfo.xml"
+          desktop-file-validate packaging/linux/dev.openfabrica.wordfabrica.desktop
+          sed -e 's/@VERSION@/0.0.0/' -e 's/@DATE@/2026-01-01/' packaging/linux/dev.openfabrica.wordfabrica.metainfo.xml.in >"$RUNNER_TEMP/dev.openfabrica.wordfabrica.metainfo.xml"
+          appstreamcli validate --no-net --explain "$RUNNER_TEMP/dev.openfabrica.wordfabrica.metainfo.xml"
           python3 - <<'EOF'
           import yaml
-          src = yaml.safe_load(open("packaging/linux/flatpak/ai.storyteller.wordcraft.yml"))
-          bundle = yaml.safe_load(open("packaging/linux/flatpak/ai.storyteller.wordcraft.bundle.yml"))
+          src = yaml.safe_load(open("packaging/linux/flatpak/dev.openfabrica.wordfabrica.yml"))
+          bundle = yaml.safe_load(open("packaging/linux/flatpak/dev.openfabrica.wordfabrica.bundle.yml"))
           for m in (src, bundle):
-              assert m["id"] == "ai.storyteller.wordcraft" and m["command"] == "wordcraft", m["id"]
+              assert m["id"] == "dev.openfabrica.wordfabrica" and m["command"] == "wordfabrica", m["id"]
           for key in ("runtime", "runtime-version", "sdk", "finish-args"):
               assert src[key] == bundle[key], f"Flatpak manifests disagree on {key}: {src[key]} vs {bundle[key]}"
           print("Flatpak manifests ok")

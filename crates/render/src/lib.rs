@@ -1,4 +1,4 @@
-//! WordCraft rasteriser: draws a page's display list with vello_cpu.
+//! WordFabrica rasteriser: draws a page's display list with vello_cpu.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 use std::collections::HashMap;
@@ -7,12 +7,12 @@ use std::sync::{Arc, Mutex};
 use vello_cpu::kurbo::{self, Affine, BezPath, Shape};
 use vello_cpu::peniko;
 use vello_cpu::{Pixmap, RenderContext, Resources};
-use wordcraft_doc::Document;
-use wordcraft_doc::para::ShapeKind;
-use wordcraft_doc::props::Rgb;
-use wordcraft_fonts::FontDb;
-use wordcraft_layout::Page;
-use wordcraft_layout::display::{DisplayOptions, Draw, Stroke, page_display};
+use wordfabrica_doc::Document;
+use wordfabrica_doc::para::ShapeKind;
+use wordfabrica_doc::props::Rgb;
+use wordfabrica_fonts::FontDb;
+use wordfabrica_layout::Page;
+use wordfabrica_layout::display::{DisplayOptions, Draw, Stroke, page_display};
 
 /// Worker threads for rasterising (0 on the web, where there are no threads).
 pub fn default_threads() -> u16 {
@@ -194,10 +194,10 @@ pub fn render_region(doc: &Document, page: &Page, w: u32, h: u32, view: Affine, 
     Rendered { width: w16 as u32, height: h16 as u32, pixels }
 }
 
-fn draw_watermark(ctx: &mut RenderContext, view: Affine, page: &Page, wm: &wordcraft_doc::Watermark) {
-    let r = wordcraft_fonts::word::resolve(&wm.font, false, false);
+fn draw_watermark(ctx: &mut RenderContext, view: Affine, page: &Page, wm: &wordfabrica_doc::Watermark) {
+    let r = wordfabrica_fonts::word::resolve(&wm.font, false, false);
     let face = r.face;
-    let glyphs = wordcraft_fonts::shape(&face, &wm.text, &[], |c| c);
+    let glyphs = wordfabrica_fonts::shape(&face, &wm.text, &[], |c| c);
     let upem = face.upem.max(1.0);
     let raw_w: f64 = glyphs.iter().map(|g| g.x_advance as f64).sum::<f64>() / upem;
     if raw_w <= 0.0 {
@@ -301,11 +301,11 @@ fn draw(ctx: &mut RenderContext, doc: &Document, it: &Draw, view: Affine, visibl
             }
         }
         Draw::Mark { x, baseline, size, ch } => {
-            let face = wordcraft_fonts::word::resolve("Source Sans 3", false, false).face;
+            let face = wordfabrica_fonts::word::resolve("Source Sans 3", false, false).face;
             let gid = face.glyph_for(*ch);
             let face = if gid == 0 {
                 match FontDb::global().fallback_for(*ch, face.id()) {
-                    Some(f) => wordcraft_fonts::FaceRef::of(&f),
+                    Some(f) => wordfabrica_fonts::FaceRef::of(&f),
                     None => return,
                 }
             } else {
@@ -444,11 +444,11 @@ pub fn render_area(doc: &Document, page: &Page, x: f32, y: f32, w: f32, h: f32, 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wordcraft_layout::{LayoutCache, LayoutOptions, layout};
+    use wordfabrica_layout::{LayoutCache, LayoutOptions, layout};
 
     #[test]
     fn renders_text_dark_pixels() {
-        let d = Document::from_text("Hello WordCraft");
+        let d = Document::from_text("Hello WordFabrica");
         let l = layout(&d, &mut LayoutCache::new(), &LayoutOptions::default());
         let img = render_page(&d, &l.pages[0], 1.0, &RenderOptions::default());
         assert_eq!((img.width, img.height), (612, 792));
@@ -478,10 +478,11 @@ mod tests {
             .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
             .unwrap();
         let media = d.add_media(png, "png");
-        let mut hp = wordcraft_doc::Paragraph::new();
-        let obj = wordcraft_doc::para::InlineObject::Image { media, w: 40.0, h: 40.0, alt: String::new(), float: Default::default(), crop: [0.0; 4] };
+        let mut hp = wordfabrica_doc::Paragraph::new();
+        let obj =
+            wordfabrica_doc::para::InlineObject::Image { media, w: 40.0, h: 40.0, alt: String::new(), float: Default::default(), crop: [0.0; 4] };
         hp.insert_object(0, obj, &Default::default()).unwrap();
-        let id = d.add_part(wordcraft_doc::PartKind::Header, vec![wordcraft_doc::para_block(hp)]);
+        let id = d.add_part(wordfabrica_doc::PartKind::Header, vec![wordfabrica_doc::para_block(hp)]);
         d.last_section.headers.default = Some(id);
         let l = layout(&d, &mut LayoutCache::new(), &LayoutOptions::default());
         let opts = RenderOptions::default();

@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use wordcraft_doc::{Pos, StoryRef};
+use wordfabrica_doc::{Pos, StoryRef};
 
 use crate::WordApp;
 use crate::dialogs::{Dialog, DialogButton};
@@ -260,7 +260,7 @@ pub struct ChromeState {
     pub autosave: bool,
     pub autosave_ready: bool,
     pub author: String,
-    pub show_discord: bool,
+    pub show_community: bool,
     pub tab: String,
     pub backstage: bool,
     pub ribbon_collapsed: bool,
@@ -340,7 +340,7 @@ pub enum Action {
     /// File ▸ Options.
     SetAuthor(String),
     SetAutosave(bool),
-    SetShowDiscord(bool),
+    SetShowCommunity(bool),
     /// Title bar AutoSave switch: toggles, or asks for a file name first.
     ToggleAutosave,
     /// Put the selection on the system clipboard (after `edit.copy` / `edit.cut`).
@@ -364,7 +364,7 @@ impl WordApp {
     /// `printLayout`, `readMode`.
     pub fn chrome_state(&mut self, ids: &[&str]) -> ChromeState {
         let lang = crate::i18n::Lang::from_pref(&self.ui.language);
-        let fmt_value = wordcraft_engine::cmd::format::state(&self.session);
+        let fmt_value = wordfabrica_engine::cmd::format::state(&self.session);
         let format = FormatState::from_value(&fmt_value);
         let para = self
             .session
@@ -397,8 +397,8 @@ impl WordApp {
             ("multiplePages", v.multi_page),
             ("pageWidth", v.fit == "pageWidth"),
             ("hyphenation", self.session.doc.settings.auto_hyphenation),
-            ("webLayout", mode == wordcraft_layout::ViewMode::Web),
-            ("printLayout", mode == wordcraft_layout::ViewMode::Print && !v.read_mode),
+            ("webLayout", mode == wordfabrica_layout::ViewMode::Web),
+            ("printLayout", mode == wordfabrica_layout::ViewMode::Print && !v.read_mode),
             ("readMode", v.read_mode),
         ] {
             toggles.insert(k.to_string(), on);
@@ -421,7 +421,7 @@ impl WordApp {
             .styles
             .gallery()
             .iter()
-            .map(|s| StyleItem { id: s.id.clone(), name: s.name.clone(), is_char: s.kind == wordcraft_doc::StyleKind::Character })
+            .map(|s| StyleItem { id: s.id.clone(), name: s.name.clone(), is_char: s.kind == wordfabrica_doc::StyleKind::Character })
             .collect();
         let rev = self.session.rev();
         let styles_key = self.previews.styles_key(&self.session.doc, rev);
@@ -441,7 +441,7 @@ impl WordApp {
             autosave: (self.session.path.is_some() || hosted_storage) && self.autosave,
             autosave_ready: self.session.path.is_some() || hosted_storage,
             author: self.session.author.clone(),
-            show_discord: self.ui.show_discord,
+            show_community: self.ui.show_community,
             tab: self.ui.tab.clone(),
             backstage: self.ui.backstage,
             ribbon_collapsed: self.ui.ribbon_collapsed,
@@ -475,8 +475,8 @@ impl WordApp {
     fn status_state(&mut self) -> StatusState {
         let (page, pages) = self.session.page_status();
         let words = self.cached_word_count();
-        let selected_words = (!self.session.sel.is_collapsed()).then(|| wordcraft_doc::count_words(&self.session.selected_text()));
-        let doc_lang = wordcraft_engine::cmd::format::state(&self.session).get("lang").and_then(Value::as_str).map(str::to_string);
+        let selected_words = (!self.session.sel.is_collapsed()).then(|| wordfabrica_doc::count_words(&self.session.selected_text()));
+        let doc_lang = wordfabrica_engine::cmd::format::state(&self.session).get("lang").and_then(Value::as_str).map(str::to_string);
         let hosted = self.hosted.as_ref().map(|h| HostedStatus { text: h.status.to_string(), revision: h.revision, failed: h.failed });
         StatusState {
             page,
@@ -504,7 +504,7 @@ impl WordApp {
             .styles
             .styles
             .iter()
-            .filter(|s| s.kind == wordcraft_doc::StyleKind::Table && !s.hidden)
+            .filter(|s| s.kind == wordfabrica_doc::StyleKind::Table && !s.hidden)
             .map(|s| StyleItem { id: s.id.clone(), name: s.name.clone(), is_char: false })
             .collect();
         Some(TableState {
@@ -567,8 +567,8 @@ impl WordApp {
             .styles
             .styles
             .iter()
-            .filter(|s| !s.hidden && s.kind != wordcraft_doc::StyleKind::Table)
-            .map(|s| StyleItem { id: s.id.clone(), name: s.name.clone(), is_char: s.kind == wordcraft_doc::StyleKind::Character })
+            .filter(|s| !s.hidden && s.kind != wordfabrica_doc::StyleKind::Table)
+            .map(|s| StyleItem { id: s.id.clone(), name: s.name.clone(), is_char: s.kind == wordfabrica_doc::StyleKind::Character })
             .collect();
         styles.sort_by_key(|s| s.name.to_lowercase());
         StylesPaneState {
@@ -664,7 +664,7 @@ impl WordApp {
             Action::File(f) => self.file_action(f),
             Action::SetAuthor(name) => self.session.author = name,
             Action::SetAutosave(on) => self.autosave = on,
-            Action::SetShowDiscord(on) => self.ui.show_discord = on,
+            Action::SetShowCommunity(on) => self.ui.show_community = on,
             Action::ToggleAutosave => {
                 if self.session.path.is_some() || self.services.request_save.is_some() {
                     self.toggle_autosave();
@@ -757,10 +757,10 @@ pub fn shortcut_display(shortcut: &str, mac: bool) -> String {
 mod tests {
     use super::*;
     use crate::Services;
-    use wordcraft_engine::Session;
+    use wordfabrica_engine::Session;
 
     fn app() -> WordApp {
-        WordApp::new(Session::new(wordcraft_doc::Document::new()), Services::default())
+        WordApp::new(Session::new(wordfabrica_doc::Document::new()), Services::default())
     }
 
     #[test]

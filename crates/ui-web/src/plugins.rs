@@ -1,7 +1,7 @@
 //! Plugin pane logic that doesn't need a browser: which tags a category and search show, and
 //! the edits users make to an editable tag plugin (each returns the new category list to save).
 
-pub use wordcraft_remote::{Plugin, PluginKind, Tag, TagCategory};
+pub use wordfabrica_remote::{Plugin, PluginKind, Tag, TagCategory};
 
 /// Tags grouped by category: `(category index, [(tag index, tag)])`.
 pub type TagGroups<'a> = Vec<(usize, Vec<(usize, &'a Tag)>)>;

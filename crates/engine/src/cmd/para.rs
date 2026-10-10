@@ -1,10 +1,10 @@
 //! Paragraph formatting, lists and styles (Home › Paragraph, Home › Styles).
 
 use serde_json::{Value, json};
-use wordcraft_doc::numbering::ListKind;
-use wordcraft_doc::props::{Align, Border, BorderStyle, Borders, LineSpacing, NumRef, ParaProps, Rgb, TabStop};
-use wordcraft_doc::styles::{Style, StyleKind};
-use wordcraft_doc::{Block, Pos};
+use wordfabrica_doc::numbering::ListKind;
+use wordfabrica_doc::props::{Align, Border, BorderStyle, Borders, LineSpacing, NumRef, ParaProps, Rgb, TabStop};
+use wordfabrica_doc::styles::{Style, StyleKind};
+use wordfabrica_doc::{Block, Pos};
 
 use super::sel_result;
 use crate::{CmdError, CmdResult, CommandSpec, Session, p};
@@ -178,7 +178,7 @@ pub fn specs() -> Vec<CommandSpec> {
 }
 
 /// Resolved paragraph props at the caret.
-fn cur(s: &Session) -> wordcraft_doc::resolve::ResolvedPara {
+fn cur(s: &Session) -> wordfabrica_doc::resolve::ResolvedPara {
     let props = s.doc.para_at(&s.sel.focus).map(|p| p.props.clone()).unwrap_or_default();
     s.doc.styles.resolve_para(&props)
 }
@@ -308,9 +308,9 @@ fn list(s: &mut Session, v: &Value, default: ListKind) -> CmdResult {
         s.doc.paths_between(&a, &b).iter().map(|p| s.doc.para(a.story, p).and_then(|x| x.props.numbering).filter(|n| n.num != 0)).collect();
     let same_kind = |n: &NumRef| {
         s.doc.numbering.level(n.num, 0).is_some_and(|l| {
-            let want = wordcraft_doc::numbering::levels_for(kind);
+            let want = wordfabrica_doc::numbering::levels_for(kind);
             want.first().is_some_and(|w| {
-                (w.format == wordcraft_doc::section::NumFormat::Bullet) == (l.format == wordcraft_doc::section::NumFormat::Bullet)
+                (w.format == wordfabrica_doc::section::NumFormat::Bullet) == (l.format == wordfabrica_doc::section::NumFormat::Bullet)
                     && (p::str(v, "kind").is_none() || w.text == l.text)
             })
         })
@@ -478,7 +478,7 @@ fn create_style(s: &mut Session, v: &Value) -> CmdResult {
 
 fn modify_style(s: &mut Session, v: &Value) -> CmdResult {
     let id = style_id(s, p::req_str(v, "style")?)?;
-    let chr: Option<wordcraft_doc::CharProps> =
+    let chr: Option<wordfabrica_doc::CharProps> =
         v.get("chr").map(|c| serde_json::from_value(c.clone())).transpose().map_err(|e| CmdError::Params(e.to_string()))?;
     let para: Option<ParaProps> =
         v.get("para").map(|c| serde_json::from_value(c.clone())).transpose().map_err(|e| CmdError::Params(e.to_string()))?;
