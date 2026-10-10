@@ -688,6 +688,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 .iter()
                 .filter(|c| {
                     !q.is_empty()
+                        && !crate::ribbon::hidden_in_ui(c.id)
                         && (c.label.to_lowercase().contains(&q)
                             || tl!(c.label).to_lowercase().contains(&q)
                             || c.id.to_lowercase().contains(&q)

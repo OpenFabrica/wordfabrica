@@ -300,12 +300,22 @@ pub fn style_gallery(app: &mut WordApp, ui: &mut Ui, state: &Value) {
     }
 }
 
-/// Design tab: style set tiles.
+/// Design tab: style set tiles in a framed gallery.
 pub fn style_set_gallery(app: &mut WordApp, ui: &mut Ui) {
+    let t = Tokens::get(ui.ctx());
+    // Framed like the Home Styles gallery (WPS style).
+    egui::Frame::new().fill(t.input).stroke(Stroke::new(1.0, t.border)).corner_radius(4.0).inner_margin(3.0).show(ui, |ui| {
+        ui.spacing_mut().item_spacing = vec2(1.0, 0.0);
+        style_set_tiles(app, ui);
+    });
+}
+
+/// The style set tiles inside [`style_set_gallery`]'s frame.
+fn style_set_tiles(app: &mut WordApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
     let ppp = ui.ctx().pixels_per_point();
     for name in ["default", "basic", "lines", "shaded", "casual", "centered", "minimalist"] {
-        let (r, resp) = ui.allocate_exact_size(vec2(56.0, crate::widgets::CONTENT_H), Sense::click());
+        let (r, resp) = ui.allocate_exact_size(vec2(56.0, crate::widgets::CONTENT_H - 8.0), Sense::click());
         if resp.hovered() {
             ui.painter().rect_filled(r, 3.0, t.hover);
         }

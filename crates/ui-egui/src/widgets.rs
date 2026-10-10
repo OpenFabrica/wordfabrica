@@ -9,7 +9,7 @@ use crate::{WordApp, icons};
 /// Height of the ribbon content area. Groups carry no title row (their name is the launcher's
 /// tooltip), so this is the whole ribbon body.
 pub const CONTENT_H: f32 = 66.0;
-/// Height of a small ribbon button row, and the gap between two centred rows.
+/// Height of a small ribbon button row, and the largest gap between centred rows.
 pub const ROW_H: f32 = 22.0;
 pub const ROW_GAP: f32 = 8.0;
 
@@ -248,13 +248,14 @@ pub fn group(ui: &mut Ui, title: &str, launcher: Option<&str>, app: &mut WordApp
     ui.add_space(5.0);
 }
 
-/// Stack `rows` small-button rows vertically centred in the ribbon; `add` separates them with
-/// `ui.add_space(ROW_GAP)`.
+/// Stack `rows` small-control rows vertically centred in the ribbon, spaced by up to `ROW_GAP`
+/// (three rows fill the height with no gap).
 pub fn centered_rows(ui: &mut Ui, rows: usize, add: impl FnOnce(&mut Ui)) {
     let n = rows.max(1) as f32;
-    let top = ((CONTENT_H - n * ROW_H - (n - 1.0) * ROW_GAP) / 2.0).max(0.0);
+    let gap = if n > 1.0 { ((CONTENT_H - n * ROW_H) / (n - 1.0)).clamp(0.0, ROW_GAP) } else { 0.0 };
+    let top = ((CONTENT_H - n * ROW_H - (n - 1.0) * gap) / 2.0).max(0.0);
     ui.vertical(|ui| {
-        ui.spacing_mut().item_spacing = vec2(1.0, 0.0);
+        ui.spacing_mut().item_spacing = vec2(1.0, gap);
         ui.add_space(top);
         add(ui);
     });

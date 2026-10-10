@@ -4,11 +4,17 @@ use egui::{Align2, Rect, Sense, Stroke, Ui, pos2, vec2};
 use serde_json::{Value, json};
 
 use crate::theme::{Tokens, medium, regular, semibold};
-use crate::widgets::{CONTENT_H, ROW_GAP, big, big_checked, centered_rows, color_grid, combo, group, menu_button, small, split};
+use crate::widgets::{CONTENT_H, big, big_checked, centered_rows, color_grid, combo, group, menu_button, small, split};
 use crate::{WordApp, icons};
 
 /// Ribbon tabs. File opens from the title bar (`chrome::title_bar`), not from this strip.
-pub const TABS: [&str; 10] = ["Home", "Insert", "Draw", "Design", "Layout", "References", "Mailings", "Review", "View", "Help"];
+pub const TABS: [&str; 9] = ["Home", "Insert", "Draw", "Design", "Layout", "References", "Review", "View", "Help"];
+
+/// Commands whose feature is removed from the interface (no tab, not in command search). The
+/// engine keeps them for files, the CLI and MCP.
+pub fn hidden_in_ui(id: &str) -> bool {
+    id.starts_with("mailings.")
+}
 
 fn in_table(app: &WordApp) -> bool {
     app.session.sel.focus.path.cell().is_some()
@@ -108,7 +114,6 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                         "Design" => design(app, ui),
                         "Layout" => layout(app, ui),
                         "References" => references(app, ui),
-                        "Mailings" => mailings(app, ui),
                         "Review" => review(app, ui),
                         "View" => view(app, ui),
                         "Help" => help(app, ui),
@@ -121,11 +126,9 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
         });
 }
 
-fn stack(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
-    ui.vertical(|ui| {
-        ui.spacing_mut().item_spacing = vec2(1.0, 0.0);
-        add(ui);
-    });
+/// A vertical stack of `rows` small controls, centred in the ribbon height (WPS style).
+fn stack(ui: &mut Ui, rows: usize, add: impl FnOnce(&mut Ui)) {
+    centered_rows(ui, rows, add);
 }
 
 fn mi(ui: &mut Ui, app: &mut WordApp, label: &str, id: &str, params: Value) {
@@ -152,7 +155,6 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
         });
         centered_rows(ui, 2, |ui| {
             small(ui, app, "cut", None, "Cut", "edit.cut", json!({}), false);
-            ui.add_space(ROW_GAP);
             let r = small(ui, app, "copy", None, "Copy", "edit.copy", json!({}), false);
             if r.clicked() {
                 ui.ctx().copy_text(app.session.clipboard_text.clone());
@@ -192,7 +194,6 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
                 });
                 small(ui, app, "clear", None, "Clear All Formatting", "format.clear", json!({}), false);
             });
-            ui.add_space(ROW_GAP);
             crate::widgets::row(ui, |ui| {
                 small(ui, app, "bold", None, "Bold", "format.bold", json!({}), flag("bold"));
                 small(ui, app, "italic", None, "Italic", "format.italic", json!({}), flag("italic"));
@@ -303,7 +304,6 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
                 let marks = app.session.view.marks;
                 small(ui, app, "pilcrow", None, "Show/Hide ¶", "view.marks", json!({}), marks);
             });
-            ui.add_space(ROW_GAP);
             crate::widgets::row(ui, |ui| {
                 use wordcraft_doc::Align as A;
                 small(ui, app, "alignLeft", None, "Align Left", "para.alignLeft", json!({}), align == A::Left);
@@ -356,7 +356,6 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
         big(ui, app, "find", "Find", "ui.dialog", json!({"name": "find"}), false);
         centered_rows(ui, 2, |ui| {
             small(ui, app, "replace", Some("Replace"), "Replace", "ui.dialog", json!({"name": "replace"}), false);
-            ui.add_space(ROW_GAP);
             menu_button(ui, app, "select", Some("Select"), "Select", false, |ui, app| {
                 mi(ui, app, "Select All", "select.all", json!({}));
                 mi(ui, app, "Select Paragraph", "select.paragraph", json!({}));
@@ -374,7 +373,7 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
 
 fn insert(app: &mut WordApp, ui: &mut Ui) {
     group(ui, "Pages", None, app, |ui, app| {
-        stack(ui, |ui| {
+        stack(ui, 3, |ui| {
             menu_button(ui, app, "coverPage", Some("Cover Page"), "Cover Page", false, |ui, app| {
                 mi(ui, app, "Studio cover", "insert.coverPage", json!({}));
             });
@@ -412,14 +411,14 @@ fn insert(app: &mut WordApp, ui: &mut Ui) {
                 mi(ui, app, l, "insert.shape", json!({"kind": k}));
             }
         });
-        stack(ui, |ui| {
+        stack(ui, 3, |ui| {
             small(ui, app, "icons", Some("Icons"), "Icons", "insert.icon", json!({}), false);
             small(ui, app, "smartArt", Some("SmartArt"), "SmartArt", "insert.smartArt", json!({}), false);
             small(ui, app, "chart", Some("Chart"), "Chart", "insert.chart", json!({}), false);
         });
     });
     group(ui, "Links", None, app, |ui, app| {
-        stack(ui, |ui| {
+        stack(ui, 3, |ui| {
             small(ui, app, "link", Some("Link"), "Link", "ui.dialog", json!({"name": "link"}), false);
             small(ui, app, "bookmark", Some("Bookmark"), "Bookmark", "ui.dialog", json!({"name": "bookmark"}), false);
             small(ui, app, "crossRef", Some("Cross-reference"), "Cross-reference", "insert.crossReference", json!({}), false);
@@ -455,12 +454,12 @@ fn insert(app: &mut WordApp, ui: &mut Ui) {
     });
     group(ui, "Text", None, app, |ui, app| {
         big(ui, app, "textBox", "Text\nBox", "insert.textBox", json!({}), false);
-        stack(ui, |ui| {
+        stack(ui, 3, |ui| {
             small(ui, app, "quickParts", Some("Quick Parts"), "Quick Parts", "insert.quickParts", json!({}), false);
             small(ui, app, "wordArt", Some("WordArt"), "WordArt", "insert.wordArt", json!({}), false);
             small(ui, app, "dropCap", Some("Drop Cap"), "Drop Cap", "insert.dropCap", json!({}), false);
         });
-        stack(ui, |ui| {
+        stack(ui, 3, |ui| {
             small(ui, app, "signature", None, "Signature Line", "insert.signatureLine", json!({}), false);
             small(ui, app, "dateTime", None, "Date & Time", "insert.dateTime", json!({}), false);
             small(ui, app, "object", None, "Object", "insert.object", json!({}), false);
@@ -521,7 +520,7 @@ fn design(app: &mut WordApp, ui: &mut Ui) {
     });
     group(ui, "Document Formatting", None, app, |ui, app| {
         crate::previews::style_set_gallery(app, ui);
-        stack(ui, |ui| {
+        stack(ui, 2, |ui| {
             menu_button(ui, app, "colors", Some("Colors"), "Theme Colors", false, |ui, app| {
                 for (name, ..) in wordcraft_engine::cmd::design::THEMES {
                     mi(ui, app, name, "design.themeColors", json!({"name": name}));
@@ -533,7 +532,7 @@ fn design(app: &mut WordApp, ui: &mut Ui) {
                 }
             });
         });
-        stack(ui, |ui| {
+        stack(ui, 3, |ui| {
             menu_button(ui, app, "paraSpacing", Some("Paragraph Spacing"), "Paragraph Spacing", false, |ui, app| {
                 for (l, v) in [
                     ("Default", "default"),
@@ -606,7 +605,7 @@ fn layout(app: &mut WordApp, ui: &mut Ui) {
             mi(ui, app, "Left", "layout.columns", json!({"preset": "left"}));
             mi(ui, app, "Right", "layout.columns", json!({"preset": "right"}));
         });
-        stack(ui, |ui| {
+        stack(ui, 3, |ui| {
             menu_button(ui, app, "breaks", Some("Breaks"), "Breaks", false, |ui, app| {
                 ui.label(egui::RichText::new(tl!("Page Breaks")).strong());
                 mi(ui, app, "Page", "layout.break", json!({"kind": "page"}));
@@ -635,54 +634,56 @@ fn layout(app: &mut WordApp, ui: &mut Ui) {
     group(ui, "Paragraph", Some("para.dialog"), app, |ui, app| {
         let rp = app.session.doc.para_at(&app.session.sel.focus).map(|p| app.session.doc.styles.resolve_para(&p.props));
         let Some(rp) = rp else { return };
-        egui::Grid::new("layout_para").spacing(vec2(6.0, 4.0)).show(ui, |ui| {
-            ui.label(egui::RichText::new(tl!("Indent")).small().strong());
-            ui.label("");
-            ui.label(egui::RichText::new(tl!("Spacing")).small().strong());
-            ui.end_row();
-            let mut l = rp.indent_left / 72.0;
-            let mut b = rp.space_before;
+        // Two centred rows per column, label beside the field, as in WPS (no header row).
+        // Each column's labels share the width of its longest label, so the fields line up.
+        let label_w = |ui: &Ui, a: &str, b: &str| {
+            let w = |s: &str| ui.ctx().fonts_mut(|f| f.layout_no_wrap(tl!(s).to_string(), regular(11.5), egui::Color32::BLACK).size().x);
+            w(a).max(w(b)) + 4.0
+        };
+        let field = |ui: &mut Ui, label: &str, lw: f32, v: &mut f32, inches: bool| {
             ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(tl!("Left:")).small());
-                if ui.add(egui::DragValue::new(&mut l).speed(0.05).range(-11.0..=22.0).suffix("\"").max_decimals(2)).changed() {
-                    let _ = app.run("para.indents", json!({"left": l * 72.0}));
-                }
-            });
-            ui.label("");
-            ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(tl!("Before:")).small());
-                if ui.add(egui::DragValue::new(&mut b).speed(1.0).range(0.0..=1584.0).suffix(" pt")).changed() {
-                    let _ = app.run("para.spacing", json!({"before": b}));
-                }
-            });
-            ui.end_row();
-            let mut r = rp.indent_right / 72.0;
-            let mut a = rp.space_after;
-            ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(tl!("Right:")).small());
-                if ui.add(egui::DragValue::new(&mut r).speed(0.05).range(-11.0..=22.0).suffix("\"").max_decimals(2)).changed() {
-                    let _ = app.run("para.indents", json!({"right": r * 72.0}));
-                }
-            });
-            ui.label("");
-            ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(tl!("After:")).small());
-                if ui.add(egui::DragValue::new(&mut a).speed(1.0).range(0.0..=1584.0).suffix(" pt")).changed() {
-                    let _ = app.run("para.spacing", json!({"after": a}));
-                }
-            });
-            ui.end_row();
+                ui.spacing_mut().item_spacing = vec2(4.0, 0.0);
+                ui.add_sized(vec2(lw, 22.0), egui::Label::new(egui::RichText::new(tl!(label)).font(regular(11.5))));
+                let dv = if inches {
+                    egui::DragValue::new(v).speed(0.05).range(-11.0..=22.0).suffix("\"").max_decimals(2)
+                } else {
+                    egui::DragValue::new(v).speed(1.0).range(0.0..=1584.0).suffix(" pt")
+                };
+                ui.add_sized(vec2(58.0, 22.0), dv).changed()
+            })
+            .inner
+        };
+        let (mut l, mut r) = (rp.indent_left / 72.0, rp.indent_right / 72.0);
+        let (mut b, mut a) = (rp.space_before, rp.space_after);
+        let lw = label_w(ui, "Indent Left:", "Indent Right:");
+        stack(ui, 2, |ui| {
+            if field(ui, "Indent Left:", lw, &mut l, true) {
+                let _ = app.run("para.indents", json!({"left": l * 72.0}));
+            }
+            if field(ui, "Indent Right:", lw, &mut r, true) {
+                let _ = app.run("para.indents", json!({"right": r * 72.0}));
+            }
+        });
+        ui.add_space(10.0);
+        let lw = label_w(ui, "Before:", "After:");
+        stack(ui, 2, |ui| {
+            if field(ui, "Before:", lw, &mut b, false) {
+                let _ = app.run("para.spacing", json!({"before": b}));
+            }
+            if field(ui, "After:", lw, &mut a, false) {
+                let _ = app.run("para.spacing", json!({"after": a}));
+            }
         });
     });
     group(ui, "Arrange", None, app, |ui, app| {
         big(ui, app, "position", "Position", "arrange.position", json!({}), false);
         big(ui, app, "wrapText", "Wrap\nText", "arrange.wrap", json!({}), false);
-        stack(ui, |ui| {
+        stack(ui, 3, |ui| {
             small(ui, app, "bringForward", Some("Bring Forward"), "Bring Forward", "arrange.bringForward", json!({}), false);
             small(ui, app, "sendBackward", Some("Send Backward"), "Send Backward", "arrange.sendBackward", json!({}), false);
             small(ui, app, "selectionPane", Some("Selection Pane"), "Selection Pane", "arrange.selectionPane", json!({}), false);
         });
-        stack(ui, |ui| {
+        stack(ui, 3, |ui| {
             small(ui, app, "align", None, "Align", "arrange.align", json!({}), false);
             small(ui, app, "group", None, "Group", "arrange.group", json!({}), false);
             small(ui, app, "rotate", None, "Rotate", "arrange.rotate", json!({}), false);
@@ -697,7 +698,7 @@ fn references(app: &mut WordApp, ui: &mut Ui) {
             mi(ui, app, "Automatic Table 2 (2 levels)", "references.toc", json!({"levels": 2, "title": "Table of Contents"}));
             mi(ui, app, "Remove Table of Contents", "references.removeToc", json!({}));
         });
-        stack(ui, |ui| {
+        stack(ui, 2, |ui| {
             menu_button(ui, app, "addText", Some("Add Text"), "Add Text", false, |ui, app| {
                 mi(ui, app, "Do Not Show in TOC", "references.addText", json!({"level": 0}));
                 for l in 1..=3u64 {
@@ -709,7 +710,7 @@ fn references(app: &mut WordApp, ui: &mut Ui) {
     });
     group(ui, "Footnotes", None, app, |ui, app| {
         big(ui, app, "footnote", "Insert\nFootnote", "references.footnote", json!({}), false);
-        stack(ui, |ui| {
+        stack(ui, 3, |ui| {
             small(ui, app, "endnote", Some("Insert Endnote"), "Insert Endnote", "references.endnote", json!({}), false);
             small(ui, app, "nextFootnote", Some("Next Footnote"), "Next Footnote", "references.nextFootnote", json!({}), false);
             small(ui, app, "showNotes", Some("Show Notes"), "Show Notes", "references.notes", json!({}), false);
@@ -720,7 +721,7 @@ fn references(app: &mut WordApp, ui: &mut Ui) {
     });
     group(ui, "Citations & Bibliography", None, app, |ui, app| {
         big(ui, app, "citation", "Insert\nCitation", "references.citation", json!({}), false);
-        stack(ui, |ui| {
+        stack(ui, 3, |ui| {
             small(ui, app, "sources", Some("Manage Sources"), "Manage Sources", "references.sources", json!({}), false);
             small(ui, app, "styles", Some("Style: APA"), "Citation Style", "references.citationStyle", json!({}), false);
             small(ui, app, "bibliography", Some("Bibliography"), "Bibliography", "references.bibliography", json!({}), false);
@@ -728,7 +729,7 @@ fn references(app: &mut WordApp, ui: &mut Ui) {
     });
     group(ui, "Captions", None, app, |ui, app| {
         big(ui, app, "caption", "Insert\nCaption", "references.caption", json!({}), false);
-        stack(ui, |ui| {
+        stack(ui, 3, |ui| {
             small(
                 ui,
                 app,
@@ -745,7 +746,7 @@ fn references(app: &mut WordApp, ui: &mut Ui) {
     });
     group(ui, "Index", None, app, |ui, app| {
         big(ui, app, "markEntry", "Mark\nEntry", "references.markEntry", json!({}), false);
-        stack(ui, |ui| {
+        stack(ui, 2, |ui| {
             small(ui, app, "index", Some("Insert Index"), "Insert Index", "references.index", json!({}), false);
             small(ui, app, "update", Some("Update Index"), "Update Index", "references.updateIndex", json!({}), false);
         });
@@ -756,46 +757,10 @@ fn references(app: &mut WordApp, ui: &mut Ui) {
     });
 }
 
-fn mailings(app: &mut WordApp, ui: &mut Ui) {
-    group(ui, "Create", None, app, |ui, app| {
-        big(ui, app, "envelope", "Envelopes", "mailings.envelopes", json!({}), false);
-        big(ui, app, "labels", "Labels", "mailings.labels", json!({}), false);
-    });
-    group(ui, "Start Mail Merge", None, app, |ui, app| {
-        big(ui, app, "mailMerge", "Start Mail\nMerge", "mailings.start", json!({}), false);
-        big(ui, app, "recipients", "Select\nRecipients", "mailings.recipients", json!({}), false);
-        big(ui, app, "editRecipients", "Edit\nRecipient List", "mailings.editRecipients", json!({}), false);
-    });
-    group(ui, "Write & Insert Fields", None, app, |ui, app| {
-        big(ui, app, "highlightFields", "Highlight\nMerge Fields", "mailings.highlightFields", json!({}), false);
-        big(ui, app, "addressBlock", "Address\nBlock", "mailings.addressBlock", json!({}), false);
-        big(ui, app, "greetingLine", "Greeting\nLine", "mailings.greetingLine", json!({}), false);
-        big(ui, app, "mergeField", "Insert Merge\nField", "mailings.insertField", json!({}), false);
-        stack(ui, |ui| {
-            small(ui, app, "rules", Some("Rules"), "Rules", "mailings.rules", json!({}), false);
-            small(ui, app, "matchFields", Some("Match Fields"), "Match Fields", "mailings.matchFields", json!({}), false);
-        });
-    });
-    group(ui, "Preview Results", None, app, |ui, app| {
-        big(ui, app, "preview", "Preview\nResults", "mailings.preview", json!({}), false);
-        stack(ui, |ui| {
-            crate::widgets::row(ui, |ui| {
-                small(ui, app, "previous", None, "Previous Record", "mailings.previous", json!({}), false);
-                small(ui, app, "next", None, "Next Record", "mailings.next", json!({}), false);
-            });
-            small(ui, app, "find", Some("Find Recipient"), "Find Recipient", "mailings.findRecipient", json!({}), false);
-            small(ui, app, "checkErrors", Some("Check for Errors"), "Check for Errors", "mailings.checkErrors", json!({}), false);
-        });
-    });
-    group(ui, "Finish", None, app, |ui, app| {
-        big(ui, app, "finish", "Finish &\nMerge", "mailings.finish", json!({}), false);
-    });
-}
-
 fn review(app: &mut WordApp, ui: &mut Ui) {
     group(ui, "Proofing", None, app, |ui, app| {
         big(ui, app, "spelling", "Spelling &\nGrammar", "review.spelling", json!({}), false);
-        stack(ui, |ui| {
+        stack(ui, 2, |ui| {
             small(ui, app, "thesaurus", Some("Thesaurus"), "Thesaurus", "review.thesaurus", json!({}), false);
             small(ui, app, "wordCount", Some("Word Count"), "Word Count", "ui.dialog", json!({"name": "wordCount"}), false);
         });
@@ -812,7 +777,7 @@ fn review(app: &mut WordApp, ui: &mut Ui) {
     });
     group(ui, "Comments", None, app, |ui, app| {
         big(ui, app, "newComment", "New\nComment", "review.newComment", json!({}), false);
-        stack(ui, |ui| {
+        stack(ui, 3, |ui| {
             small(ui, app, "deleteComment", Some("Delete"), "Delete Comment", "review.deleteComment", json!({}), false);
             small(ui, app, "prevComment", Some("Previous"), "Previous Comment", "review.previousComment", json!({}), false);
             small(ui, app, "nextComment", Some("Next"), "Next Comment", "review.nextComment", json!({}), false);
@@ -822,9 +787,8 @@ fn review(app: &mut WordApp, ui: &mut Ui) {
     });
     group(ui, "Tracking", None, app, |ui, app| {
         let on = app.session.doc.settings.track_changes;
-        let r = big(ui, app, "trackChanges", if on { "Track\nChanges ✓" } else { "Track\nChanges" }, "review.trackChanges", json!({}), false);
-        let _ = r;
-        stack(ui, |ui| {
+        big_checked(ui, app, "trackChanges", "Track\nChanges", "review.trackChanges", json!({}), on);
+        stack(ui, 2, |ui| {
             menu_button(
                 ui,
                 app,
@@ -849,7 +813,7 @@ fn review(app: &mut WordApp, ui: &mut Ui) {
             mi(ui, app, "Reject Change", "review.reject", json!({}));
             mi(ui, app, "Reject All Changes", "review.rejectAll", json!({}));
         });
-        stack(ui, |ui| {
+        stack(ui, 2, |ui| {
             small(ui, app, "prevChange", Some("Previous"), "Previous Change", "review.previousChange", json!({}), false);
             small(ui, app, "nextChange", Some("Next"), "Next Change", "review.nextChange", json!({}), false);
         });
@@ -869,7 +833,7 @@ fn view(app: &mut WordApp, ui: &mut Ui) {
         big(ui, app, "readMode", "Read\nMode", "view.readMode", json!({}), false);
         big(ui, app, "printLayout", "Print\nLayout", "view.printLayout", json!({}), false);
         big(ui, app, "webLayout", "Web\nLayout", "view.webLayout", json!({}), false);
-        stack(ui, |ui| {
+        stack(ui, 2, |ui| {
             small(ui, app, "outline", Some("Outline"), "Outline", "view.outline", json!({}), false);
             small(ui, app, "draft", Some("Draft"), "Draft", "view.draft", json!({}), false);
         });
@@ -883,7 +847,7 @@ fn view(app: &mut WordApp, ui: &mut Ui) {
         big(ui, app, "sideToSide", "Side\nto Side", "view.sideToSide", json!({}), false);
     });
     group(ui, "Show", None, app, |ui, app| {
-        stack(ui, |ui| {
+        stack(ui, 3, |ui| {
             let mut r = v.ruler;
             if ui.checkbox(&mut r, tl!("Ruler")).changed() {
                 let _ = app.run("view.ruler", json!({"value": r}));
@@ -901,7 +865,7 @@ fn view(app: &mut WordApp, ui: &mut Ui) {
     group(ui, "Zoom", None, app, |ui, app| {
         big(ui, app, "zoom", "Zoom", "ui.dialog", json!({"name": "zoom"}), false);
         big(ui, app, "zoom100", "100%", "view.zoom100", json!({}), false);
-        stack(ui, |ui| {
+        stack(ui, 3, |ui| {
             small(ui, app, "onePage", Some("One Page"), "One Page", "view.onePage", json!({}), v.fit == "onePage");
             small(ui, app, "multiplePages", Some("Multiple Pages"), "Multiple Pages", "view.multiplePages", json!({}), v.multi_page);
             small(ui, app, "pageWidth", Some("Page Width"), "Page Width", "view.pageWidth", json!({}), v.fit == "pageWidth");
@@ -964,24 +928,33 @@ fn table_design(app: &mut WordApp, ui: &mut Ui) {
             .filter(|s| s.kind == wordcraft_doc::StyleKind::Table && !s.hidden)
             .map(|s| (s.id.clone(), s.name.clone()))
             .collect();
-        egui::ScrollArea::horizontal().max_width(420.0).show(ui, |ui| {
-            ui.horizontal(|ui| {
-                for (id, name) in styles {
-                    if crate::previews::table_style_tile(ui, app, &id).on_hover_text(name).clicked() {
-                        let _ = app.run("table.style", json!({"style": id}));
-                    }
-                }
+        // A framed gallery like Home's Styles, centred in the ribbon height.
+        let t = Tokens::get(ui.ctx());
+        ui.vertical(|ui| {
+            ui.add_space(((CONTENT_H - 56.0) / 2.0).max(0.0));
+            egui::Frame::new().fill(t.input).stroke(Stroke::new(1.0, t.border)).corner_radius(4.0).inner_margin(4.0).show(ui, |ui| {
+                egui::ScrollArea::horizontal().max_width(420.0).show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        for (id, name) in styles {
+                            if crate::previews::table_style_tile(ui, app, &id).on_hover_text(name).clicked() {
+                                let _ = app.run("table.style", json!({"style": id}));
+                            }
+                        }
+                    });
+                });
             });
         });
-        stack(ui, |ui| {
-            split(ui, app, "shading", "Shading", "table.shading", json!({"color": app.canvas.last_shading.clone()}), false, None, |ui, app| {
-                mi(ui, app, "No Color", "table.shading", json!({"color": null}));
-                let theme = app.session.doc.settings.theme_colors.clone();
-                if let Some(hex) = color_grid(ui, &theme) {
-                    app.canvas.last_shading = hex.clone();
-                    let _ = app.run("table.shading", json!({"color": hex}));
-                    ui.close();
-                }
+        stack(ui, 1, |ui| {
+            crate::widgets::row(ui, |ui| {
+                split(ui, app, "shading", "Shading", "table.shading", json!({"color": app.canvas.last_shading.clone()}), false, None, |ui, app| {
+                    mi(ui, app, "No Color", "table.shading", json!({"color": null}));
+                    let theme = app.session.doc.settings.theme_colors.clone();
+                    if let Some(hex) = color_grid(ui, &theme) {
+                        app.canvas.last_shading = hex.clone();
+                        let _ = app.run("table.shading", json!({"color": hex}));
+                        ui.close();
+                    }
+                });
             });
         });
     });
@@ -1004,7 +977,7 @@ fn table_design(app: &mut WordApp, ui: &mut Ui) {
 
 fn table_layout(app: &mut WordApp, ui: &mut Ui) {
     group(ui, "Table", None, app, |ui, app| {
-        stack(ui, |ui| {
+        stack(ui, 3, |ui| {
             menu_button(ui, app, "selectTable", Some("Select"), "Select", false, |ui, app| {
                 mi(ui, app, "Select Cell", "table.selectCell", json!({}));
                 mi(ui, app, "Select Row", "table.selectRow", json!({}));
@@ -1023,14 +996,14 @@ fn table_layout(app: &mut WordApp, ui: &mut Ui) {
             mi(ui, app, "Delete Table", "table.deleteTable", json!({}));
         });
         big(ui, app, "insertAbove", "Insert\nAbove", "table.insertRowAbove", json!({}), false);
-        stack(ui, |ui| {
+        stack(ui, 3, |ui| {
             small(ui, app, "insertBelow", Some("Insert Below"), "Insert Below", "table.insertRowBelow", json!({}), false);
             small(ui, app, "insertLeft", Some("Insert Left"), "Insert Left", "table.insertColumnLeft", json!({}), false);
             small(ui, app, "insertRight", Some("Insert Right"), "Insert Right", "table.insertColumnRight", json!({}), false);
         });
     });
     group(ui, "Merge", None, app, |ui, app| {
-        stack(ui, |ui| {
+        stack(ui, 3, |ui| {
             small(ui, app, "merge", Some("Merge Cells"), "Merge Cells", "table.merge", json!({}), false);
             small(ui, app, "splitCells", Some("Split Cells"), "Split Cells", "table.split", json!({}), false);
             small(ui, app, "splitTable", Some("Split Table"), "Split Table", "table.splitTable", json!({}), false);
@@ -1042,7 +1015,7 @@ fn table_layout(app: &mut WordApp, ui: &mut Ui) {
             mi(ui, app, "AutoFit Window", "table.autofit", json!({"mode": "window"}));
             mi(ui, app, "Fixed Column Width", "table.autofit", json!({"mode": "fixed"}));
         });
-        stack(ui, |ui| {
+        stack(ui, 2, |ui| {
             small(ui, app, "distributeRows", Some("Distribute Rows"), "Distribute Rows", "table.distributeRows", json!({}), false);
             small(ui, app, "distributeCols", Some("Distribute Columns"), "Distribute Columns", "table.distributeColumns", json!({}), false);
         });
@@ -1062,7 +1035,7 @@ fn table_layout(app: &mut WordApp, ui: &mut Ui) {
     });
     group(ui, "Data", None, app, |ui, app| {
         big(ui, app, "sort", "Sort", "table.sort", json!({}), false);
-        stack(ui, |ui| {
+        stack(ui, 3, |ui| {
             small(ui, app, "repeatHeader", Some("Repeat Header Rows"), "Repeat Header Rows", "table.repeatHeader", json!({}), false);
             small(ui, app, "toText", Some("Convert to Text"), "Convert to Text", "table.toText", json!({}), false);
             small(ui, app, "formula", Some("Formula"), "Formula", "table.formula", json!({}), false);
