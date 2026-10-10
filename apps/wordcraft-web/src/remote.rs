@@ -184,7 +184,7 @@ impl Remote {
             && (manual
                 || (app.autosave && app.session.dirty && self.error.is_none() && (now - self.changed_at > 1500.0 || now - self.last_save > 10000.0)))
         {
-            self.save(app, ctx);
+            self.save(app, ctx, manual);
         }
         self.unsaved.set(app.session.dirty || self.saving);
         if app.session.dirty || self.saving {
@@ -213,12 +213,13 @@ impl Remote {
         }
     }
 
-    fn save(&mut self, app: &mut WordApp, ctx: &egui::Context) {
+    /// PUT the current snapshot; `commit` marks an explicit save (third-party documents call back).
+    fn save(&mut self, app: &mut WordApp, ctx: &egui::Context, commit: bool) {
         if self.error.as_ref().is_some_and(|e| e.conflict) {
             return;
         }
         let title = app.title_stem();
-        let request = WriteRequest { revision: self.revision, title, document: app.session.doc.clone() };
+        let request = WriteRequest { revision: self.revision, title, document: app.session.doc.clone(), commit };
         let body = match serde_json::to_string(&request) {
             Ok(body) if body.len() <= MAX_BYTES => body,
             _ => {

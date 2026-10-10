@@ -4,7 +4,8 @@
 
 浏览器复用现有 Rust/WASM 编辑器、命令注册表和文档模型，保存从“下载文件”扩展为持久化服务端文档。
 借鉴 [ONLYOFFICE 的编辑/存储边界](https://api.onlyoffice.com/docs/docs-api/get-started/how-it-works/saving-file)，
-这里使用单个 Rust HTTP 进程直接提交文档快照，不引入独立转换服务、回调服务、消息队列或外部数据库。
+基础编辑器保持单个 Rust HTTP 进程直接提交文档快照，不引入独立转换服务、消息队列或外部数据库；
+第三方加载文档和保存回调是可选功能，见 [web-integration.md](web-integration.md)。
 
 初版面向本机或可信工作区；没有账号、租户隔离、实时合并、协作者光标或历史版本界面。
 默认只监听 loopback；共享部署应由反向代理提供 HTTPS 和身份认证，且所有获准访问者共享同一文档库。
@@ -32,6 +33,7 @@ cargo run -p wordcraft-server
 | `WORDCRAFT_DATA_DIR` | `data` | SQLite 数据目录，不能放进静态网页目录 |
 | `WORDCRAFT_FONTS_DIR` | `resources/fonts/server` | 可选的服务端字体目录；见 [字体扩展](web-fonts.md) |
 | `WORDCRAFT_PLUGINS_DIR` | `plugins`（不存在时不加载） | 可选的插件目录；见 [插件](plugins.md) |
+| `WORDCRAFT_INTEGRATION_SECRET` 等 | 未设置 = 关闭 | 可选的第三方集成（公开地址、文件存储、下载有效期、主机白名单）；见 [第三方集成](web-integration.md) |
 
 路径相对启动目录。备份时停止服务再复制数据目录，或使用 SQLite backup API 在线备份；运行中不要只复制主数据库而忽略 WAL。
 静态部署可用 `?local` 保留下载模式；`?sample` 创建演示内容；`?doc=<uuid>` 重新打开服务端文档。
@@ -82,7 +84,7 @@ sequenceDiagram
 | `GET /api/health` | `{"status":"ok"}` |
 | `GET /api/documents` | 按修改时间降序的 `Metadata[]` |
 | `GET /api/documents/{id}` | `{metadata, document}`，不存在时 404 |
-| `PUT /api/documents/{id}` | 输入 `{revision,title,document}`，返回 `Metadata`；版本冲突 409 |
+| `PUT /api/documents/{id}` | 输入 `{revision,title,document,commit?}`，返回 `Metadata`；版本冲突 409。`commit` 为可选布尔（默认 `false`），显式保存时为 `true`；仅对第三方集成的文档有额外效果，见 [第三方集成](web-integration.md) |
 
 `Metadata` 为 `{id,title,revision,updated_at}`，时间是 Unix 毫秒。API 也供脚本/agent 使用；编辑操作仍通过引擎命令。
 不启用 CORS；拒绝跨站 Fetch 和不匹配 Host 的 Origin；响应禁止缓存。

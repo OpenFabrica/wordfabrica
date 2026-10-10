@@ -28,6 +28,10 @@ pub struct WriteRequest {
     pub revision: u64,
     pub title: String,
     pub document: Document,
+    /// An explicit save (Ctrl+S / Save), not an autosave. For documents opened by a third
+    /// party, the server then exports DOCX to file storage and calls the third party back.
+    #[serde(default)]
+    pub commit: bool,
 }
 
 /// IDs are opaque, client-generated UUIDs. They are never filesystem paths.

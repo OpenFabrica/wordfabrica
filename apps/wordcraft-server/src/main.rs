@@ -28,9 +28,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let plugins = Arc::new(wordcraft_server::plugins::Catalog::load(plugin_dir.as_deref())?);
     println!("Plugins: {}", plugins.len());
+    // Third-party integration is off unless WORDCRAFT_INTEGRATION_SECRET is set.
+    let integration = match wordcraft_server::integration::Settings::from_env(&data)? {
+        Some(settings) => {
+            if let wordcraft_server::integration::StorageSettings::Local(root) = &settings.storage {
+                std::fs::create_dir_all(root)?;
+                if root.canonicalize()?.starts_with(web.canonicalize()?) {
+                    return Err("storage directory must be outside the public web directory".into());
+                }
+            }
+            println!("Integration: on ({:?} storage, public URL {})", settings.storage, settings.public_url);
+            let service = wordcraft_server::integration::Service::new(settings, store.clone())?;
+            wordcraft_server::callbacks::spawn(service.clone());
+            Some(service)
+        }
+        None => None,
+    };
     let listener = tokio::net::TcpListener::bind(&address).await?;
     println!("WordCraft: http://{} (data: {})", listener.local_addr()?, data.canonicalize()?.display());
-    axum::serve(listener, wordcraft_server::router_with_catalogs(store, web, fonts, plugins))
+    axum::serve(listener, wordcraft_server::router_with_integration(store, web, fonts, plugins, integration))
         .with_graceful_shutdown(async {
             if let Err(error) = tokio::signal::ctrl_c().await {
                 eprintln!("shutdown signal: {error}");

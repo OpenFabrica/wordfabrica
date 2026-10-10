@@ -13,7 +13,7 @@ use wordcraft_remote::{Metadata, Snapshot, WriteRequest};
 
 const ID: &str = "12345678-1234-1234-1234-123456789abc";
 fn write(revision: u64, text: &str) -> WriteRequest {
-    WriteRequest { revision, title: "测试文档".into(), document: Document::from_text(text) }
+    WriteRequest { revision, title: "测试文档".into(), document: Document::from_text(text), commit: false }
 }
 
 #[test]

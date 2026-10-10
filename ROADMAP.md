@@ -122,6 +122,14 @@ the icon art).
 - Design and rules: [web UI](docs/web-ui.md).
 - Plugins (WEB.3): administrators drop JSON files in `plugins/`; a template-tag plugin adds a tab-strip button and a pane with category filter and search; clicking a tag inserts its text at the caret (`text.insert`). Plugins marked `editable` let users add, edit, delete and rename tags in the pane; the shared version is stored in SQLite with revision checks. Data only, no plugin code. [Plugins](docs/plugins.md).
 
+## Third-party integration (WEB.4, 2026-10-10)
+
+- A third party registers a DOCX with a signed `POST /api/integration/documents` (URL the server downloads, or multipart upload) and gets back an editor link (`/?doc={id}`); the original is kept in file storage.
+- Autosave stays a JSON draft. An explicit save (Ctrl/Cmd+S, `commit: true`) exports DOCX to file storage and queues a signed `document.saved` callback with an expiring download link; a background worker retries with backoff (up to 10 attempts) and survives restarts.
+- Requests and callbacks are HMAC-SHA256 signed with a shared secret; document and callback URLs can be limited with `WORDCRAFT_ALLOW_HOSTS`. File storage is a local directory or MinIO (S3).
+- Off unless `WORDCRAFT_INTEGRATION_SECRET` is set. DOCX only; no per-user permissions, read-only mode or version-history UI.
+- Setup, signing, callback and API: [web integration](docs/web-integration.md).
+
 ## Recently landed
 - Text wraps around floating pictures and shapes; text boxes lay out their own text.
 - Table rows split across pages between lines (Can't Split honoured, header rows repeat).
