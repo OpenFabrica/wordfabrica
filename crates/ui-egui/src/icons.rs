@@ -977,6 +977,8 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32, accent: Color32) {
             pen.line(&[(15.0, 5.0), (5.0, 15.0)]);
         }
         "dropdown" => pen.arrow_down(10.0, 10.0, c),
+        // Three bars: the File menu button in the title bar.
+        "menu" => pen.lines(4.0, 16.0, &[5.5, 10.0, 14.5]),
         "more" => {
             for x in [5.0, 10.0, 15.0] {
                 pen.fcircle(x, 10.0, 1.3, c);

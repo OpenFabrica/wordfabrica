@@ -7,7 +7,8 @@ use crate::theme::{Tokens, medium, regular, semibold};
 use crate::widgets::{CONTENT_H, LABEL_H, big, color_grid, combo, group, menu_button, small, split};
 use crate::{WordApp, icons};
 
-pub const TABS: [&str; 11] = ["File", "Home", "Insert", "Draw", "Design", "Layout", "References", "Mailings", "Review", "View", "Help"];
+/// Ribbon tabs. File opens from the title bar (`chrome::title_bar`), not from this strip.
+pub const TABS: [&str; 10] = ["Home", "Insert", "Draw", "Design", "Layout", "References", "Mailings", "Review", "View", "Help"];
 
 fn in_table(app: &WordApp) -> bool {
     app.session.sel.focus.path.cell().is_some()
@@ -45,7 +46,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                     if resp.clicked() {
                         let _ = app.run("ui.tab", json!({"tab": tab}));
                     }
-                    if resp.double_clicked() && tab != "File" {
+                    if resp.double_clicked() {
                         let _ = app.run("ui.collapseRibbon", json!({}));
                     }
                 }

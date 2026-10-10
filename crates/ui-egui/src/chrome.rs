@@ -22,6 +22,26 @@ fn qat_button(ui: &mut Ui, app: &mut WordApp, icon: &str, tip: &str, id: &str, e
     }
 }
 
+/// "≡ File" at the far left of the title bar, then a divider; it opens the File tab (Backstage).
+fn file_button(ui: &mut Ui, app: &mut WordApp) {
+    let t = Tokens::get(ui.ctx());
+    let label = tl!("File");
+    let text_w = ui.ctx().fonts_mut(|f| f.layout_no_wrap(label.to_string(), medium(12.5), t.text).size().x);
+    let (r, resp) = ui.allocate_exact_size(vec2(text_w + 34.0, 26.0), Sense::click());
+    if resp.hovered() {
+        ui.painter().rect_filled(r, 4.0, t.hover);
+    }
+    icons::paint(ui.painter(), Rect::from_center_size(pos2(r.min.x + 14.0, r.center().y), vec2(16.0, 16.0)), "menu", t.icon, t.accent);
+    ui.painter().text(pos2(r.min.x + 26.0, r.center().y), Align2::LEFT_CENTER, label, medium(12.5), t.text);
+    if resp.clicked() {
+        let _ = app.run("ui.tab", json!({"tab": "File"}));
+    }
+    ui.add_space(6.0);
+    let (d, _) = ui.allocate_exact_size(vec2(1.0, 18.0), Sense::hover());
+    ui.painter().vline(d.center().x, d.y_range(), Stroke::new(1.0, t.border_strong));
+    ui.add_space(8.0);
+}
+
 pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
     let left = if app.integrated_titlebar { 78 } else { 8 };
@@ -43,6 +63,7 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
             let mut right_start = full.max.x;
             ui.horizontal_centered(|ui| {
                 ui.spacing_mut().item_spacing = vec2(2.0, 0.0);
+                file_button(ui, app);
                 // AutoSave toggle (on when the document has a path).
                 let has_path = app.session.path.is_some() || app.services.request_save.is_some();
                 ui.label(egui::RichText::new(tl!("AutoSave")).font(regular(11.5)).color(t.text_dim));
@@ -124,7 +145,7 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                 });
             });
             // Centred title.
-            // Hosted storage owns the save status in its toolbar; no local path is expected.
+            // Hosted storage shows the save status in the status bar; no local path is expected.
             let title = if app.services.request_save.is_some() {
                 app.title_stem()
             } else {

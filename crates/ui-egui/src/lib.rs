@@ -651,6 +651,48 @@ mod tests {
         assert!(painted);
     }
 
+    /// File sits in the title bar before AutoSave, not in the ribbon tab strip, and opens Backstage.
+    #[test]
+    fn file_menu_sits_before_autosave_and_opens_backstage() {
+        crate::i18n::set_current(crate::i18n::Lang::EN);
+        let mut app = WordApp::new(Session::new(wordcraft_doc::Document::new()), Services::default());
+        app.ui.language = "en".into();
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1200.0, 800.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                app.logic(ui.ctx());
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(6);
+        let painted: Vec<(String, egui::Pos2)> = h
+            .output()
+            .shapes
+            .iter()
+            .filter_map(|s| match &s.shape {
+                egui::Shape::Text(t) => Some((t.galley.job.text.clone(), t.pos)),
+                _ => None,
+            })
+            .collect();
+        let at = |label: &str| painted.iter().filter(|(t, _)| t == label).map(|(_, p)| *p).collect::<Vec<_>>();
+        let file = at("File");
+        assert_eq!(file.len(), 1, "File should appear once: {file:?}");
+        let autosave = at("AutoSave");
+        assert!(file[0].x < autosave[0].x && (file[0].y - autosave[0].y).abs() < 6.0, "File {file:?} vs AutoSave {autosave:?}");
+        let click = file[0] + egui::vec2(4.0, 4.0);
+        h.input_mut().events.push(egui::Event::PointerMoved(click));
+        for pressed in [true, false] {
+            h.input_mut().events.push(egui::Event::PointerButton {
+                pos: click,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: Default::default(),
+            });
+        }
+        h.run_steps(2);
+        assert!(h.state().ui.backstage);
+    }
+
     fn mod_key(key: egui::Key) -> egui::Event {
         egui::Event::Key { key, physical_key: None, pressed: true, repeat: false, modifiers: egui::Modifiers::COMMAND }
     }
