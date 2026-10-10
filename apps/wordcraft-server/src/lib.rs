@@ -58,9 +58,14 @@ pub fn router_with_catalogs(store: Arc<Store>, web_dir: PathBuf, fonts: Arc<font
 }
 
 // Browsers may not read private documents or submit mutations from another origin. No CORS.
+// Opening the editor from a link on another site is a top-level GET navigation of the app's
+// pages: the other site can't read the response, so it's allowed; the API stays same-origin.
 async fn same_origin(request: Request, next: Next) -> Response {
     let headers = request.headers();
-    if headers.get("sec-fetch-site").is_some_and(|v| v == "cross-site") {
+    let page_link = request.method() == axum::http::Method::GET
+        && headers.get("sec-fetch-mode").is_some_and(|v| v == "navigate")
+        && !request.uri().path().starts_with("/api/");
+    if headers.get("sec-fetch-site").is_some_and(|v| v == "cross-site") && !page_link {
         return StatusCode::FORBIDDEN.into_response();
     }
     if let Some(origin) = headers.get(header::ORIGIN) {

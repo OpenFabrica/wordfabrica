@@ -206,3 +206,20 @@ async fn http_saves_editable_tags_with_revisions() {
     let wordcraft_remote::PluginKind::Tags { categories } = &listed[1].kind;
     assert_eq!(categories[0].tags[0].label, "客户名称");
 }
+
+#[tokio::test]
+async fn links_from_other_sites_open_the_editor_but_not_the_api() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("index.html"), "<!doctype html>").unwrap();
+    let app = router(Arc::new(Store::open(&dir.path().join("db")).unwrap()), dir.path().into());
+    let get = |path: &str, mode: &str| {
+        Request::get(path).header("sec-fetch-site", "cross-site").header("sec-fetch-mode", mode).body(Body::empty()).unwrap()
+    };
+    assert_eq!(app.clone().oneshot(get("/", "navigate")).await.unwrap().status(), StatusCode::OK);
+    assert_eq!(app.clone().oneshot(get("/?doc=x", "navigate")).await.unwrap().status(), StatusCode::OK);
+    assert_eq!(app.clone().oneshot(get("/", "no-cors")).await.unwrap().status(), StatusCode::FORBIDDEN, "subresource loads");
+    assert_eq!(app.clone().oneshot(get("/api/documents", "navigate")).await.unwrap().status(), StatusCode::FORBIDDEN);
+    assert_eq!(app.clone().oneshot(get("/api/plugins", "cors")).await.unwrap().status(), StatusCode::FORBIDDEN);
+    let post = Request::post("/").header("sec-fetch-site", "cross-site").header("sec-fetch-mode", "navigate").body(Body::empty()).unwrap();
+    assert_eq!(app.oneshot(post).await.unwrap().status(), StatusCode::FORBIDDEN, "form posts");
+}
