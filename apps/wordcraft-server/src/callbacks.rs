@@ -30,6 +30,9 @@ pub struct Payload {
     pub url_expires_at: u64,
     /// Unix milliseconds of the save.
     pub saved_at: u64,
+    /// The user whose access link made the save.
+    pub user_id: String,
+    pub user_name: String,
 }
 
 /// Run forever: deliver due callbacks, then sleep until a save wakes us or the poll interval passes.
@@ -101,6 +104,8 @@ async fn send(service: &Service, callback: &Callback) -> Result<(), String> {
         url,
         url_expires_at,
         saved_at: callback.saved_at,
+        user_id: callback.user_id.clone(),
+        user_name: callback.user_name.clone(),
     };
     let body = serde_json::to_vec(&payload).map_err(|e| e.to_string())?;
     let timestamp = signing::now_secs().to_string();

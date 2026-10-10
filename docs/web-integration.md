@@ -8,16 +8,19 @@
 基础编辑器和存储见 [web-storage.md](web-storage.md)。
 
 - 不启用时（未设置 `WORDCRAFT_INTEGRATION_SECRET`）所有 `/api/integration/*` 路由返回 404，行为与之前完全一致。
-- 没有按用户的权限，也没有只读模式：拿到编辑链接的人都能编辑，信任模型与基础编辑器相同。共享部署请放在带身份认证的反向代理之后。
+- 第三方文档按用户授权：第三方为每个用户申请一条访问链接（编辑或只读），服务器校验链接里的签名令牌，见[访问链接](#访问链接)。
+- WordCraft 本身没有账号。链接发出后不能撤销，只能等它过期（请用较短的 `ttl`）。编辑器自己的文档（非第三方）没有按用户的权限，信任模型与基础编辑器相同，共享部署请放在带身份认证的反向代理之后。
 - 只处理 DOCX。`.docm` 保存后丢失宏，`.dotx` 保存后成为普通文档。没有版本历史界面。
 
 ## 流程
 
 1. 第三方 `POST /api/integration/documents`，给出 DOCX（服务器下载 URL，或 multipart 上传）、`callback_url` 和自己的 `key`。
 2. 服务器用 `wordcraft_docx` 解析；原件存为 `originals/{id}.docx`；同一个 SQLite 事务里创建 revision 1 的编辑器文档和集成记录。
-3. 返回 `{id, revision, edit_url}`。`edit_url` 为 `{WORDCRAFT_PUBLIC_URL}/?doc={id}`，在浏览器打开即进入现有的 `?doc=` 流程。
-4. 自动保存只写 JSON 草稿，不产生回调。
-5. 用户显式保存（Ctrl/Cmd+S 或保存按钮）时，请求带 `commit: true`：服务器导出 DOCX，存为 `saved/{id}/{revision}.docx`，在 SQLite outbox 排队，后台 worker 向 `callback_url` 发送签名回调。
+3. 返回 `{id, revision}`，不再返回编辑链接。
+4. 用户每次要打开文档时，第三方（它管用户系统，决定谁能编辑、谁只能看）调用 `POST /api/integration/documents/{id}/links`，给出 `user_id`、`mode`（`edit` 或 `view`），得到 `{url, mode, expires_at}`。`url` 为 `{WORDCRAFT_PUBLIC_URL}/?doc={id}&t={token}`，把它交给用户在浏览器（或 iframe）里打开。
+5. 浏览器读出 `t`，每个请求都带上；服务器校验令牌。只读链接打开的文档不可编辑也不保存。
+6. 自动保存只写 JSON 草稿，不产生回调。
+7. 用户显式保存（Ctrl/Cmd+S 或保存按钮）时，请求带 `commit: true`：服务器导出 DOCX，存为 `saved/{id}/{revision}.docx`，在 SQLite outbox 排队，后台 worker 向 `callback_url` 发送签名回调，回调里带保存者的 `user_id` 和 `user_name`。
 
 ```mermaid
 sequenceDiagram
@@ -30,9 +33,12 @@ sequenceDiagram
     S->>T: 下载 url（仅 JSON 模式）
     S->>F: originals/{id}.docx
     S->>D: 事务：文档 revision 1 + 集成记录
-    S-->>T: {id, revision, edit_url}
-    T-->>U: 打开 edit_url
-    U->>S: PUT 自动保存（只存草稿）
+    S-->>T: {id, revision}
+    T->>S: POST /api/integration/documents/{id}/links (签名, user_id + mode)
+    S-->>T: {url, mode, expires_at}
+    T-->>U: 打开 url（?doc=…&t=令牌）
+    U->>S: GET 文档（X-WordCraft-Token）
+    U->>S: PUT 自动保存（只存草稿，edit 令牌）
     U->>S: PUT commit:true（Ctrl/Cmd+S）
     S->>F: saved/{id}/{revision}.docx
     S->>D: outbox 入队
@@ -49,7 +55,7 @@ sequenceDiagram
 | 环境变量 | 默认值 | 职责 |
 |---|---|---|
 | `WORDCRAFT_INTEGRATION_SECRET` | 未设置 = 关闭 | 与第三方共享的密钥，至少 32 字节 |
-| `WORDCRAFT_PUBLIC_URL` | 无 | 启用时必填。用户和第三方访问本服务的地址，如 `https://docs.example.com`，用于 `edit_url` 和下载链接 |
+| `WORDCRAFT_PUBLIC_URL` | 无 | 启用时必填。用户和第三方访问本服务的地址，如 `https://docs.example.com`，用于访问链接和下载链接 |
 | `WORDCRAFT_STORAGE` | `local` | `local` 或 `minio` |
 | `WORDCRAFT_STORAGE_DIR` | `<数据目录>/files` | `local` 时的文件目录 |
 | `WORDCRAFT_S3_ENDPOINT` | 无 | `minio` 必填，如 `http://127.0.0.1:9000` |
@@ -104,7 +110,18 @@ SIG=$(printf '%s.POST.%s.%s' "$TS" "$P" "$BODY" | openssl dgst -sha256 -hmac "$S
 curl -sS "$BASE$P" -H 'Content-Type: application/json' \
   -H "X-WordCraft-Timestamp: $TS" -H "X-WordCraft-Signature: $SIG" \
   --data-binary "$BODY"
-# {"id":"…","revision":1,"edit_url":"http://127.0.0.1:8771/?doc=…"}
+# {"id":"…","revision":1}
+
+# 为用户 u-7 申请一条编辑链接（POST，签名方式相同；换成 "mode":"view" 即只读）
+ID=...
+P=/api/integration/documents/$ID/links
+BODY='{"user_id":"u-7","user_name":"Alice","mode":"edit","ttl":3600}'
+TS=$(date +%s)
+SIG=$(printf '%s.POST.%s.%s' "$TS" "$P" "$BODY" | openssl dgst -sha256 -hmac "$SECRET" -hex | awk '{print $NF}')
+curl -sS "$BASE$P" -H 'Content-Type: application/json' \
+  -H "X-WordCraft-Timestamp: $TS" -H "X-WordCraft-Signature: $SIG" \
+  --data-binary "$BODY"
+# {"url":"http://127.0.0.1:8771/?doc=…&t=…","mode":"edit","expires_at":1760003600}
 
 # 查询状态（GET，空请求体）
 ID=...
@@ -147,7 +164,8 @@ print(urllib.request.urlopen(request).read().decode())
 
 | 请求 | 说明 |
 |---|---|
-| `POST /api/integration/documents` | 签名。注册文档，返回 `{id, revision, edit_url}` |
+| `POST /api/integration/documents` | 签名。注册文档，返回 `{id, revision}` |
+| `POST /api/integration/documents/{id}/links` | 签名。为一个用户签发访问链接，返回 `{url, mode, expires_at}` |
 | `GET /api/integration/documents/{id}` | 签名。返回 `{id, key, revision, saved_revision, callback_state, url, url_expires_at}` |
 | `GET /api/integration/files/{id}/{revision}?expires=&sig=` | 本地存储的下载链接，由服务器签名并过期；无需请求签名 |
 
@@ -170,12 +188,46 @@ print(urllib.request.urlopen(request).read().decode())
 | 状态码 | 含义 |
 |---|---|
 | 400 | 输入无效，正文为 `{"error": "..."}` |
-| 401 | 签名缺失、错误或时间戳过期 |
-| 403 | 下载链接错误或已过期 |
-| 404 | 文档不存在，或集成未启用 |
+| 401 | 签名缺失、错误或时间戳过期；或访问令牌缺失、伪造、过期、属于别的文档 |
+| 403 | 下载链接错误或已过期；或用只读令牌写文档 |
+| 404 | 文档不存在（含申请链接时），或集成未启用 |
 | 413 | 超过 16 MiB |
 | 502 | 无法下载 `url` |
 | 503 | 文件存储或导出失败 |
+
+## 访问链接
+
+`POST /api/integration/documents/{id}/links`（签名方式同上），JSON 请求体：
+
+| 字段 | 规则 |
+|---|---|
+| `user_id` | 1–200 字符，第三方自己的用户标识 |
+| `user_name` | 可选，最多 200 字符；缺省为 `user_id`。用于回调 |
+| `mode` | `edit` 或 `view` |
+| `ttl` | 可选，秒，范围 60..=604800，缺省 43200（12 小时） |
+
+返回 `{url, mode, expires_at}`（`expires_at` 为 Unix 秒）。文档不存在返回 404，输入无效返回 400。
+第三方每次有用户要打开文档时都申请一条新链接，把 `url` 原样交给用户。
+
+令牌是 `base64url(JSON {doc, user_id, user_name, mode, exp}).hex(HMAC-SHA256(secret, "link." + base64url 部分))`。
+它对第三方是不透明的，不需要解析。服务器在**每个请求**上校验它，所以 `ttl` 也是已打开的编辑器还能用多久：
+过期后保存返回 401，用户要从第三方应用重新打开；页面里未保存的修改还在，可以先下载一份副本。
+
+浏览器一侧：
+
+- 编辑器从地址里读出 `t`，按文档存在 sessionStorage（同一标签页刷新仍可用），并从地址栏移除它。
+- 对 `GET`/`PUT /api/documents/{id}` 带 `X-WordCraft-Token` 头。不用 cookie，所以能在第三方网站的 iframe 里工作。
+- 所有响应带 `Referrer-Policy: same-origin`，令牌不会作为 referrer 发给别的网站。
+
+服务器一侧（只对第三方文档；编辑器自己的文档不变，不需要令牌）：
+
+- 没有令牌、伪造、过期或属于别的文档：401。
+- 用 `view` 令牌 `PUT`：403。
+- `GET /api/documents/{id}` 对 `view` 链接返回 `read_only: true`。
+- `GET /api/documents` 不列出第三方文档，它们只能通过访问链接打开。
+
+只读模式（`Session.read_only`）由宿主设置，不存进文档，用户无法解除（不同于 Word 的“限制编辑”）。
+所有会修改文档的命令都被拒绝，功能区里显示为灰色；不自动保存，也不能保存；状态栏显示“只读 / Read only”。
 
 ## 保存回调
 
@@ -184,10 +236,11 @@ print(urllib.request.urlopen(request).read().decode())
 
 ```json
 {"event":"document.saved","id":"…","key":"doc-42","revision":3,"title":"a","file_name":"a.docx",
- "url":"https://docs.example.com/api/integration/files/…","url_expires_at":1760000000,"saved_at":1759996400000}
+ "url":"https://docs.example.com/api/integration/files/…","url_expires_at":1760000000,"saved_at":1759996400000,
+ "user_id":"u-7","user_name":"Alice"}
 ```
 
-`saved_at` 是 Unix 毫秒，`url_expires_at` 是 Unix 秒。第三方用 `url` 下载 DOCX（链接过期前有效）。
+`saved_at` 是 Unix 毫秒，`url_expires_at` 是 Unix 秒。`user_id`、`user_name` 是做这次显式保存的用户（来自其访问链接）。第三方用 `url` 下载 DOCX（链接过期前有效）。
 
 验证示例（Python）：
 
@@ -210,9 +263,11 @@ def verify(secret: bytes, headers, raw_body: bytes) -> bool:
 ## 实现
 
 - `apps/wordcraft-server/src/integration.rs`：配置、路由、请求签名中间件、创建/状态/下载。
+- `apps/wordcraft-server/src/links.rs`：访问令牌的签发与校验。
 - `apps/wordcraft-server/src/callbacks.rs`：outbox worker、退避、签名回调。
 - `apps/wordcraft-server/src/signing.rs`：HMAC-SHA256 签名与常量时间校验。
 - `apps/wordcraft-server/src/storage.rs`：本地目录或 MinIO（`object_store`）文件存储。
 - `apps/wordcraft-server/src/store.rs`：集成记录和 outbox 表。
 - `crates/remote`：`WriteRequest.commit`（可选布尔，默认 `false`）。
-- `apps/wordcraft-web/src/remote.rs`：手动保存带 `commit: true`，自动保存不带。
+- `apps/wordcraft-web/src/remote.rs`：手动保存带 `commit: true`，自动保存不带；读取并携带访问令牌。
+- `crates/engine/src/session.rs`：`Session.read_only` 和 `disabled()`。

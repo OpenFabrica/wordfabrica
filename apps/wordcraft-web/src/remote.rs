@@ -39,6 +39,9 @@ pub struct Remote {
     unsaved: Rc<Cell<bool>>,
     _unload: gloo_events::EventListener,
     confirm_reload: bool,
+    /// Access token of a third-party document link: (document id, token). Sent with every request
+    /// for that document; kept in sessionStorage so a reload of the tab keeps working.
+    token: Option<(String, String)>,
 }
 
 impl Remote {
@@ -60,11 +63,22 @@ impl Remote {
                 }
             },
         );
-        let load_id = window
-            .location()
-            .search()
-            .ok()
-            .and_then(|q| q.trim_start_matches('?').split('&').find_map(|part| part.strip_prefix("doc=").map(str::to_owned)));
+        let query = window.location().search().ok().unwrap_or_default();
+        let param = |name: &str| query.trim_start_matches('?').split('&').find_map(|part| part.strip_prefix(name).map(str::to_owned));
+        let load_id = param("doc=");
+        let token = load_id.as_ref().and_then(|id| {
+            let key = format!("wordcraft-token:{id}");
+            let storage = window.session_storage().ok().flatten();
+            match param("t=") {
+                Some(token) => {
+                    if let Some(storage) = &storage {
+                        let _ = storage.set_item(&key, &token);
+                    }
+                    Some((id.clone(), token))
+                }
+                None => storage.and_then(|s| s.get_item(&key).ok().flatten()).map(|token| (id.clone(), token)),
+            }
+        });
         let mut remote = Self {
             requested: Rc::new(Cell::new(false)),
             id: uuid::Uuid::new_v4().to_string(),
@@ -82,6 +96,7 @@ impl Remote {
             unsaved,
             _unload: unload,
             confirm_reload: false,
+            token,
         };
         if let Some(id) = load_id {
             remote.load(&id, ctx);
@@ -111,6 +126,8 @@ impl Remote {
         if self.epoch != app.document_epoch {
             self.epoch = app.document_epoch;
             self.id = uuid::Uuid::new_v4().to_string();
+            // A new or opened file is the user's own document, not the linked one.
+            app.session.read_only = false;
             self.revision = 0;
             self.error = None;
             // Opening a local file or creating from a template creates a distinct server document.
@@ -145,6 +162,7 @@ impl Remote {
                             self.revision = snapshot.metadata.revision;
                             app.session.set_document(snapshot.document);
                             app.session.doc.core.title = snapshot.metadata.title;
+                            app.session.read_only = snapshot.read_only;
                             app.session.path = None;
                             self.observed = app.session.rev();
                             self.load_id = None;
@@ -198,7 +216,7 @@ impl Remote {
         let dirty = app.session.dirty;
         let failed = self.error.is_some();
         if let Some(hosted) = &mut app.hosted {
-            hosted.status = status(self.busy_loading(), self.saving, failed, dirty, self.revision);
+            hosted.status = status(self.busy_loading(), self.saving, failed, dirty, self.revision, app.session.read_only);
             hosted.failed = failed;
             hosted.revision = self.revision;
             hosted.busy = self.saving || self.busy_loading();
@@ -215,7 +233,7 @@ impl Remote {
 
     /// PUT the current snapshot; `commit` marks an explicit save (third-party documents call back).
     fn save(&mut self, app: &mut WordApp, ctx: &egui::Context, commit: bool) {
-        if self.error.as_ref().is_some_and(|e| e.conflict) {
+        if self.error.as_ref().is_some_and(|e| e.conflict) || app.session.read_only {
             return;
         }
         let title = app.title_stem();
@@ -229,6 +247,7 @@ impl Remote {
         };
         let flight = Flight { id: self.id.clone(), epoch: self.epoch, local_revision: app.session.rev() };
         let url = format!("/api/documents/{}", self.id);
+        let token = self.token_for(&self.id);
         self.saving = true;
         // Even an explicit save of a new blank document must be protected until acknowledged.
         app.session.dirty = true;
@@ -237,7 +256,7 @@ impl Remote {
         let replies = self.replies.clone();
         let ctx = ctx.clone();
         wasm_bindgen_futures::spawn_local(async move {
-            let result = request_json(&url, Some(body)).await;
+            let result = request_json(&url, Some(body), token).await;
             replies.borrow_mut().push(Reply::Save(flight, result));
             ctx.request_repaint();
         });
@@ -252,10 +271,11 @@ impl Remote {
         self.load_id = Some(id.into());
         self.error = None;
         let url = format!("/api/documents/{id}");
+        let token = self.token_for(id);
         let replies = self.replies.clone();
         let ctx = ctx.clone();
         wasm_bindgen_futures::spawn_local(async move {
-            let result = request_json(&url, None).await;
+            let result = request_json(&url, None, token).await;
             replies.borrow_mut().push(Reply::Load(result));
             ctx.request_repaint();
         });
@@ -271,7 +291,7 @@ impl Remote {
         let replies = self.replies.clone();
         let ctx = ctx.clone();
         wasm_bindgen_futures::spawn_local(async move {
-            let result = request_json("/api/documents", None).await;
+            let result = request_json("/api/documents", None, None).await;
             replies.borrow_mut().push(Reply::List(result));
             ctx.request_repaint();
         });
@@ -328,6 +348,11 @@ impl Remote {
         }
     }
 
+    /// The access token for document `id`, if it was opened through a third-party link.
+    fn token_for(&self, id: &str) -> Option<String> {
+        self.token.as_ref().filter(|(doc, _)| doc == id).map(|(_, token)| token.clone())
+    }
+
     fn set_url(&self, id: Option<&str>) {
         if let Some(window) = web_sys::window()
             && let Ok(history) = window.history()
@@ -339,13 +364,17 @@ impl Remote {
 }
 
 /// Bound both fetch and body decoding; abort a timed-out request instead of leaving saves hung.
-async fn request_json<T: DeserializeOwned>(url: &str, body: Option<String>) -> Result<T> {
+async fn request_json<T: DeserializeOwned>(url: &str, body: Option<String>, token: Option<String>) -> Result<T> {
     let failure = |message: String| Failure { message, conflict: false };
     let controller = web_sys::AbortController::new().map_err(|_| failure("Browser request unavailable".into()))?;
     let signal = controller.signal();
     let operation = async {
         let builder = if body.is_some() { gloo_net::http::Request::put(url) } else { gloo_net::http::Request::get(url) };
         let builder = builder.abort_signal(Some(&signal));
+        let builder = match &token {
+            Some(token) => builder.header("X-WordCraft-Token", token),
+            None => builder,
+        };
         let response = if let Some(body) = body {
             builder
                 .header("Content-Type", "application/json")
@@ -362,6 +391,8 @@ async fn request_json<T: DeserializeOwned>(url: &str, body: Option<String>) -> R
                 message: match response.status() {
                     409 => "Another editor saved a newer version. Your changes are kept here.".into(),
                     404 => "Document not found on this server.".into(),
+                    401 => "This link has expired or is not valid. Open the document again from its app.".into(),
+                    403 => "This document is open read-only. Changes are not saved.".into(),
                     413 => "Document exceeds the 16 MiB limit. Download a copy.".into(),
                     _ => "Server rejected the request. Changes remain unsaved.".into(),
                 },

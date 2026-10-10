@@ -18,6 +18,7 @@ use wordcraft_remote::{MAX_BYTES, Metadata, valid_id};
 
 use crate::{
     blocking,
+    links::{self, Claims, Mode},
     signing::{self, MAX_SKEW_SECS, SIGNATURE_HEADER, TIMESTAMP_HEADER},
     storage::{self, Files, MinioSettings},
     store::{Error, Integration, Store},
@@ -149,13 +150,23 @@ impl Service {
         host_allowed(&self.settings.allow_hosts, url)
     }
 
-    /// After an explicit save: export DOCX, store it and queue the callback. Documents without an
-    /// integration record are ignored. Every step is idempotent, so a client retry is safe.
-    pub(crate) async fn commit(&self, metadata: &Metadata, mut document: wordcraft_doc::Document) -> Result<(), Error> {
-        let (store, id) = (self.store.clone(), metadata.id.clone());
-        if blocking(move || store.integration(&id)).await?.is_none() {
-            return Ok(());
+    /// Who may read or write document `id`: `None` for the editor's own documents; for third-party
+    /// documents the claims of a valid access token (401 without one, 403 for writes with a view link).
+    pub(crate) async fn authorize(&self, id: &str, token: Option<&str>, write: bool) -> Result<Option<Claims>, Error> {
+        let (store, lookup) = (self.store.clone(), id.to_owned());
+        if blocking(move || store.integration(&lookup)).await?.is_none() {
+            return Ok(None);
         }
+        let claims = token.and_then(|t| links::verify(&self.settings.secret, t, id, signing::now_secs())).ok_or(Error::Unauthorized)?;
+        if write && claims.mode != Mode::Edit {
+            return Err(Error::ReadOnly);
+        }
+        Ok(Some(claims))
+    }
+
+    /// After an explicit save by `user`: export DOCX, store it and queue the callback.
+    /// Every step is idempotent, so a client retry is safe.
+    pub(crate) async fn commit(&self, metadata: &Metadata, mut document: wordcraft_doc::Document, user: &Claims) -> Result<(), Error> {
         let bytes = blocking(move || {
             document.ensure_nonempty();
             wordcraft_docx::write(&document).map_err(|e| {
@@ -165,8 +176,8 @@ impl Service {
         })
         .await?;
         self.files.put(&storage::saved_key(&metadata.id, metadata.revision), bytes).await?;
-        let (store, m) = (self.store.clone(), metadata.clone());
-        blocking(move || store.enqueue(&m.id, m.revision, &m.title, m.updated_at)).await?;
+        let (store, m, user) = (self.store.clone(), metadata.clone(), user.clone());
+        blocking(move || store.enqueue(&m.id, m.revision, &m.title, m.updated_at, (&user.user_id, &user.user_name))).await?;
         self.notify.notify_one();
         Ok(())
     }
@@ -230,6 +241,7 @@ pub(crate) fn routes(service: Arc<Service>) -> Router {
     let signed = Router::new()
         .route("/api/integration/documents", post(create))
         .route("/api/integration/documents/{id}", get(status))
+        .route("/api/integration/documents/{id}/links", post(link))
         .route_layer(middleware::from_fn_with_state(service.clone(), verify));
     Router::new().route("/api/integration/files/{id}/{revision}", get(download)).merge(signed).with_state(service)
 }
@@ -268,7 +280,6 @@ struct CreateRequest {
 pub struct Created {
     pub id: String,
     pub revision: u64,
-    pub edit_url: String,
 }
 
 /// `POST /api/integration/documents`: JSON `{url,…}` (we download) or multipart `meta` + `file` (upload).
@@ -309,8 +320,7 @@ async fn create(State(service): State<Arc<Service>>, request: Request) -> Result
     service.files.put(&storage::original_key(&id), bytes).await?;
     let (store, created_id) = (service.store.clone(), id.clone());
     let metadata = blocking(move || store.create_integration(&created_id, &title, document, &info)).await?;
-    let edit_url = service.public(&format!("?doc={id}"))?;
-    Ok(Json(Created { id: metadata.id, revision: metadata.revision, edit_url }))
+    Ok(Json(Created { id: metadata.id, revision: metadata.revision }))
 }
 
 fn parse_meta(bytes: Bytes) -> Result<CreateRequest, Error> {
@@ -375,6 +385,53 @@ async fn status(State(service): State<Arc<Service>>, Path(id): Path<String>) -> 
     };
     let (saved_revision, callback_state) = saved.map_or((None, None), |(r, s)| (Some(r), Some(s)));
     Ok(Json(Status { id, key: info.key, revision, saved_revision, callback_state, url, url_expires_at }))
+}
+
+/// Who the link is for and what they may do.
+#[derive(Deserialize)]
+struct LinkRequest {
+    user_id: String,
+    #[serde(default)]
+    user_name: Option<String>,
+    mode: Mode,
+    /// Seconds; default 12 hours, at most 7 days.
+    #[serde(default)]
+    ttl: Option<u64>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Link {
+    pub url: String,
+    pub mode: Mode,
+    pub expires_at: u64,
+}
+
+/// `POST /api/integration/documents/{id}/links`: an editor link for one user, to edit or only view.
+async fn link(State(service): State<Arc<Service>>, Path(id): Path<String>, body: Bytes) -> Result<Json<Link>, Error> {
+    if !valid_id(&id) {
+        return Err(Error::NotFound);
+    }
+    let request: LinkRequest = serde_json::from_slice(&body)
+        .map_err(|_| Error::Rejected("invalid JSON: expected user_id, mode (edit or view) and optional user_name, ttl"))?;
+    let user_id = request.user_id.trim();
+    if user_id.is_empty() || user_id.chars().count() > 200 || user_id.chars().any(char::is_control) {
+        return Err(Error::Rejected("user_id must be 1-200 characters"));
+    }
+    let user_name = request.user_name.as_deref().map(str::trim).filter(|n| !n.is_empty()).unwrap_or(user_id);
+    if user_name.chars().count() > 200 || user_name.chars().any(char::is_control) {
+        return Err(Error::Rejected("user_name must be at most 200 characters"));
+    }
+    let ttl = request.ttl.unwrap_or(links::DEFAULT_TTL);
+    if !(60..=links::MAX_TTL).contains(&ttl) {
+        return Err(Error::Rejected("ttl must be 60..=604800 seconds"));
+    }
+    let (store, lookup) = (service.store.clone(), id.clone());
+    blocking(move || store.integration(&lookup)).await?.ok_or(Error::NotFound)?;
+    let expires_at = signing::now_secs().saturating_add(ttl);
+    let claims = Claims { doc: id.clone(), user_id: user_id.into(), user_name: user_name.into(), mode: request.mode, exp: expires_at };
+    let token = links::issue(&service.settings.secret, &claims);
+    let url = service.public(&format!("?doc={id}&t={token}"))?;
+    Ok(Json(Link { url, mode: request.mode, expires_at }))
 }
 
 #[derive(Deserialize)]

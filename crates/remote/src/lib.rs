@@ -21,6 +21,9 @@ pub struct Metadata {
 pub struct Snapshot {
     pub metadata: Metadata,
     pub document: Document,
+    /// Opened through a view-only link: the editor refuses changes and never saves.
+    #[serde(default)]
+    pub read_only: bool,
 }
 
 #[derive(Serialize, Deserialize)]

@@ -124,6 +124,9 @@ pub struct Session {
     pub registry: Arc<Registry>,
     /// Author name for comments and tracked changes.
     pub author: String,
+    /// Set by the host (e.g. a view-only link): every mutating command is refused. Unlike document
+    /// protection this lives outside the document, so the user cannot lift it.
+    pub read_only: bool,
     /// Format painter: copied formatting waiting to be applied (and whether it stays on).
     pub painter: Option<(CharProps, wordcraft_doc::props::ParaProps, bool)>,
     /// Last message for the status bar / agents.
@@ -181,6 +184,7 @@ impl Session {
             page_hint: 0,
             registry: Arc::new(crate::cmd::registry()),
             author: "WordCraft User".into(),
+            read_only: false,
             painter: None,
             status: String::new(),
             history: Vec::new(),
@@ -345,6 +349,15 @@ impl Session {
         self.sel.focus = self.doc.clamp(&self.sel.focus);
     }
 
+    /// Why `spec` can't run now (its own `enabled` rule or a read-only session), or `None`.
+    /// The UI greys out controls with the same check that `run` enforces.
+    pub fn disabled(&self, spec: &crate::CommandSpec) -> Option<String> {
+        if self.read_only && spec.mutates {
+            return Some("the document is open read-only".into());
+        }
+        (spec.enabled)(self).map(|why| why.to_string())
+    }
+
     /// Run a command by id with JSON params (the single entry point for the UI, CLI, MCP and
     /// control channel). Mutating commands are undoable; a failed command leaves the document as
     /// it was; a panic inside a command becomes an error.
@@ -352,7 +365,7 @@ impl Session {
         let join = std::mem::take(&mut self.join_next);
         let reg = self.registry.clone();
         let Some(spec) = reg.get(id) else { return Err(CmdError::Unknown(id.to_string())) };
-        if let Some(why) = (spec.enabled)(self) {
+        if let Some(why) = self.disabled(spec) {
             return Err(CmdError::Disabled(format!("{id}: {why}")));
         }
         // Restrict Editing.

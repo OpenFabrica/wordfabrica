@@ -23,6 +23,8 @@ pub enum Error {
     Unauthorized,
     #[error("link expired or invalid")]
     Forbidden,
+    #[error("this document is open read-only")]
+    ReadOnly,
     #[error("{0}")]
     Rejected(&'static str),
     #[error("could not download the document from the given URL")]
@@ -59,7 +61,7 @@ impl Store {
              );
              CREATE TABLE IF NOT EXISTS outbox (
                seq INTEGER PRIMARY KEY AUTOINCREMENT, doc_id TEXT NOT NULL, revision INTEGER NOT NULL,
-               title TEXT NOT NULL, saved_at INTEGER NOT NULL, state TEXT NOT NULL,
+               title TEXT NOT NULL, saved_at INTEGER NOT NULL, user_id TEXT NOT NULL, user_name TEXT NOT NULL, state TEXT NOT NULL,
                attempts INTEGER NOT NULL DEFAULT 0, next_at INTEGER NOT NULL, last_error TEXT,
                UNIQUE(doc_id, revision)
              );",
@@ -69,7 +71,10 @@ impl Store {
 
     pub fn list(&self) -> Result<Vec<Metadata>, Error> {
         let connection = self.0.lock().map_err(|_| Error::Storage)?;
-        let mut statement = connection.prepare("SELECT id,title,revision,updated_at FROM documents ORDER BY updated_at DESC, id")?;
+        // Third-party documents are reachable only through their access links, never listed.
+        let mut statement = connection.prepare(
+            "SELECT id,title,revision,updated_at FROM documents WHERE id NOT IN (SELECT id FROM integrations) ORDER BY updated_at DESC, id",
+        )?;
         let rows = statement.query_map([], |row| {
             Ok(Metadata { id: row.get(0)?, title: row.get(1)?, revision: row.get::<_, i64>(2)? as u64, updated_at: row.get::<_, i64>(3)? as u64 })
         })?;
@@ -88,7 +93,7 @@ impl Store {
             .optional()?
             .ok_or(Error::NotFound)?;
         let document = serde_json::from_slice(&row.3).map_err(|_| Error::Storage)?;
-        Ok(Snapshot { metadata: Metadata { id: id.into(), title: row.0, revision: row.1, updated_at: row.2 }, document })
+        Ok(Snapshot { metadata: Metadata { id: id.into(), title: row.0, revision: row.1, updated_at: row.2 }, document, read_only: false })
     }
 
     /// Compare-and-swap. Failure leaves the previous snapshot intact; acknowledgement follows commit.
@@ -208,13 +213,13 @@ impl Store {
     /// Queue a callback for an explicitly saved revision. Retrying the same revision is a no-op,
     /// an older revision never overtakes a newer one, and older undelivered callbacks of the
     /// same document are superseded: the third party only needs the latest file.
-    pub fn enqueue(&self, id: &str, revision: u64, title: &str, saved_at: u64) -> Result<(), Error> {
+    pub fn enqueue(&self, id: &str, revision: u64, title: &str, saved_at: u64, user: (&str, &str)) -> Result<(), Error> {
         let mut connection = self.0.lock().map_err(|_| Error::Storage)?;
         let transaction = connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         transaction.execute(
-            "INSERT OR IGNORE INTO outbox(doc_id,revision,title,saved_at,state,next_at)
-             SELECT ?1,?2,?3,?4,'pending',0 WHERE NOT EXISTS (SELECT 1 FROM outbox WHERE doc_id=?1 AND revision>?2)",
-            params![id, revision as i64, title, saved_at as i64],
+            "INSERT OR IGNORE INTO outbox(doc_id,revision,title,saved_at,user_id,user_name,state,next_at)
+             SELECT ?1,?2,?3,?4,?5,?6,'pending',0 WHERE NOT EXISTS (SELECT 1 FROM outbox WHERE doc_id=?1 AND revision>?2)",
+            params![id, revision as i64, title, saved_at as i64, user.0, user.1],
         )?;
         transaction
             .execute("UPDATE outbox SET state='superseded' WHERE doc_id=?1 AND state='pending' AND revision<?2", params![id, revision as i64])?;
@@ -226,7 +231,7 @@ impl Store {
     pub fn due_callbacks(&self, now: u64, limit: usize) -> Result<Vec<Callback>, Error> {
         let connection = self.0.lock().map_err(|_| Error::Storage)?;
         let mut statement = connection.prepare(
-            "SELECT o.seq,o.doc_id,o.revision,o.title,o.saved_at,o.attempts,i.key,i.file_name,i.callback_url
+            "SELECT o.seq,o.doc_id,o.revision,o.title,o.saved_at,o.attempts,i.key,i.file_name,i.callback_url,o.user_id,o.user_name
              FROM outbox o JOIN integrations i ON i.id=o.doc_id
              WHERE o.state='pending' AND o.next_at<=?1 ORDER BY o.seq LIMIT ?2",
         )?;
@@ -239,6 +244,8 @@ impl Store {
                 saved_at: row.get::<_, i64>(4)? as u64,
                 attempts: row.get::<_, i64>(5)? as u32,
                 info: Integration { key: row.get(6)?, file_name: row.get(7)?, callback_url: row.get(8)? },
+                user_id: row.get(9)?,
+                user_name: row.get(10)?,
             })
         })?;
         rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
@@ -291,6 +298,9 @@ pub struct Callback {
     pub saved_at: u64,
     pub attempts: u32,
     pub info: Integration,
+    /// Who made the save (from their access link).
+    pub user_id: String,
+    pub user_name: String,
 }
 
 /// Unix milliseconds, clamped to the SQLite integer range.

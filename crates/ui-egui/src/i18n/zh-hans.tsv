@@ -812,6 +812,9 @@
 	Document not found on this server.	服务器上找不到该文档。
 	Document exceeds the 16 MiB limit. Download a copy.	文档超过 16 MiB 上限，请下载副本。
 	Server rejected the request. Changes remain unsaved.	服务器拒绝了请求，修改尚未保存。
+	Read only	只读
+	This link has expired or is not valid. Open the document again from its app.	链接已过期或无效，请从原应用重新打开文档。
+	This document is open read-only. Changes are not saved.	此文档以只读方式打开，修改不会保存。
 	Invalid response from document server.	文档服务器返回了无效响应。
 	Save request timed out. Retry or download a copy.	保存请求超时，请重试或下载副本。
 	Could not prepare the save request.	无法准备保存请求。

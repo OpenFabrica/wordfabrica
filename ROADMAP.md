@@ -124,10 +124,11 @@ the icon art).
 
 ## Third-party integration (WEB.4, 2026-10-10)
 
-- A third party registers a DOCX with a signed `POST /api/integration/documents` (URL the server downloads, or multipart upload) and gets back an editor link (`/?doc={id}`); the original is kept in file storage.
+- A third party registers a DOCX with a signed `POST /api/integration/documents` (URL the server downloads, or multipart upload) and gets back `{id, revision}`; the original is kept in file storage.
 - Autosave stays a JSON draft. An explicit save (Ctrl/Cmd+S, `commit: true`) exports DOCX to file storage and queues a signed `document.saved` callback with an expiring download link; a background worker retries with backoff (up to 10 attempts) and survives restarts.
 - Requests and callbacks are HMAC-SHA256 signed with a shared secret; document and callback URLs can be limited with `WORDCRAFT_ALLOW_HOSTS`. File storage is a local directory or MinIO (S3).
-- Off unless `WORDCRAFT_INTEGRATION_SECRET` is set. DOCX only; no per-user permissions, read-only mode or version-history UI.
+- Per-user access links: the third party asks for a signed link per user (`POST /api/integration/documents/{id}/links`, `edit` or `view`, expiring); the browser sends the token on every request (no cookies, works in an iframe). View links open the editor read-only (`Session.read_only`, set by the host). Callbacks name the saving user.
+- Off unless `WORDCRAFT_INTEGRATION_SECRET` is set. DOCX only; no accounts in WordCraft, no revoking an issued link before it expires, no per-user permissions for the editor's own documents, no version-history UI.
 - Setup, signing, callback and API: [web integration](docs/web-integration.md).
 
 ## Recently landed

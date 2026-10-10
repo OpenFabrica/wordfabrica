@@ -4,6 +4,7 @@
 pub mod callbacks;
 pub mod fonts;
 pub mod integration;
+pub mod links;
 pub mod plugins;
 pub mod signing;
 pub mod storage;
@@ -12,7 +13,7 @@ pub mod store;
 use axum::{
     Json, Router,
     extract::{DefaultBodyLimit, Path, Request, State},
-    http::{StatusCode, header},
+    http::{HeaderMap, StatusCode, header},
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{any, get},
@@ -30,7 +31,7 @@ impl IntoResponse for Error {
             Self::TooLarge => StatusCode::PAYLOAD_TOO_LARGE,
             Self::Storage => StatusCode::SERVICE_UNAVAILABLE,
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
-            Self::Forbidden => StatusCode::FORBIDDEN,
+            Self::Forbidden | Self::ReadOnly => StatusCode::FORBIDDEN,
             Self::Rejected(_) => StatusCode::BAD_REQUEST,
             Self::Fetch => StatusCode::BAD_GATEWAY,
         };
@@ -101,6 +102,8 @@ async fn same_origin(request: Request, next: Next) -> Response {
     let mut response = next.run(request).await;
     response.headers_mut().insert(header::CACHE_CONTROL, axum::http::HeaderValue::from_static("no-store"));
     response.headers_mut().insert(header::X_CONTENT_TYPE_OPTIONS, axum::http::HeaderValue::from_static("nosniff"));
+    // Access links carry a token in the page URL; never send it to other sites as a referrer.
+    response.headers_mut().insert(header::REFERRER_POLICY, axum::http::HeaderValue::from_static("same-origin"));
     response
 }
 
@@ -117,18 +120,36 @@ struct AppState {
 async fn list(State(app): State<AppState>) -> Result<Json<Vec<Metadata>>, Error> {
     blocking(move || app.store.list()).await.map(Json)
 }
-async fn load(State(app): State<AppState>, Path(id): Path<String>) -> Result<Json<Snapshot>, Error> {
-    blocking(move || app.store.get(&id)).await.map(Json)
+/// Load a snapshot. Third-party documents need a valid access link token; view links load read-only.
+async fn load(State(app): State<AppState>, Path(id): Path<String>, headers: HeaderMap) -> Result<Json<Snapshot>, Error> {
+    let claims = authorize(&app, &id, &headers, false).await?;
+    let mut snapshot = blocking(move || app.store.get(&id)).await?;
+    snapshot.read_only = claims.is_some_and(|c| c.mode == links::Mode::View);
+    Ok(Json(snapshot))
+}
+
+/// For third-party documents, the claims of the request's access token (edit mode when `write`).
+/// The editor's own documents need none and return `None`.
+async fn authorize(app: &AppState, id: &str, headers: &HeaderMap, write: bool) -> Result<Option<links::Claims>, Error> {
+    let Some(service) = &app.integration else { return Ok(None) };
+    let token = headers.get(links::TOKEN_HEADER).and_then(|v| v.to_str().ok()).map(str::to_owned);
+    service.authorize(id, token.as_deref(), write).await
 }
 /// Save a snapshot. An explicit save (`commit`) of a third-party document also exports and
 /// stores DOCX and queues the callback; if that fails the client sees 503 and its retry of the
 /// same snapshot is acknowledged idempotently and committed again.
-async fn save(State(app): State<AppState>, Path(id): Path<String>, Json(request): Json<WriteRequest>) -> Result<Json<Metadata>, Error> {
-    let document = (request.commit && app.integration.is_some()).then(|| request.document.clone());
+async fn save(
+    State(app): State<AppState>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    Json(request): Json<WriteRequest>,
+) -> Result<Json<Metadata>, Error> {
+    let claims = authorize(&app, &id, &headers, true).await?;
+    let document = (request.commit && claims.is_some()).then(|| request.document.clone());
     let store = app.store.clone();
     let metadata = blocking(move || store.put(&id, request)).await?;
-    if let (Some(service), Some(document)) = (&app.integration, document) {
-        service.commit(&metadata, document).await?;
+    if let (Some(service), Some(claims), Some(document)) = (&app.integration, claims, document) {
+        service.commit(&metadata, document, &claims).await?;
     }
     Ok(Json(metadata))
 }

@@ -419,3 +419,22 @@ fn web_layout_reports_printed_pages() {
     run(&mut s, "text.insert", json!({"text": " more"}));
     assert_eq!(s.page_status(), print, "the print pagination follows edits");
 }
+
+/// A read-only session (view link) refuses every mutating command and leaves the document untouched.
+#[test]
+fn read_only_session_refuses_every_mutating_command() {
+    let mut s = Session::new(crate::sample::sample_document());
+    s.read_only = true;
+    let before = serde_json::to_string(&s.doc).unwrap();
+    let reg = cmd::registry();
+    for spec in reg.all().iter().filter(|spec| spec.mutates) {
+        assert!(s.disabled(spec).is_some(), "{} should be disabled", spec.id);
+        assert!(matches!(s.run(spec.id, &json!({"text": "x"})), Err(crate::CmdError::Disabled(_))), "{} ran read-only", spec.id);
+    }
+    assert_eq!(serde_json::to_string(&s.doc).unwrap(), before);
+    assert!(!s.dirty);
+    // Reading and moving around still work.
+    run(&mut s, "caret.right", json!({}));
+    s.read_only = false;
+    run(&mut s, "text.insert", json!({"text": "ok"}));
+}

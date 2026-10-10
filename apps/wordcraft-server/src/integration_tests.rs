@@ -2,7 +2,8 @@
 //! callback delivery with retries, download links and MinIO presigning.
 use crate::{
     callbacks::{self, Payload},
-    integration::{Created, Service, Settings, Status, StorageSettings},
+    integration::{Created, Link, Service, Settings, Status, StorageSettings},
+    links::TOKEN_HEADER,
     signing,
     storage::{Files, MinioSettings},
     store::Store,
@@ -103,12 +104,46 @@ async fn create(h: &Harness, meta: &str, text: &str) -> Created {
     json(response).await
 }
 
+/// Ask for an access link the way the third party does; `None` if the document has no integration.
+async fn link(h: &Harness, id: &str, body: &str) -> (StatusCode, Option<Link>) {
+    let path = format!("/api/integration/documents/{id}/links");
+    let response = h.app.clone().oneshot(signed("POST", &path, "application/json", body.as_bytes().to_vec(), signing::now_secs())).await.unwrap();
+    let status = response.status();
+    let link = if status == StatusCode::OK { Some(json(response).await) } else { None };
+    (status, link)
+}
+
+/// The token in an access link URL (`…&t=<token>`).
+async fn token(h: &Harness, id: &str, mode: &str) -> Option<String> {
+    let body = format!(r#"{{"user_id":"u-1","user_name":"张三","mode":"{mode}"}}"#);
+    let (_, link) = link(h, id, &body).await;
+    link.map(|l| l.url.split("&t=").nth(1).unwrap().to_owned())
+}
+
+/// Save as the editor does, with an edit link's token when the document has an integration.
 async fn save(h: &Harness, id: &str, revision: u64, text: &str, commit: bool) -> axum::response::Response {
+    let token = token(h, id, "edit").await;
+    save_with(h, id, revision, text, commit, token.as_deref()).await
+}
+
+async fn save_with(h: &Harness, id: &str, revision: u64, text: &str, commit: bool, token: Option<&str>) -> axum::response::Response {
     let request = WriteRequest { revision, title: "合同 v1".into(), document: Document::from_text(text), commit };
-    let request = Request::put(format!("/api/documents/{id}"))
+    let mut request = Request::put(format!("/api/documents/{id}"))
         .header("content-type", "application/json")
         .body(Body::from(serde_json::to_vec(&request).unwrap()))
         .unwrap();
+    if let Some(token) = token {
+        request.headers_mut().insert(TOKEN_HEADER, token.parse().unwrap());
+    }
+    h.app.clone().oneshot(request).await.unwrap()
+}
+
+/// Load as the editor does.
+async fn load(h: &Harness, id: &str, token: Option<&str>) -> axum::response::Response {
+    let mut request = Request::get(format!("/api/documents/{id}")).body(Body::empty()).unwrap();
+    if let Some(token) = token {
+        request.headers_mut().insert(TOKEN_HEADER, token.parse().unwrap());
+    }
     h.app.clone().oneshot(request).await.unwrap()
 }
 
@@ -165,9 +200,8 @@ async fn uploads_open_in_the_editor_and_bad_input_is_rejected() {
     let h = harness(&[]);
     let created = create(&h, META, "第一稿 first draft").await;
     assert_eq!(created.revision, 1);
-    assert_eq!(created.edit_url, format!("http://editor.test/office/?doc={}", created.id));
     assert!(h.dir.path().join(format!("files/originals/{}.docx", created.id)).is_file());
-    let response = h.app.clone().oneshot(Request::get(format!("/api/documents/{}", created.id)).body(Body::empty()).unwrap()).await.unwrap();
+    let response = load(&h, &created.id, token(&h, &created.id, "edit").await.as_deref()).await;
     let snapshot: Snapshot = json(response).await;
     assert_eq!(snapshot.document.plain_text(StoryRef::Body), "第一稿 first draft");
     assert_eq!(snapshot.metadata.title, "合同 v1", "title defaults to the file stem");
@@ -225,7 +259,7 @@ async fn documents_load_from_a_url_on_allowed_hosts_only() {
     let response = h.app.clone().oneshot(url_request(&base, "/doc.docx")).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     let created: Created = json(response).await;
-    let response = h.app.clone().oneshot(Request::get(format!("/api/documents/{}", created.id)).body(Body::empty()).unwrap()).await.unwrap();
+    let response = load(&h, &created.id, token(&h, &created.id, "edit").await.as_deref()).await;
     let snapshot: Snapshot = json(response).await;
     assert_eq!(snapshot.document.plain_text(StoryRef::Body), "来自三方 from a URL");
     assert_eq!(snapshot.metadata.title, "标题");
@@ -271,6 +305,7 @@ async fn explicit_saves_store_docx_and_call_back_once_per_revision() {
     let payload: Payload = serde_json::from_slice(body).unwrap();
     assert_eq!((payload.event.as_str(), payload.id.as_str(), payload.key.as_str()), ("document.saved", id, "ext-7"));
     assert_eq!((payload.revision, payload.file_name.as_str()), (3, "report.docx"));
+    assert_eq!((payload.user_id.as_str(), payload.user_name.as_str()), ("u-1", "张三"));
     let response = follow(&h, &payload.url).await;
     assert_eq!(response.status(), StatusCode::OK);
     assert!(response.headers()["content-disposition"].to_str().unwrap().contains("report.docx"));
@@ -365,4 +400,61 @@ async fn minio_round_trip() {
     let url = files.presign(&key, Duration::from_secs(60)).await.unwrap().unwrap();
     let bytes = reqwest::get(url).await.unwrap().error_for_status().unwrap().bytes().await.unwrap();
     assert_eq!(wordcraft_docx::read(&bytes).unwrap().plain_text(StoryRef::Body), "minio");
+}
+
+#[tokio::test]
+async fn third_party_documents_open_only_through_access_links() {
+    let h = harness(&[]);
+    let created = create(&h, META, "secret text").await;
+    let id = created.id.as_str();
+
+    // The link: the editor page with the document and a token, valid for the requested time.
+    let (status, issued) = link(&h, id, r#"{"user_id":"u-9","mode":"view","ttl":600}"#).await;
+    assert_eq!(status, StatusCode::OK);
+    let issued = issued.unwrap();
+    assert!(issued.url.starts_with(&format!("http://editor.test/office/?doc={id}&t=")), "{}", issued.url);
+    assert!(issued.expires_at.abs_diff(signing::now_secs() + 600) <= 5);
+    for bad in [r#"{"user_id":"","mode":"edit"}"#, r#"{"user_id":"u","mode":"admin"}"#, r#"{"user_id":"u","mode":"edit","ttl":1}"#] {
+        assert_eq!(link(&h, id, bad).await.0, StatusCode::BAD_REQUEST, "{bad}");
+    }
+    let unknown = uuid::Uuid::new_v4().to_string();
+    assert_eq!(link(&h, &unknown, r#"{"user_id":"u","mode":"edit"}"#).await.0, StatusCode::NOT_FOUND);
+
+    // No token, or a token for another document, a forged or an expired one: nothing.
+    assert_eq!(load(&h, id, None).await.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(save_with(&h, id, 1, "x", false, None).await.status(), StatusCode::UNAUTHORIZED);
+    let other = create(&h, META, "other").await;
+    let other_token = token(&h, &other.id, "edit").await.unwrap();
+    assert_eq!(load(&h, id, Some(&other_token)).await.status(), StatusCode::UNAUTHORIZED);
+    let edit = token(&h, id, "edit").await.unwrap();
+    let forged = format!("{}0", &edit[..edit.len() - 1]);
+    assert_eq!(load(&h, id, Some(&forged)).await.status(), StatusCode::UNAUTHORIZED);
+    let expired = crate::links::issue(
+        SECRET,
+        &crate::links::Claims {
+            doc: id.into(),
+            user_id: "u".into(),
+            user_name: "u".into(),
+            mode: crate::links::Mode::Edit,
+            exp: signing::now_secs() - 1,
+        },
+    );
+    assert_eq!(load(&h, id, Some(&expired)).await.status(), StatusCode::UNAUTHORIZED);
+
+    // View links read, read-only; they can't save.
+    let view = token(&h, id, "view").await.unwrap();
+    let snapshot: Snapshot = json(load(&h, id, Some(&view)).await).await;
+    assert!(snapshot.read_only);
+    assert_eq!(save_with(&h, id, 1, "x", true, Some(&view)).await.status(), StatusCode::FORBIDDEN);
+    // Edit links read and write.
+    let snapshot: Snapshot = json(load(&h, id, Some(&edit)).await).await;
+    assert!(!snapshot.read_only);
+    assert_eq!(save_with(&h, id, 1, "edited", false, Some(&edit)).await.status(), StatusCode::OK);
+
+    // Third-party documents are never listed; the editor's own documents still are, without tokens.
+    let own = "12345678-1234-1234-1234-123456789abc";
+    assert_eq!(save_with(&h, own, 0, "mine", false, None).await.status(), StatusCode::OK);
+    assert_eq!(load(&h, own, None).await.status(), StatusCode::OK);
+    let list: Vec<Metadata> = json(h.app.clone().oneshot(Request::get("/api/documents").body(Body::empty()).unwrap()).await.unwrap()).await;
+    assert_eq!(list.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), [own]);
 }

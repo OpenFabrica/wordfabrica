@@ -31,7 +31,7 @@ pub fn shortcut_text(app: &WordApp, id: &str) -> String {
 fn tooltip(app: &WordApp, resp: Response, label: &str, id: &str) -> Response {
     let sc = shortcut_text(app, id);
     let desc = app.session.registry.get(id).map(|s| crate::i18n::location(s.location)).unwrap_or_default();
-    let enabled = app.session.registry.get(id).map(|s| (s.enabled)(&app.session).is_none()).unwrap_or(true);
+    let enabled = app.session.registry.get(id).map(|s| app.session.disabled(s).is_none()).unwrap_or(true);
     resp.on_hover_ui(|ui| {
         ui.set_max_width(260.0);
         if sc.is_empty() {
@@ -51,7 +51,7 @@ fn tooltip(app: &WordApp, resp: Response, label: &str, id: &str) -> Response {
 /// Whether a command exists and is enabled.
 pub fn enabled(app: &WordApp, id: &str) -> bool {
     match app.session.registry.get(id) {
-        Some(s) => (s.enabled)(&app.session).is_none(),
+        Some(s) => app.session.disabled(s).is_none(),
         None => id.starts_with("ui."),
     }
 }
